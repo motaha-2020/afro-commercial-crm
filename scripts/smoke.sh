@@ -158,14 +158,105 @@ check "credit standing unchanged" \
 check "all eight rules published" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "print(len(json.load(sys.stdin)['rules']))")" "8"
 
-echo "=== 13. Soft delete only ==="
+echo "=== 13. Release 3: scope, tenders, Bid/No-Bid ==="
+PKG=$(curl -s -X POST $API/opportunities/$OPP/scope/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Material Supply","category":"SUPPLY","description":"Cable, cabinets, accessories"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+PARENT=$(curl -s -X POST $API/scope/packages/$PKG/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Cabinet Installation","quantity":120,"unit":"pcs"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+CHILD=$(curl -s -X POST $API/scope/packages/$PKG/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Concrete Base","parentId":"'$PARENT'","quantity":120,"unit":"pcs"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "the scope tree nests a child under its parent" \
+  "$(curl -s $API/opportunities/$OPP/scope -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); p=d['packages'][0]['items'][0]; print(p['name']+'>'+p['children'][0]['name'])")" \
+  "Cabinet Installation>Concrete Base"
+check "an item cannot be re-parented under its own child" \
+  "$(code -X PATCH $API/scope/items/$PARENT -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"parentId":"'$CHILD'"}')" "400"
+
+curl -s -o /dev/null -X POST $API/opportunities/$OPP/assumptions -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Customer provides site access before mobilisation","category":"SITE_ACCESS","impactIfIncorrect":"Two-week delay"}'
+CLAR=$(curl -s -X POST $API/opportunities/$OPP/clarifications -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Is the duct route already permitted?","impact":"BLOCKING"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "a blocking question makes the scope unfit to price" \
+  "$(curl -s $API/opportunities/$OPP/scope -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['readiness']['ready'])")" "False"
+curl -s -o /dev/null -X PATCH $API/clarifications/$CLAR -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"response":"Yes, permits issued in March","impact":"LOW"}'
+check "answering it clears the block" \
+  "$(curl -s $API/opportunities/$OPP/scope -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['readiness']['ready'])")" "True"
+check "and the answer timestamps itself" \
+  "$(curl -s $API/opportunities/$OPP/scope -H "Authorization: Bearer $CEO" | JQ "
+c=json.load(sys.stdin)['clarifications'][0]; print(c['status']+'/'+str(c['respondedAt'] is not None))")" "ANSWERED/True"
+
+BID=$(curl -s -X POST $API/opportunities/$OPP/bids -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"PUBLIC_TENDER","tenderNumber":"TND-SMOKE-1","submissionDeadline":"2026-12-01T00:00:00Z","clarificationDeadline":"2026-11-01T00:00:00Z"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+[ -n "$BID" ] && ok "tender registered" || bad "tender registered" "no id"
+check "a clarification deadline after the submission deadline is refused" \
+  "$(code -X POST $API/opportunities/$OPP/bids -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"type":"RFQ","submissionDeadline":"2026-10-01T00:00:00Z","clarificationDeadline":"2026-11-01T00:00:00Z"}')" "400"
+curl -s -o /dev/null -X POST $API/bids/$BID/requirements -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Tax clearance certificate","type":"LEGAL","mandatory":true}'
+curl -s -o /dev/null -X POST $API/bids/$BID/requirements -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Company profile","type":"ADMINISTRATIVE","mandatory":false}'
+check "the checklist counts mandatory items separately" \
+  "$(curl -s $API/opportunities/$OPP/bids -H "Authorization: Bearer $CEO" | JQ "
+c=json.load(sys.stdin)[0]['checklist']; print(str(c['total'])+'/'+str(c['mandatoryTotal'])+'/'+str(c['mandatoryOutstanding']))")" "2/1/1"
+check "the deadline view finds it within the window" \
+  "$(curl -s "$API/bids/deadlines?days=365" -H "Authorization: Bearer $CEO" | JQ "print(any(b['id']=='$BID' for b in json.load(sys.stdin)))")" "True"
+
+check "eight scoring factors, weights totalling 100" \
+  "$(curl -s $API/bid-weights -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(str(len(d['factors']))+'/'+str(d['total']))")" "8/100"
+ASSESS=$(curl -s -X POST $API/opportunities/$OPP/bid-assessment -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"ratings":{"RELATIONSHIP_STRENGTH":5,"TECHNICAL_FIT":5,"DELIVERY_CAPACITY":4,"EXPECTED_PROFITABILITY":4,"PAYMENT_TERMS":3,"COMPETITION":3,"SCOPE_CLARITY":4,"STRATEGIC_VALUE":5}}')
+AID=$(echo "$ASSESS" | JQ "print(json.load(sys.stdin)['id'])")
+check "the weighted score lands where the maths says" \
+  "$(echo "$ASSESS" | JQ "print(json.load(sys.stdin)['score'])")" "82"
+check "and suggests a decision without applying one" \
+  "$(echo "$ASSESS" | JQ "d=json.load(sys.stdin);print(d['suggestedDecision']+'/'+str(d['decision']))")" "BID/None"
+check "the score is written back for the stage gate" \
+  "$(curl -s $API/opportunities/$OPP -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['bidNoBidScore'])")" "82"
+check "an unknown scoring factor is rejected" \
+  "$(code -X POST $API/opportunities/$OPP/bid-assessment -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"ratings":{"GUT_FEELING":5}}')" "400"
+check "walking away from an 82-point bid needs a reason" \
+  "$(code -X POST $API/bid-assessments/$AID/decision -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"decision":"NO_BID"}')" "400"
+check "with a reason it is recorded" \
+  "$(curl -s -X POST $API/bid-assessments/$AID/decision -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' \
+     -d '{"decision":"NO_BID","rationale":"Customer payment history is unacceptable despite the score"}' \
+     | JQ "print(json.load(sys.stdin)['decision'])")" "NO_BID"
+check "the override is flagged as one in the audit trail" \
+  "$(psql_ "select count(*)>0 from \"AuditLog\" where \"entityType\"='BidAssessment' and \"after\"->>'overrode'='true';")" "t"
+check "the assessment keeps the weights it was scored under" \
+  "$(psql_ "select (weights->>'TECHNICAL_FIT') from \"BidAssessment\" where id='$AID';")" "15"
+check "re-weighting is closed to roles without commercial authority" \
+  "$(code -X PATCH $API/bid-weights -H "Authorization: Bearer $AM" -H 'Content-Type: application/json' \
+     -d '{"weights":{"TECHNICAL_FIT":100}}')" "403"
+check "and weights that do not total 100 are refused" \
+  "$(code -X PATCH $API/bid-weights -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"weights":{"TECHNICAL_FIT":100}}')" "400"
+check "scope of another team stays invisible here too" \
+  "$(code $API/opportunities/$OPP/scope -H "Authorization: Bearer $AM")" "404"
+
+echo "=== 14. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
 check "but the row survives in the database" \
   "$(psql_ "select (\"deletedAt\" is not null) from \"Opportunity\" where id='$OPP';")" "t"
 
-echo "=== 14. Web UI in three locales ==="
+echo "=== 15. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
