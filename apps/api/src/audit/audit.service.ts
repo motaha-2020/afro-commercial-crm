@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { getRequestContext } from '../common/request-context';
 
 export interface AuditEntry {
   entityType: string;
@@ -26,8 +27,20 @@ export class AuditService {
    * Failures are logged loudly rather than thrown.
    */
   async record(entry: AuditEntry): Promise<void> {
+    // Fill actor, address and request id from the ambient request context when
+    // the caller did not supply them — so every call site stays terse and no
+    // entry silently loses its attribution.
+    const ctx = getRequestContext();
+    const enriched: AuditEntry = {
+      ...entry,
+      userId: entry.userId ?? ctx?.userId,
+      ipAddress: entry.ipAddress ?? ctx?.ipAddress,
+      userAgent: entry.userAgent ?? ctx?.userAgent,
+      requestId: entry.requestId ?? ctx?.requestId,
+    };
+
     try {
-      await this.prisma.auditLog.create({ data: entry });
+      await this.prisma.auditLog.create({ data: enriched });
     } catch (error) {
       this.logger.error(
         `Failed to write audit entry for ${entry.entityType}:${entry.entityId}`,

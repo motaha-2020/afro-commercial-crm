@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../common/code-generator.service';
 import { DataScopeService } from '../auth/data-scope.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import type {
   ChangeStageDto,
@@ -36,6 +37,7 @@ export class OpportunitiesService {
     private readonly audit: AuditService,
     private readonly codes: CodeGeneratorService,
     private readonly scope: DataScopeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(user: AuthenticatedUser, query: ListOpportunitiesQuery) {
@@ -250,6 +252,15 @@ export class OpportunitiesService {
       userId: user.id,
       before: { stage: opp.stage },
       after: { stage: dto.toStage },
+    });
+
+    // Let governance-defined rules decide who hears about a stage change. No
+    // rule configured → no notifications, silently.
+    await this.notifications.dispatchEvent('OPPORTUNITY_STAGE_CHANGED', {
+      title: `${opp.code} moved to ${dto.toStage}`,
+      body: opp.name,
+      entityType: 'Opportunity',
+      entityId: id,
     });
 
     return updated;

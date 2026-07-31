@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@acms/shared": "*",
+    "@aws-sdk/client-s3": "^3.726.1",
     "@nestjs/common": "^11.0.6",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.6",
@@ -35,6 +36,7 @@
     "@nestjs/testing": "^11.0.6",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/multer": "^1.4.12",
     "@types/node": "^22.10.10",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
