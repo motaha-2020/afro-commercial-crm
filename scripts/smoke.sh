@@ -219,16 +219,17 @@ ASSESS=$(curl -s -X POST $API/opportunities/$OPP/bid-assessment -H "Authorizatio
   -H 'Content-Type: application/json' \
   -d '{"ratings":{"RELATIONSHIP_STRENGTH":5,"TECHNICAL_FIT":5,"DELIVERY_CAPACITY":4,"EXPECTED_PROFITABILITY":4,"PAYMENT_TERMS":3,"COMPETITION":3,"SCOPE_CLARITY":4,"STRATEGIC_VALUE":5}}')
 AID=$(echo "$ASSESS" | JQ "print(json.load(sys.stdin)['id'])")
+# 15·1 + 15·1 + 15·0.8 + 15·0.8 + 10·0.6 + 10·0.6 + 10·0.8 + 10·1 = 84
 check "the weighted score lands where the maths says" \
-  "$(echo "$ASSESS" | JQ "print(json.load(sys.stdin)['score'])")" "82"
+  "$(echo "$ASSESS" | JQ "print(json.load(sys.stdin)['score'])")" "84"
 check "and suggests a decision without applying one" \
   "$(echo "$ASSESS" | JQ "d=json.load(sys.stdin);print(d['suggestedDecision']+'/'+str(d['decision']))")" "BID/None"
 check "the score is written back for the stage gate" \
-  "$(curl -s $API/opportunities/$OPP -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['bidNoBidScore'])")" "82"
+  "$(curl -s $API/opportunities/$OPP -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['bidNoBidScore'])")" "84"
 check "an unknown scoring factor is rejected" \
   "$(code -X POST $API/opportunities/$OPP/bid-assessment -H "Authorization: Bearer $CEO" \
      -H 'Content-Type: application/json' -d '{"ratings":{"GUT_FEELING":5}}')" "400"
-check "walking away from an 82-point bid needs a reason" \
+check "walking away from an 84-point bid needs a reason" \
   "$(code -X POST $API/bid-assessments/$AID/decision -H "Authorization: Bearer $CEO" \
      -H 'Content-Type: application/json' -d '{"decision":"NO_BID"}')" "400"
 check "with a reason it is recorded" \
