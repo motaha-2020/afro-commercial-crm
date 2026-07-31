@@ -24,7 +24,11 @@ export async function POST(req: NextRequest) {
     });
 
     const res = NextResponse.json({ success: true });
-    const secure = process.env.NODE_ENV === 'production';
+    // Secure cookies are only sent back over HTTPS. This deployment serves over
+    // plain HTTP on a private tailnet, so defaulting `secure` to NODE_ENV would
+    // silently drop the session on every request. Drive it from an explicit env
+    // flag instead — set COOKIE_SECURE=true once TLS terminates in front.
+    const secure = process.env.COOKIE_SECURE === 'true';
     res.cookies.set(ACCESS_COOKIE, tokens.accessToken, {
       httpOnly: true,
       sameSite: 'lax',
