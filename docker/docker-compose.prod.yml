@@ -1,26 +1,15 @@
-# Production override for the shared Afro server.
+# Production overlay for the shared Afro server.
 #
-# The box already runs supabase (incl. a Postgres on 5432), n8n, open-webui and
-# more. ACMS must not touch any of it, so this override:
-#   - keeps Postgres and MinIO UNPUBLISHED — only ACMS's own containers reach
-#     them over the private `acms` compose network, nothing binds a host port.
-#   - publishes only web and api, on host ports chosen to be free.
+# The base file publishes no host ports, so this only adds the two that must be
+# reachable — web and api — bound to the Tailscale IP. Postgres and MinIO are
+# never published: they are reachable only over ACMS's private compose network,
+# so nothing collides with the box's existing supabase/n8n stacks.
 #
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file ../.env up -d --build
 name: acms
 
 services:
-  postgres:
-    # Drop the host port binding inherited from the base file. `[]` replaces the
-    # base `ports` list rather than appending to it.
-    ports: []
-
-  minio:
-    ports: []
-
-  # Both are bound to the Tailscale IP specifically, so they are reachable over
-  # the private tailnet but not exposed on any public interface the box may have.
   api:
     ports:
       - '${BIND_IP:-127.0.0.1}:${API_PORT:-4000}:4000'

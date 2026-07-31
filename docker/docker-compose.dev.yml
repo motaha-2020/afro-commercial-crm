@@ -1,0 +1,23 @@
+# Local development port bindings, all on localhost.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file ../.env up -d
+name: acms
+
+services:
+  postgres:
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+
+  minio:
+    ports:
+      - '127.0.0.1:${MINIO_PORT:-9000}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
+
+  api:
+    ports:
+      - '127.0.0.1:${API_PORT:-4000}:4000'
+
+  web:
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3000}:3000'

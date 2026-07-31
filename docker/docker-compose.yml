@@ -1,5 +1,12 @@
 name: acms
 
+# Base definition. Deliberately publishes NO host ports — Compose merges port
+# lists by appending across files, so a base port cannot be removed by an
+# override. Host ports are added per environment:
+#   local dev  -> docker-compose.dev.yml   (localhost)
+#   server     -> docker-compose.prod.yml  (Tailscale IP; db/minio stay internal)
+# Services still reach each other over the private `acms` network by name.
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -8,8 +15,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,9 +30,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - '${MINIO_PORT:-9000}:9000'
-      - '${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - minio_data:/data
     healthcheck:
@@ -53,8 +55,6 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
-    ports:
-      - '${API_PORT:-4000}:4000'
 
   web:
     build:
@@ -68,8 +68,6 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
-    ports:
-      - '${WEB_PORT:-3000}:3000'
 
 volumes:
   postgres_data:

@@ -13,7 +13,62 @@
     "suppliers": "Fournisseurs et sous-traitants",
     "approvals": "Approbations",
     "contracts": "Contrats et transfert",
-    "admin": "Paramètres et gouvernance"
+    "admin": "Paramètres et gouvernance",
+    "logout": "Se déconnecter"
+  },
+  "login": {
+    "subtitle": "Connectez-vous pour accéder au système",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "signIn": "Se connecter",
+    "signingIn": "Connexion…",
+    "invalid": "Identifiants invalides"
+  },
+  "dashboard": {
+    "title": "Tableau de bord exécutif",
+    "subtitle": "Une vue unique du pipeline et de la performance",
+    "openPipeline": "Pipeline ouvert",
+    "activeOpportunities": "Opportunités actives",
+    "atRisk": "À risque",
+    "totalOpportunities": "Total des opportunités",
+    "topOpportunities": "Principales opportunités",
+    "code": "Code",
+    "name": "Opportunité",
+    "account": "Compte",
+    "stage": "Étape",
+    "health": "Santé",
+    "value": "Valeur",
+    "empty": "Aucune opportunité pour l'instant"
+  },
+  "accounts": {
+    "title": "Comptes et relations",
+    "subtitle": "Structure juridique, contacts, opportunités et recouvrement sur un seul écran",
+    "code": "Code",
+    "name": "Nom",
+    "type": "Type",
+    "country": "Pays",
+    "industry": "Secteur",
+    "owner": "Responsable du compte",
+    "opportunities": "Opportunités",
+    "creditStatus": "Statut de crédit",
+    "paymentTerms": "Conditions de paiement",
+    "days": "jours",
+    "contacts": "Contacts",
+    "contactName": "Nom",
+    "jobTitle": "Fonction",
+    "email": "E-mail",
+    "primary": "Principal",
+    "noContacts": "Aucun contact",
+    "noOpportunities": "Aucune opportunité",
+    "stage": "Étape",
+    "health": "Santé",
+    "value": "Valeur",
+    "empty": "Aucun compte pour l'instant"
+  },
+  "opportunities": {
+    "title": "Opportunités",
+    "subtitle": "Suivez l'offre de la qualification à l'attribution",
+    "emptyColumn": "Aucune opportunité"
   },
   "stage": {
     "LEAD_INTAKE": "Saisie du prospect",

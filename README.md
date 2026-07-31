@@ -40,16 +40,24 @@ docker/         — Docker Compose
 cp .env.example .env      # ثم عدّل القيم
 npm install
 npx prisma generate
-docker compose -f docker/docker-compose.yml --env-file .env up -d postgres
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml --env-file .env up -d postgres
 npx prisma migrate dev
 npm run dev
 ```
 
-## التشغيل الكامل بـDocker
+## التشغيل الكامل بـDocker (تطوير محلي)
 
 ```bash
-docker compose -f docker/docker-compose.yml --env-file .env up -d --build
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml --env-file .env up -d --build
 ```
+
+## النشر على السيرفر
+
+```bash
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml --env-file .env up -d --build
+```
+
+الملف الأساسي لا ينشر أي بورت؛ التطوير المحلي يضيف بورتات `localhost` عبر `docker-compose.dev.yml`، والسيرفر يضيف بورتات web/api على IP الخاص عبر `docker-compose.prod.yml` بينما تبقى قاعدة البيانات وMinIO داخليين.
 
 ## قواعد حوكمة مطبَّقة من البداية
 

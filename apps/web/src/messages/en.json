@@ -13,7 +13,62 @@
     "suppliers": "Suppliers & Subcontractors",
     "approvals": "Approvals",
     "contracts": "Contracts & Handover",
-    "admin": "Settings & Governance"
+    "admin": "Settings & Governance",
+    "logout": "Sign out"
+  },
+  "login": {
+    "subtitle": "Sign in to access the system",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "invalid": "Invalid credentials"
+  },
+  "dashboard": {
+    "title": "Executive Dashboard",
+    "subtitle": "A single view of pipeline and performance",
+    "openPipeline": "Open pipeline",
+    "activeOpportunities": "Active opportunities",
+    "atRisk": "At risk",
+    "totalOpportunities": "Total opportunities",
+    "topOpportunities": "Top opportunities",
+    "code": "Code",
+    "name": "Opportunity",
+    "account": "Account",
+    "stage": "Stage",
+    "health": "Health",
+    "value": "Value",
+    "empty": "No opportunities yet"
+  },
+  "accounts": {
+    "title": "Accounts & Relationships",
+    "subtitle": "Legal structure, contacts, opportunities and collection on one screen",
+    "code": "Code",
+    "name": "Name",
+    "type": "Type",
+    "country": "Country",
+    "industry": "Industry",
+    "owner": "Account Owner",
+    "opportunities": "Opportunities",
+    "creditStatus": "Credit Status",
+    "paymentTerms": "Payment Terms",
+    "days": "days",
+    "contacts": "Contacts",
+    "contactName": "Name",
+    "jobTitle": "Title",
+    "email": "Email",
+    "primary": "Primary",
+    "noContacts": "No contacts",
+    "noOpportunities": "No opportunities",
+    "stage": "Stage",
+    "health": "Health",
+    "value": "Value",
+    "empty": "No accounts yet"
+  },
+  "opportunities": {
+    "title": "Opportunities",
+    "subtitle": "Track the bid from qualification to award",
+    "emptyColumn": "No opportunities"
   },
   "stage": {
     "LEAD_INTAKE": "Lead Intake",

@@ -13,7 +13,62 @@
     "suppliers": "الموردون والمقاولون",
     "approvals": "الموافقات",
     "contracts": "العقود والتسليم",
-    "admin": "الإعدادات والحوكمة"
+    "admin": "الإعدادات والحوكمة",
+    "logout": "تسجيل الخروج"
+  },
+  "login": {
+    "subtitle": "سجّل الدخول للوصول إلى النظام",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signIn": "دخول",
+    "signingIn": "جاري الدخول…",
+    "invalid": "بيانات الدخول غير صحيحة"
+  },
+  "dashboard": {
+    "title": "لوحة القيادة التنفيذية",
+    "subtitle": "نظرة شاملة على خط الفرص والأداء",
+    "openPipeline": "قيمة خط الأنابيب",
+    "activeOpportunities": "فرص نشطة",
+    "atRisk": "فرص متعثرة",
+    "totalOpportunities": "إجمالي الفرص",
+    "topOpportunities": "أهم الفرص",
+    "code": "الكود",
+    "name": "الفرصة",
+    "account": "العميل",
+    "stage": "المرحلة",
+    "health": "الحالة الصحية",
+    "value": "القيمة",
+    "empty": "لا توجد فرص بعد"
+  },
+  "accounts": {
+    "title": "العملاء والعلاقات",
+    "subtitle": "الهيكل القانوني، جهات الاتصال، الفرص، والتحصيل في شاشة واحدة",
+    "code": "الكود",
+    "name": "الاسم",
+    "type": "النوع",
+    "country": "الدولة",
+    "industry": "القطاع",
+    "owner": "مدير الحساب",
+    "opportunities": "الفرص",
+    "creditStatus": "الحالة الائتمانية",
+    "paymentTerms": "شروط الدفع",
+    "days": "يوم",
+    "contacts": "جهات الاتصال",
+    "contactName": "الاسم",
+    "jobTitle": "المسمى",
+    "email": "البريد",
+    "primary": "رئيسي",
+    "noContacts": "لا توجد جهات اتصال",
+    "noOpportunities": "لا توجد فرص",
+    "stage": "المرحلة",
+    "health": "الحالة",
+    "value": "القيمة",
+    "empty": "لا يوجد عملاء بعد"
+  },
+  "opportunities": {
+    "title": "الفرص التجارية",
+    "subtitle": "متابعة الفرصة من التأهيل حتى الترسية",
+    "emptyColumn": "لا توجد فرص"
   },
   "stage": {
     "LEAD_INTAKE": "تسجيل الفرصة",
