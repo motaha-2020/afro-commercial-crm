@@ -170,7 +170,9 @@ for L in ar en fr; do
 done
 check "Arabic shell is RTL" "$(curl -s -b /tmp/acms_smoke.jar $WEB/ar/dashboard | grep -c 'dir="rtl"')" "1"
 check "notification bell present" "$(curl -s -b /tmp/acms_smoke.jar $WEB/en/dashboard | grep -c 'bell-wrap')" "1"
-check "signed-out visitor is sent to login" "$(code -o /dev/null $WEB/en/dashboard)" "200"
+check "signed-out visitor is redirected" "$(code $WEB/en/dashboard)" "307"
+check "and lands on the login page" \
+  "$(curl -sL $WEB/en/dashboard | grep -c 'name="password"')" "1"
 rm -f /tmp/acms_smoke.jar
 
 echo
