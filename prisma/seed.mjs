@@ -147,6 +147,23 @@ async function main() {
     });
   }
 
+  // Default notification rules. Without a rule an event reaches nobody, so the
+  // governance-relevant ones ship configured rather than waiting for an admin
+  // to discover the feature exists.
+  const ruleSeeds = [
+    { eventType: 'OPPORTUNITY_STAGE_CHANGED', roleTarget: 'SALES_DIRECTOR' },
+    { eventType: 'OPPORTUNITY_STAGE_CHANGED', roleTarget: 'CEO' },
+    { eventType: 'OPPORTUNITY_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
+    { eventType: 'ACCOUNT_CREDIT_CHANGED', roleTarget: 'FINANCE' },
+  ];
+
+  for (const r of ruleSeeds) {
+    const exists = await prisma.notificationRule.findFirst({
+      where: { eventType: r.eventType, roleTarget: r.roleTarget, deletedAt: null },
+    });
+    if (!exists) await prisma.notificationRule.create({ data: r });
+  }
+
   console.log('Seed complete.');
   console.log(`Users seeded with password: ${SEED_PASSWORD}`);
   console.log('Sign in as ceo@afro.example / am@afro.example / admin@afro.example');

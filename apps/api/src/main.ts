@@ -4,9 +4,13 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { StructuredLogger } from './common/structured-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Buffered so startup messages are emitted through our logger too, not the
+  // default one — otherwise the first lines of every boot are unstructured.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new StructuredLogger());
 
   app.use(helmet());
   app.setGlobalPrefix('api');

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { getRequestContext } from '../common/request-context';
+import { getRequestContext, markAudited } from '../common/request-context';
 
 export interface AuditEntry {
   entityType: string;
@@ -39,6 +39,10 @@ export class AuditService {
       requestId: entry.requestId ?? ctx?.requestId,
     };
 
+    // Claimed before the write: if the insert fails the request must not then
+    // collect a vaguer envelope entry from the interceptor and look logged.
+    markAudited();
+
     try {
       await this.prisma.auditLog.create({ data: enriched });
     } catch (error) {
@@ -70,7 +74,12 @@ export class AuditService {
       }
     }
 
-    if (Object.keys(changedAfter).length === 0) return;
+    if (Object.keys(changedAfter).length === 0) {
+      // A no-op update is a deliberate non-event, not a gap in the trail — say
+      // so, or the interceptor will invent an UPDATE entry for it.
+      markAudited();
+      return;
+    }
 
     await this.record({
       entityType,

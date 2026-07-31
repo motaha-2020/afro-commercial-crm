@@ -1,13 +1,15 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { JwtAuthGuard, RolesGuard } from './auth/guards';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { HttpLoggingInterceptor } from './common/http-logging.interceptor';
 import { RequestContextMiddleware } from './common/request-context.middleware';
+import { GovernanceModule } from './governance/governance.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
@@ -20,6 +22,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuditModule,
+    GovernanceModule,
     CommonModule,
     AuthModule,
     HealthModule,
@@ -35,6 +38,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: HttpLoggingInterceptor },
   ],
 })
 export class AppModule implements NestModule {

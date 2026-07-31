@@ -2,10 +2,12 @@ import {
   CreateBucketCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
+  ConflictException,
   Injectable,
   Logger,
   OnModuleInit,
@@ -65,11 +67,35 @@ export class StorageService implements OnModuleInit {
     }
   }
 
+  /** Cheap reachability probe for the readiness endpoint. */
+  async ping(): Promise<boolean> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async put(
     key: string,
     body: Buffer,
     contentType: string,
   ): Promise<StoredObject> {
+    // SoD rule 2 at the storage layer: an uploaded original is never replaced.
+    // Keys carry a UUID so this should be unreachable — which is precisely why
+    // reaching it means something is wrong and must not silently overwrite
+    // evidence a supplier quotation was based on.
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      throw new ConflictException('Object already exists; documents are immutable');
+    } catch (err) {
+      if (err instanceof ConflictException) throw err;
+      // Anything else means "not found", which is the expected path.
+    }
+
     const checksum = createHash('sha256').update(body).digest('hex');
     await this.client.send(
       new PutObjectCommand({

@@ -104,6 +104,11 @@
     "AMBER": "À surveiller",
     "RED": "À risque"
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer comme lu",
+    "empty": "Rien de nouveau"
+  },
   "common": {
     "loading": "Chargement…",
     "language": "Langue"

@@ -164,6 +164,10 @@ enum AuditAction {
   LOGIN
   LOGIN_FAILED
   LOGOUT
+  /// A Segregation of Duties rule stopped an action. Recorded because a blocked
+  /// attempt is evidence in its own right — "nobody tried" and "someone tried"
+  /// are different findings.
+  SOD_BLOCKED
 }
 
 // ---------------------------------------------------------------------------

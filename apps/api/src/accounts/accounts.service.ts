@@ -3,16 +3,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../common/code-generator.service';
 import { DataScopeService } from '../auth/data-scope.service';
+import { SodService } from '../governance/sod.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import type { CreateAccountDto, ListAccountsQuery, UpdateAccountDto } from './dto';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+
+/**
+ * Credit standing is a financial decision, not a commercial one — an account
+ * manager may propose it, only these roles may set it.
+ */
+const CREDIT_AUTHORITY: Role[] = ['FINANCE', 'CEO', 'OWNER_BOARD'];
 
 @Injectable()
 export class AccountsService {
@@ -21,6 +29,8 @@ export class AccountsService {
     private readonly audit: AuditService,
     private readonly codes: CodeGeneratorService,
     private readonly scope: DataScopeService,
+    private readonly sod: SodService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(user: AuthenticatedUser, query: ListAccountsQuery) {
@@ -149,6 +159,16 @@ export class AccountsService {
   async update(user: AuthenticatedUser, id: string, dto: UpdateAccountDto) {
     const existing = await this.findOne(user, id);
 
+    if (dto.creditStatus && dto.creditStatus !== existing.creditStatus) {
+      if (!user.roles.some((r) => CREDIT_AUTHORITY.includes(r.role))) {
+        throw new ForbiddenException(
+          'Credit standing may only be set by Finance or executive management',
+        );
+      }
+      // SoD rule 5: whoever created the account does not approve its credit.
+      await this.sod.assertSeparation('SOD_05', 'Account', id, user);
+    }
+
     const updated = await this.prisma.account.update({
       where: { id },
       data: { ...dto },
@@ -161,6 +181,15 @@ export class AccountsService {
       updated as unknown as Record<string, unknown>,
       user.id,
     );
+
+    if (dto.creditStatus && dto.creditStatus !== existing.creditStatus) {
+      await this.notifications.dispatchEvent('ACCOUNT_CREDIT_CHANGED', {
+        title: `Credit standing changed: ${updated.legalName}`,
+        body: `${existing.creditStatus} → ${updated.creditStatus}`,
+        entityType: 'Account',
+        entityId: id,
+      });
+    }
 
     return updated;
   }

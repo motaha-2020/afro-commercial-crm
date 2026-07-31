@@ -104,6 +104,11 @@
     "AMBER": "تحتاج متابعة",
     "RED": "متعثرة"
   },
+  "notifications": {
+    "title": "الإشعارات",
+    "markAllRead": "تعليم الكل كمقروء",
+    "empty": "لا جديد"
+  },
   "common": {
     "loading": "جاري التحميل…",
     "language": "اللغة"
