@@ -38,7 +38,12 @@ export default async function AccountsPage({
           <h1>{t('title')}</h1>
           <p>{t('subtitle')}</p>
         </div>
-        <span className="badge badge-primary">{total}</span>
+        <div className="head-actions">
+          <span className="badge badge-primary">{total}</span>
+          <Link className="btn" href={`/${locale}/accounts/new`}>
+            + {t('newAccount')}
+          </Link>
+        </div>
       </div>
 
       <div className="panel">

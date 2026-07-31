@@ -65,6 +65,9 @@ export default async function OpportunitiesPage({
           <h1>{t('title')}</h1>
           <p>{t('subtitle')}</p>
         </div>
+        <Link className="btn" href={`/${locale}/opportunities/new`}>
+          + {t('newOpportunity')}
+        </Link>
       </div>
 
       <div className="kanban">

@@ -63,12 +63,14 @@
     "stage": "Stage",
     "health": "Health",
     "value": "Value",
-    "empty": "No accounts yet"
+    "empty": "No accounts yet",
+    "newAccount": "New customer"
   },
   "opportunities": {
     "title": "Opportunities",
     "subtitle": "Track the bid from qualification to award",
-    "emptyColumn": "No opportunities"
+    "emptyColumn": "No opportunities",
+    "newOpportunity": "New opportunity"
   },
   "stage": {
     "LEAD_INTAKE": "Lead Intake",
@@ -168,5 +170,38 @@
   "common": {
     "loading": "Loading…",
     "language": "Language"
+  },
+  "newAccount": {
+    "title": "New customer",
+    "subtitle": "Only what is needed to open the file — the rest is asked for as the relationship develops",
+    "legalName": "Legal name",
+    "tradeName": "Trade name",
+    "type": "Type",
+    "country": "Country",
+    "industry": "Industry",
+    "city": "City",
+    "paymentTerms": "Payment terms (days)",
+    "save": "Create customer",
+    "saving": "Saving…",
+    "failed": "Could not save",
+    "back": "Back to customers"
+  },
+  "newOpportunity": {
+    "title": "New opportunity",
+    "subtitle": "Register it now; the system asks for more as it advances",
+    "name": "Opportunity name",
+    "namePlaceholder": "e.g. FTTH rollout — 120 cabinets",
+    "account": "Customer",
+    "country": "Country",
+    "currency": "Currency",
+    "estimatedValue": "Estimated value",
+    "industry": "Industry",
+    "source": "Source",
+    "save": "Create opportunity",
+    "saving": "Saving…",
+    "failed": "Could not save",
+    "back": "Back to the board",
+    "needAccount": "Add a customer first — an opportunity always belongs to one.",
+    "progressiveHint": "Scope, costing and the bid decision are added later, at the stage that requires them."
   }
 }

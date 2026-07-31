@@ -63,12 +63,14 @@
     "stage": "Étape",
     "health": "Santé",
     "value": "Valeur",
-    "empty": "Aucun compte pour l'instant"
+    "empty": "Aucun compte pour l'instant",
+    "newAccount": "Nouveau client"
   },
   "opportunities": {
     "title": "Opportunités",
     "subtitle": "Suivez l'offre de la qualification à l'attribution",
-    "emptyColumn": "Aucune opportunité"
+    "emptyColumn": "Aucune opportunité",
+    "newOpportunity": "Nouvelle opportunité"
   },
   "stage": {
     "LEAD_INTAKE": "Saisie du prospect",
@@ -168,5 +170,38 @@
   "common": {
     "loading": "Chargement…",
     "language": "Langue"
+  },
+  "newAccount": {
+    "title": "Nouveau client",
+    "subtitle": "Le strict nécessaire pour ouvrir le dossier — le reste vient ensuite",
+    "legalName": "Raison sociale",
+    "tradeName": "Nom commercial",
+    "type": "Type",
+    "country": "Pays",
+    "industry": "Secteur",
+    "city": "Ville",
+    "paymentTerms": "Conditions de paiement (jours)",
+    "save": "Créer le client",
+    "saving": "Enregistrement…",
+    "failed": "Enregistrement impossible",
+    "back": "Retour aux clients"
+  },
+  "newOpportunity": {
+    "title": "Nouvelle opportunité",
+    "subtitle": "Enregistrez-la maintenant ; le système demandera le reste à mesure",
+    "name": "Nom de l’opportunité",
+    "namePlaceholder": "ex. Déploiement FTTH — 120 armoires",
+    "account": "Client",
+    "country": "Pays",
+    "currency": "Devise",
+    "estimatedValue": "Valeur estimée",
+    "industry": "Secteur",
+    "source": "Source",
+    "save": "Créer l’opportunité",
+    "saving": "Enregistrement…",
+    "failed": "Enregistrement impossible",
+    "back": "Retour au tableau",
+    "needAccount": "Ajoutez d’abord un client — une opportunité appartient toujours à un client.",
+    "progressiveHint": "Le périmètre, les coûts et la décision d’offre s’ajoutent plus tard."
   }
 }
