@@ -63,6 +63,51 @@ a { color: inherit; text-decoration: none; }
 .topbar .spacer { margin-inline-start: auto; }
 .content { padding: 24px; }
 
+/* ---- Release 3: scope, bids, Bid/No-Bid score ---- */
+.muted { color: var(--muted); font-size: 12px; }
+.reading-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.readiness { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; font-size: 12px; }
+.readiness.ok { background: var(--success-soft); color: var(--success); }
+.readiness.not-ok { background: var(--warning-soft); color: var(--warning); }
+
+.scope-package { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.scope-package-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.scope-tree { list-style: none; margin: 0; padding-inline-start: 14px; }
+.scope-tree.nested { border-inline-start: 1px dashed var(--border); margin-top: 4px; }
+.scope-tree li { padding: 4px 0; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scope-item-name { font-weight: 500; }
+.scope-qty { color: var(--muted); font-size: 12px; }
+.scope-excl { color: var(--danger); font-size: 11px; }
+.badge.resp-CUSTOMER { background: var(--warning-soft); color: var(--warning); }
+.badge.resp-THIRD_PARTY { background: var(--panel-2); color: var(--muted); }
+.badge.impact-BLOCKING, .badge.impact-HIGH { background: #fee2e2; color: var(--danger); }
+.badge-ok { background: var(--success-soft); color: var(--success); }
+.badge-warn { background: var(--warning-soft); color: var(--warning); }
+
+.score-panel { display: flex; flex-direction: column; gap: 12px; }
+.score-head { display: flex; align-items: center; gap: 16px; }
+.score-dial { display: flex; align-items: baseline; gap: 4px; background: var(--primary-soft); color: var(--primary); border-radius: 12px; padding: 10px 16px; }
+.score-dial strong { font-size: 26px; }
+.score-dial span { font-size: 12px; }
+.score-saved, .score-suggested { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.score-empty { font-size: 13px; color: var(--muted); margin: 0; }
+.score-table select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; }
+.badge.decision-BID { background: var(--success-soft); color: var(--success); }
+.badge.decision-NO_BID { background: #fee2e2; color: var(--danger); }
+.badge.decision-BID_WITH_CONDITIONS, .badge.decision-HOLD { background: var(--warning-soft); color: var(--warning); }
+
+.decision-block { border-top: 1px solid var(--border); padding-top: 12px; }
+.decision-block h4 { margin: 0 0 8px; font-size: 13px; }
+.decision-row { display: flex; gap: 8px; align-items: center; }
+.decision-row select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; flex: 1; }
+.decision-warn { font-size: 12px; color: var(--warning); margin: 10px 0 6px; }
+.decision-block textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; font: inherit; }
+.decision-current { font-size: 12px; margin-top: 10px; }
+.form-error { color: var(--danger); font-size: 12px; margin: 0; }
+.btn { align-self: flex-start; background: var(--primary); color: white; border: 0; border-radius: 9px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+.btn:disabled { opacity: .55; cursor: default; }
+
 /* Notification bell. Positioned with logical properties so the panel opens
    inward in both LTR and RTL without a direction-specific rule. */
 .bell-wrap { position: relative; }

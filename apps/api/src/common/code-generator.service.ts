@@ -15,7 +15,7 @@ export class CodeGeneratorService {
 
   async next(
     prefix: string,
-    table: 'account' | 'opportunity' | 'lead',
+    table: 'account' | 'opportunity' | 'lead' | 'bid',
     year: number,
   ): Promise<string> {
     const like = `${prefix}-${year}-%`;
@@ -32,7 +32,7 @@ export class CodeGeneratorService {
     return `${prefix}-${year}-${String(seq).padStart(6, '0')}`;
   }
 
-  private tableName(table: 'account' | 'opportunity' | 'lead'): string {
+  private tableName(table: 'account' | 'opportunity' | 'lead' | 'bid'): string {
     switch (table) {
       case 'account':
         return 'Account';
@@ -40,6 +40,8 @@ export class CodeGeneratorService {
         return 'Opportunity';
       case 'lead':
         return 'Lead';
+      case 'bid':
+        return 'Bid';
     }
   }
 }

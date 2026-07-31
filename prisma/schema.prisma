@@ -233,6 +233,12 @@ model User {
   documentVersions   DocumentVersion[]
   notifications      Notification[]
 
+  ownedAssumptions     Assumption[]     @relation("AssumptionOwner")
+  raisedClarifications Clarification[]  @relation("ClarificationRaiser")
+  ownedRequirements    BidRequirement[] @relation("RequirementOwner")
+  bidAssessments       BidAssessment[]  @relation("BidAssessor")
+  bidDecisions         BidAssessment[]  @relation("BidDecider")
+
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -487,6 +493,12 @@ model Opportunity {
   activities   Activity[]
   convertedFromLead Lead? @relation("LeadConversion")
 
+  scopePackages  ScopePackage[]
+  assumptions    Assumption[]
+  clarifications Clarification[]
+  bids           Bid[]
+  assessments    BidAssessment[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -668,6 +680,353 @@ model DocumentVersion {
 
   @@unique([documentId, version])
   @@index([documentId])
+}
+
+// ---------------------------------------------------------------------------
+// Release 3 — Scope and Solution
+//
+// The spec insists scope is structured data, not prose, and that assumptions
+// are records rather than a paragraph inside a document. Everything below is
+// shaped so a disputed scope is answered with a row and a date.
+// ---------------------------------------------------------------------------
+
+enum ScopeCategory {
+  SUPPLY
+  DESIGN
+  CIVIL_WORKS
+  INSTALLATION
+  TESTING
+  ACCEPTANCE
+  MAINTENANCE
+  PROJECT_MANAGEMENT
+  LOGISTICS
+  OTHER
+}
+
+/// EXCLUDED is not a deletion — an exclusion the customer accepted is worth
+/// more at claim time than a package that was never mentioned.
+enum ScopeInclusion {
+  INCLUDED
+  EXCLUDED
+  OPTIONAL
+}
+
+enum ScopePackageStatus {
+  DRAFT
+  IN_REVIEW
+  CONFIRMED
+  SUPERSEDED
+}
+
+enum Responsibility {
+  AFRO
+  CUSTOMER
+  SHARED
+  THIRD_PARTY
+}
+
+enum AssumptionCategory {
+  TECHNICAL
+  COMMERCIAL
+  SITE_ACCESS
+  PERMITS
+  CUSTOMER_INPUT
+  SCHEDULE
+  SUPPLY_CHAIN
+  OTHER
+}
+
+enum ConfirmationStatus {
+  UNCONFIRMED
+  SENT_TO_CUSTOMER
+  CONFIRMED
+  REJECTED
+}
+
+enum ClarificationStatus {
+  OPEN
+  SENT
+  ANSWERED
+  CLOSED
+  UNANSWERED_AT_SUBMISSION
+}
+
+enum ClarificationImpact {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  BLOCKING
+}
+
+model ScopePackage {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  name            String
+  category        ScopeCategory      @default(OTHER)
+  description     String?
+  responsibleTeam String?
+  inclusion       ScopeInclusion     @default(INCLUDED)
+  status          ScopePackageStatus @default(DRAFT)
+  /// Display order in the Scope Builder tree; the customer's own ordering often
+  /// carries meaning, so it is stored rather than inferred from the name.
+  sortOrder       Int                @default(0)
+
+  items ScopeItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([category])
+}
+
+/// Self-referencing so the Scope Builder's "Add Child Item" can break a line
+/// down (Cabinet Installation > Concrete Base, Crane, Earthing ...) without a
+/// second table.
+model ScopeItem {
+  id       String       @id @default(uuid())
+  packageId String
+  package  ScopePackage @relation(fields: [packageId], references: [id])
+
+  parentId String?
+  parent   ScopeItem?  @relation("ScopeTree", fields: [parentId], references: [id])
+  children ScopeItem[] @relation("ScopeTree")
+
+  name                   String
+  description            String?
+  quantity               Decimal? @db.Decimal(18, 3)
+  unit                   String?
+  location               String?
+  technicalSpecification String?
+  responsibility         Responsibility @default(AFRO)
+  customerResponsibility String?
+  afroResponsibility     String?
+  exclusion              String?
+  acceptanceCriteria     String?
+  sortOrder              Int      @default(0)
+
+  assumptions Assumption[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([packageId])
+  @@index([parentId])
+}
+
+/// "يجب أن تكون الافتراضات بيانات مستقلة" — an assumption nobody confirmed is a
+/// risk being carried silently, so confirmation is a tracked state, not a note.
+model Assumption {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  scopeItemId String?
+  scopeItem   ScopeItem? @relation(fields: [scopeItemId], references: [id])
+
+  description        String
+  category           AssumptionCategory @default(OTHER)
+  /// What it costs us if the assumption turns out to be wrong.
+  impactIfIncorrect  String?
+  ownerId            String?
+  owner              User?              @relation("AssumptionOwner", fields: [ownerId], references: [id])
+  confirmationStatus ConfirmationStatus @default(UNCONFIRMED)
+  confirmedAt        DateTime?
+  /// Points at a Document — the evidence the customer agreed.
+  confirmationDocumentId String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([confirmationStatus])
+}
+
+model Clarification {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  question     String
+  askedTo      String?
+  askedAt      DateTime?
+  response     String?
+  respondedAt  DateTime?
+  impact       ClarificationImpact @default(NONE)
+  status       ClarificationStatus @default(OPEN)
+
+  raisedById String
+  raisedBy   User   @relation("ClarificationRaiser", fields: [raisedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Release 3 — Bids and Tenders
+// ---------------------------------------------------------------------------
+
+enum BidType {
+  PUBLIC_TENDER
+  PRIVATE_TENDER
+  RFQ
+  RFP
+  DIRECT_NEGOTIATION
+  FRAMEWORK_CALL_OFF
+  RENEWAL
+  CHANGE_REQUEST
+}
+
+enum BidStatus {
+  IDENTIFIED
+  PREPARING
+  SUBMITTED
+  CLARIFICATION
+  AWARDED
+  LOST
+  WITHDRAWN
+  CANCELLED
+}
+
+enum SubmissionMethod {
+  PORTAL
+  EMAIL
+  HAND_DELIVERY
+  COURIER
+}
+
+enum RequirementType {
+  TECHNICAL
+  COMMERCIAL
+  LEGAL
+  FINANCIAL
+  HSE
+  ADMINISTRATIVE
+}
+
+enum CompletionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY
+  SUBMITTED
+  WAIVED
+}
+
+enum BidDecision {
+  BID
+  NO_BID
+  BID_WITH_CONDITIONS
+  HOLD
+}
+
+/// One opportunity can carry several of these — the original tender, then a
+/// change request against the same pursuit.
+model Bid {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  tenderNumber        String?
+  type                BidType
+  status              BidStatus         @default(IDENTIFIED)
+  issueDate           DateTime?
+  submissionDeadline  DateTime?
+  clarificationDeadline DateTime?
+  bidBondRequired     Boolean           @default(false)
+  bidBondAmount       Decimal?          @db.Decimal(18, 2)
+  bidBondCurrency     String?
+  submissionMethod    SubmissionMethod?
+  submittedAt         DateTime?
+  portalReference     String?
+  notes               String?
+
+  requirements BidRequirement[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([status])
+  @@index([submissionDeadline])
+}
+
+/// The Bid Checklist. A mandatory requirement left incomplete is the ordinary
+/// way a technically strong bid gets disqualified, so completeness is data.
+model BidRequirement {
+  id    String @id @default(uuid())
+  bidId String
+  bid   Bid    @relation(fields: [bidId], references: [id])
+
+  type        RequirementType  @default(ADMINISTRATIVE)
+  description String
+  mandatory   Boolean          @default(true)
+  ownerId     String?
+  owner       User?            @relation("RequirementOwner", fields: [ownerId], references: [id])
+  dueDate     DateTime?
+  status      CompletionStatus @default(NOT_STARTED)
+  documentId  String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([bidId])
+  @@index([status])
+}
+
+/// A dated Bid/No-Bid assessment. Kept as its own record rather than columns on
+/// Opportunity so a re-assessment after new information does not erase the
+/// judgement that was made at the time — the trail is the point.
+model BidAssessment {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  /// Factor code -> rating 0..5, and the weights in force when scored. Storing
+  /// the weights makes a historical score reproducible after they change.
+  ratings Json
+  weights Json
+  score   Decimal @db.Decimal(5, 2)
+
+  /// What the bands suggested, and what a human actually decided. Keeping both
+  /// makes an override visible instead of silently overwriting the advice.
+  suggestedDecision BidDecision
+  decision          BidDecision?
+  decisionRationale String?
+  decidedById       String?
+  decidedBy         User?        @relation("BidDecider", fields: [decidedById], references: [id])
+  decidedAt         DateTime?
+
+  assessedById String
+  assessedBy   User   @relation("BidAssessor", fields: [assessedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+}
+
+/// Administrable weights. The spec allows tuning but restricts it to Admin or
+/// commercial management — the weights decide which pursuits the company walks
+/// away from, so they are governed data, not a preference.
+model BidScoringWeight {
+  factor    String   @id
+  weight    Int
+  updatedAt DateTime @updatedAt
+  updatedById String?
 }
 
 // ---------------------------------------------------------------------------

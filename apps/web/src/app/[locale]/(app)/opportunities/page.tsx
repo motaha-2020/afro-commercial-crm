@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { STAGE_ORDER, type OpportunityStage } from '@acms/shared';
 import { apiFetch } from '@/lib/api';
@@ -30,7 +31,12 @@ const BOARD_STAGES: OpportunityStage[] = [
   'AWARD_CONTRACTING',
 ];
 
-export default async function OpportunitiesPage() {
+export default async function OpportunitiesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const t = await getTranslations('opportunities');
   const stageT = await getTranslations('stage');
   const healthT = await getTranslations('health');
@@ -72,7 +78,7 @@ export default async function OpportunitiesPage() {
                 {cards.length} • {money(total)}
               </div>
               {cards.map((c) => (
-                <div className="opp-card" key={c.id}>
+                <Link className="opp-card" key={c.id} href={`/${locale}/opportunities/${c.id}`}>
                   <div className="name">{c.name}</div>
                   <div className="meta">
                     {c.code} • {c.account.legalName}
@@ -83,7 +89,7 @@ export default async function OpportunitiesPage() {
                     </span>
                   </div>
                   <div className="value">{money(c.estimatedValue, c.currency)}</div>
-                </div>
+                </Link>
               ))}
               {cards.length === 0 && (
                 <div className="count" style={{ marginTop: 12 }}>

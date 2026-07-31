@@ -155,6 +155,9 @@ async function main() {
     { eventType: 'OPPORTUNITY_STAGE_CHANGED', roleTarget: 'CEO' },
     { eventType: 'OPPORTUNITY_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'ACCOUNT_CREDIT_CHANGED', roleTarget: 'FINANCE' },
+    { eventType: 'BID_DECISION_RECORDED', roleTarget: 'CEO' },
+    { eventType: 'BID_DECISION_RECORDED', roleTarget: 'SALES_DIRECTOR' },
+    { eventType: 'BID_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
   ];
 
   for (const r of ruleSeeds) {
@@ -162,6 +165,29 @@ async function main() {
       where: { eventType: r.eventType, roleTarget: r.roleTarget, deletedAt: null },
     });
     if (!exists) await prisma.notificationRule.create({ data: r });
+  }
+
+  // Bid/No-Bid scoring weights — the spec's indicative split (وزن استرشادي).
+  // Seeded rather than left implicit so the numbers in force are visible and
+  // auditable from day one; commercial management can retune them, but only
+  // to another set totalling 100.
+  const weightSeeds = [
+    ['RELATIONSHIP_STRENGTH', 15],
+    ['TECHNICAL_FIT', 15],
+    ['DELIVERY_CAPACITY', 15],
+    ['EXPECTED_PROFITABILITY', 15],
+    ['PAYMENT_TERMS', 10],
+    ['COMPETITION', 10],
+    ['SCOPE_CLARITY', 10],
+    ['STRATEGIC_VALUE', 10],
+  ];
+
+  for (const [factor, weight] of weightSeeds) {
+    await prisma.bidScoringWeight.upsert({
+      where: { factor },
+      update: {},
+      create: { factor, weight },
+    });
   }
 
   console.log('Seed complete.');

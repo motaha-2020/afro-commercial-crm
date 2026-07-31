@@ -13,6 +13,8 @@ import { GovernanceModule } from './governance/governance.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { ScopeModule } from './scope/scope.module';
+import { BidsModule } from './bids/bids.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
@@ -28,6 +30,8 @@ import { MasterDataModule } from './master-data/master-data.module';
     HealthModule,
     AccountsModule,
     OpportunitiesModule,
+    ScopeModule,
+    BidsModule,
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,
