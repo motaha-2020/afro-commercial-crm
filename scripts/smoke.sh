@@ -10,6 +10,11 @@
 # what the API refuses to show (soft-deleted rows).
 #
 # Exits non-zero if any check fails.
+#
+# It writes: each run creates a probe account, opportunity and document, then
+# soft-deletes them — so the rows and their MinIO objects remain by design (the
+# audit trail is append-only and nothing is ever hard-deleted). Harmless on the
+# demo deployment; on a live one, expect the residue.
 
 API=${API:-http://100.122.6.64:4000/api}
 WEB=${WEB:-http://100.122.6.64:3100}
