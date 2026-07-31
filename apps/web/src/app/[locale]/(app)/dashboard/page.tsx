@@ -19,12 +19,9 @@ interface OppListItem {
   account: { legalName: string };
 }
 
-export default async function DashboardPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
+export default async function DashboardPage() {
+  // Locale comes from the next-intl request context, not the route params —
+  // every string on this page is resolved through getTranslations.
   const t = await getTranslations('dashboard');
   const stageT = await getTranslations('stage');
   const healthT = await getTranslations('health');

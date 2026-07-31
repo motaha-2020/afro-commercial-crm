@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspace @acms/shared && npm run build --workspace @acms/api && npm run build --workspace @acms/web",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -25,7 +25,11 @@
     "seed": "node prisma/seed.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "prisma": "^6.2.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.65.0"
   }
 }

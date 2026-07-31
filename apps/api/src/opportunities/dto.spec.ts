@@ -13,7 +13,10 @@ import { CreateOpportunityDto, UpdateOpportunityDto } from './dto';
  * list, so adding a requirement in @acms/shared fails here until the DTO can
  * carry it.
  */
-function validatedProperties(target: Function): Set<string> {
+/** A DTO class, as class-validator's metadata storage wants it. */
+type DtoClass = new (...args: never[]) => object;
+
+function validatedProperties(target: DtoClass): Set<string> {
   return new Set(
     getMetadataStorage()
       .getTargetValidationMetadatas(target, '', false, false)

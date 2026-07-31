@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
-import { money, shortDate } from '@/lib/format';
+import { money } from '@/lib/format';
 
 interface Account360 {
   id: string;

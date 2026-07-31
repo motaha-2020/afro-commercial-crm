@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
-import { money } from '@/lib/format';
 import { BidScoreForm } from '@/components/BidScoreForm';
 
 export const dynamic = 'force-dynamic';
