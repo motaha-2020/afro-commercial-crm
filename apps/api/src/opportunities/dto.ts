@@ -74,6 +74,23 @@ export class UpdateOpportunityDto {
   @IsString()
   primaryContactId?: string;
 
+  // Progressive Data Capture requires these to leave LEAD_INTAKE and
+  // OPPORTUNITY_QUALIFICATION, and all three are optional at creation — without
+  // an update path an opportunity registered in a hurry could never advance.
+  @IsOptional()
+  @IsEnum(LeadSource)
+  source?: LeadSource;
+
+  @IsOptional()
+  @IsEnum(Industry)
+  industry?: Industry;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(3)
+  currency?: string;
+
   @IsOptional()
   @IsEnum(ForecastCategory)
   forecastCategory?: ForecastCategory;
