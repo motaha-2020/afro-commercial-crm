@@ -250,14 +250,98 @@ check "and weights that do not total 100 are refused" \
 check "scope of another team stays invisible here too" \
   "$(code $API/opportunities/$OPP/scope -H "Authorization: Bearer $AM")" "404"
 
-echo "=== 14. Soft delete only ==="
+echo "=== 14. Release 4: costing, pricing and the locking rule ==="
+EST=$(login estimation@afro.example); FIN=$(login finance@afro.example)
+SCN=$(curl -s -X POST $API/opportunities/$OPP/costing -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' -d '{"name":"Self execution","type":"SELF_EXECUTION","currency":"EGP"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+VER=$(curl -s -X POST $API/costing/scenarios/$SCN/versions -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' -d '{}' | JQ "print(json.load(sys.stdin)['id'])")
+CPKG=$(curl -s -X POST $API/costing/versions/$VER/packages -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' -d '{"name":"Civil works","type":"CIVIL_WORKS"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "an empty version cannot be submitted for approval" \
+  "$(code -X POST $API/costing/versions/$VER/submit -H "Authorization: Bearer $EST")" "400"
+
+# Cost 100 on the line; a 20% target margin must price it at 125 — the spec's
+# own worked example, and the thing markup would get wrong (it would say 120).
+ITEM=$(curl -s -X POST $API/costing/packages/$CPKG/items -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' -d '{"description":"Trenching","quantity":1,"unit":"km"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/costing/items/$ITEM/breakdown -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' \
+  -d '{"quantity":1,"unitCost":100,"source":"SUBCONTRACTOR_QUOTE","description":"Civil crew"}'
+curl -s -o /dev/null -X PATCH $API/costing/items/$ITEM -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' -d '{"targetMarginPercent":20}'
+check "a 20% target margin prices cost 100 at 125, not 120" \
+  "$(curl -s $API/costing/versions/$VER -H "Authorization: Bearer $EST" | JQ "
+d=json.load(sys.stdin); print(str(float(d['totals']['totalCost']))+'/'+str(float(d['totals']['totalPrice'])))")" "100.0/125.0"
+check "and reports margin and markup side by side" \
+  "$(curl -s $API/costing/versions/$VER -H "Authorization: Bearer $EST" | JQ "
+t=json.load(sys.stdin)['totals']; print(str(t['marginPercent'])+'/'+str(t['markupPercent']))")" "20/25"
+check "waste and productivity reach the line total" \
+  "$(curl -s -X POST $API/costing/items/$ITEM/breakdown -H "Authorization: Bearer $EST" \
+     -H 'Content-Type: application/json' \
+     -d '{"quantity":600,"unitCost":800,"productivityRate":150,"source":"MANUAL_ESTIMATE"}' \
+     | JQ "print(float(json.load(sys.stdin)['totalCost']))")" "3200.0"
+check "confidence is weighted by money, not by line count" \
+  "$(curl -s $API/costing/versions/$VER -H "Authorization: Bearer $EST" | JQ "
+c=json.load(sys.stdin)['confidence']; print(c['estimatedShare']>90)")" "True"
+
+curl -s -o /dev/null -X POST $API/costing/versions/$VER/submit -H "Authorization: Bearer $EST"
+check "the estimator who built it cannot approve it (SoD rule 1)" \
+  "$(curl -s -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $EST" \
+     | JQ "print(json.load(sys.stdin).get('sodRule'))")" "SOD_01"
+check "nor can an account manager, who has no costing authority" \
+  "$(code -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $AM")" "403"
+check "finance approves it" \
+  "$(curl -s -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $FIN" \
+     | JQ "print(json.load(sys.stdin)['status'])")" "APPROVED"
+check "and it is locked" \
+  "$(psql_ "select (\"lockedAt\" is not null) from \"CostingVersion\" where id='$VER';")" "t"
+check "an approved version refuses every edit" \
+  "$(code -X POST $API/costing/versions/$VER/packages -H "Authorization: Bearer $EST" \
+     -H 'Content-Type: application/json' -d '{"name":"Sneaky extra"}')" "409"
+check "even a breakdown line deep inside it" \
+  "$(code -X POST $API/costing/items/$ITEM/breakdown -H "Authorization: Bearer $EST" \
+     -H 'Content-Type: application/json' -d '{"quantity":1,"unitCost":1}')" "409"
+
+V2=$(curl -s -X POST $API/costing/scenarios/$SCN/versions -H "Authorization: Bearer $EST" \
+  -H 'Content-Type: application/json' \
+  -d '{"revisionReason":"Client cut the scope","cloneFromVersionId":"'$VER'"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "the sanctioned way forward is a new version, and it carries the work over" \
+  "$(curl -s $API/costing/versions/$V2 -H "Authorization: Bearer $EST" | JQ "
+d=json.load(sys.stdin); print(str(len(d['packages']))+'/'+str(len(d['packages'][0]['items'])))")" "1/1"
+check "the clone is editable" \
+  "$(code -X POST $API/costing/versions/$V2/packages -H "Authorization: Bearer $EST" \
+     -H 'Content-Type: application/json' -d '{"name":"Second package"}')" "201"
+
+check "the cost element library is seeded" \
+  "$(curl -s $API/cost-elements -H "Authorization: Bearer $EST" | JQ "print(len(json.load(sys.stdin))>=19)")" "True"
+check "an account manager cannot rewrite standard rates" \
+  "$(code -X POST $API/resources -H "Authorization: Bearer $AM" -H 'Content-Type: application/json' \
+     -d '{"code":"RES-PM","type":"LABOR","nameAr":"x","nameEn":"x","unit":"month","standardCost":1,"effectiveFrom":"2026-06-01T00:00:00Z"}')" "403"
+curl -s -o /dev/null -X POST $API/resources -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' \
+  -d '{"code":"RES-PM","type":"LABOR","nameAr":"مدير مشروع","nameEn":"Project manager","unit":"month","standardCost":41000,"currency":"EGP","effectiveFrom":"2026-07-01T00:00:00Z"}'
+check "a new rate supersedes the old one without erasing it" \
+  "$(curl -s $API/resources/RES-PM/history -H "Authorization: Bearer $EST" | JQ "print(len(json.load(sys.stdin)))")" "2"
+check "and today's lookup returns the new price" \
+  "$(curl -s "$API/resources?code=RES-PM" -H "Authorization: Bearer $EST" | JQ "print(float(json.load(sys.stdin)[0]['standardCost']))")" "41000.0"
+check "while the old price is still answerable as of its own date" \
+  "$(curl -s "$API/resources?code=RES-PM&asOf=2026-03-01" -H "Authorization: Bearer $EST" | JQ "print(float(json.load(sys.stdin)[0]['standardCost']))")" "38000.0"
+check "all eight SoD rules are now published with rule 1 enforced" \
+  "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
+r=[x for x in json.load(sys.stdin)['rules'] if x['code']=='SOD_01'][0]; print(r['enforced'])")" "True"
+
+echo "=== 15. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
 check "but the row survives in the database" \
   "$(psql_ "select (\"deletedAt\" is not null) from \"Opportunity\" where id='$OPP';")" "t"
 
-echo "=== 15. Web UI in three locales ==="
+echo "=== 16. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
