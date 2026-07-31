@@ -294,8 +294,12 @@ curl -s -o /dev/null -X POST $API/costing/versions/$VER/submit -H "Authorization
 check "whoever built the costing cannot approve it (SoD rule 1)" \
   "$(curl -s -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $CEO" \
      | JQ "print(json.load(sys.stdin).get('sodRule'))")" "SOD_01"
-check "nor can an account manager, who has no costing authority" \
-  "$(code -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $AM")" "403"
+# The spec is explicit that a system administrator is technical, not a
+# commercial decision maker — and GROUP scope does not soften that. The account
+# manager is the wrong test here: they cannot see this opportunity at all, so
+# scoping answers 404 long before authority is ever consulted.
+check "nor can a system administrator, who is technical not commercial" \
+  "$(code -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $ADMIN")" "403"
 check "finance approves it" \
   "$(curl -s -X POST $API/costing/versions/$VER/approve -H "Authorization: Bearer $FIN" \
      | JQ "print(json.load(sys.stdin)['status'])")" "APPROVED"
