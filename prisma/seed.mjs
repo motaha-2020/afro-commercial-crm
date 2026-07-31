@@ -1,22 +1,23 @@
 /**
- * Seeds a minimal but coherent starting point: an org tree, a handful of users
- * across roles, a few real-looking Afro accounts, and opportunities spread
- * across the pipeline. Idempotent — safe to run repeatedly.
+ * Seeds a minimal but coherent starting point: an org tree, users across roles,
+ * a few real-looking Afro accounts, and opportunities spread across the
+ * pipeline. Idempotent — every write is an upsert, so it is safe to re-run.
  *
- * Passwords are read from SEED_PASSWORD (falls back to a clearly-temporary
- * default that must be changed). This is sample data, not production identities.
+ * Plain ESM JavaScript on purpose: it runs with `node prisma/seed.mjs` and no
+ * TypeScript toolchain, so it works identically in the container and locally.
+ *
+ * Passwords come from SEED_PASSWORD (falls back to a clearly-temporary value
+ * that must be changed). This is sample data, not production identities.
  */
-import { PrismaClient, type Role } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { PrismaClient } from '@prisma/client';
+import argon2 from 'argon2';
 
 const prisma = new PrismaClient();
-
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'ChangeMe#2026';
 
 async function main() {
   const passwordHash = await argon2.hash(SEED_PASSWORD);
 
-  // --- Organization tree: Group > Egypt entity > Telecom BU ---
   const group = await prisma.organizationUnit.upsert({
     where: { code: 'AFRO-GROUP' },
     update: {},
@@ -58,15 +59,7 @@ async function main() {
     },
   });
 
-  // --- Users ---
-  const users: {
-    email: string;
-    ar: string;
-    en: string;
-    role: Role;
-    scope: 'OWN' | 'GROUP' | 'BUSINESS_UNIT';
-    orgUnitId: string;
-  }[] = [
+  const users = [
     { email: 'ceo@afro.example', ar: 'الرئيس التنفيذي', en: 'Chief Executive', role: 'CEO', scope: 'GROUP', orgUnitId: group.id },
     { email: 'sales.director@afro.example', ar: 'مدير المبيعات', en: 'Sales Director', role: 'SALES_DIRECTOR', scope: 'BUSINESS_UNIT', orgUnitId: telecomBu.id },
     { email: 'am@afro.example', ar: 'مدير حساب', en: 'Account Manager', role: 'ACCOUNT_MANAGER', scope: 'OWN', orgUnitId: telecomBu.id },
@@ -75,7 +68,7 @@ async function main() {
     { email: 'admin@afro.example', ar: 'مدير النظام', en: 'System Admin', role: 'SYSTEM_ADMIN', scope: 'GROUP', orgUnitId: group.id },
   ];
 
-  const created: Record<string, string> = {};
+  const created = {};
   for (const u of users) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
@@ -94,15 +87,14 @@ async function main() {
 
   const amId = created['ACCOUNT_MANAGER'];
 
-  // --- Accounts (drawn from the prototype's sample set) ---
   const accountSeeds = [
-    { code: 'ACC-2026-000001', legalName: 'Sudanese Telecom (STE)', type: 'OPERATOR' as const, country: 'EG', industry: 'FTTH' as const },
-    { code: 'ACC-2026-000002', legalName: 'Madagascar Fiber Co.', type: 'OPERATOR' as const, country: 'MG', industry: 'FTTH' as const },
-    { code: 'ACC-2026-000003', legalName: 'East Africa Mobile', type: 'OPERATOR' as const, country: 'KE', industry: 'WIRELESS' as const },
-    { code: 'ACC-2026-000004', legalName: 'Comoros Digital', type: 'GOVERNMENT' as const, country: 'KM', industry: 'FIXED' as const },
+    { code: 'ACC-2026-000001', legalName: 'Sudanese Telecom (STE)', type: 'OPERATOR', country: 'EG', industry: 'FTTH' },
+    { code: 'ACC-2026-000002', legalName: 'Madagascar Fiber Co.', type: 'OPERATOR', country: 'MG', industry: 'FTTH' },
+    { code: 'ACC-2026-000003', legalName: 'East Africa Mobile', type: 'OPERATOR', country: 'KE', industry: 'WIRELESS' },
+    { code: 'ACC-2026-000004', legalName: 'Comoros Digital', type: 'GOVERNMENT', country: 'KM', industry: 'FIXED' },
   ];
 
-  const accountIds: string[] = [];
+  const accountIds = [];
   for (const a of accountSeeds) {
     const account = await prisma.account.upsert({
       where: { code: a.code },
@@ -117,12 +109,11 @@ async function main() {
     accountIds.push(account.id);
   }
 
-  // --- Opportunities across the pipeline ---
   const oppSeeds = [
-    { code: 'OPP-2026-000001', name: 'FTTH Rollout — 120 Cabinets', stage: 'COSTING_SOURCING' as const, industry: 'FTTH' as const, country: 'EG', value: 4200000, accountIdx: 0 },
-    { code: 'OPP-2026-000002', name: 'Wireless Backhaul Expansion', stage: 'SCOPE_DISCOVERY' as const, industry: 'WIRELESS' as const, country: 'KE', value: 1800000, accountIdx: 2 },
-    { code: 'OPP-2026-000003', name: 'National Fiber Backbone', stage: 'PROPOSAL_SUBMISSION' as const, industry: 'FIXED' as const, country: 'MG', value: 9500000, accountIdx: 1 },
-    { code: 'OPP-2026-000004', name: 'Government Network Modernization', stage: 'LEAD_QUALIFICATION' as const, industry: 'FIXED' as const, country: 'KM', value: 2600000, accountIdx: 3 },
+    { code: 'OPP-2026-000001', name: 'FTTH Rollout — 120 Cabinets', stage: 'COSTING_SOURCING', industry: 'FTTH', country: 'EG', value: 4200000, accountIdx: 0 },
+    { code: 'OPP-2026-000002', name: 'Wireless Backhaul Expansion', stage: 'SCOPE_DISCOVERY', industry: 'WIRELESS', country: 'KE', value: 1800000, accountIdx: 2 },
+    { code: 'OPP-2026-000003', name: 'National Fiber Backbone', stage: 'PROPOSAL_SUBMISSION', industry: 'FIXED', country: 'MG', value: 9500000, accountIdx: 1 },
+    { code: 'OPP-2026-000004', name: 'Government Network Modernization', stage: 'LEAD_QUALIFICATION', industry: 'FIXED', country: 'KM', value: 2600000, accountIdx: 3 },
   ];
 
   for (const o of oppSeeds) {
@@ -157,8 +148,8 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log(`Users created with password: ${SEED_PASSWORD}`);
-  console.log('Sign in as: ceo@afro.example / am@afro.example / admin@afro.example');
+  console.log(`Users seeded with password: ${SEED_PASSWORD}`);
+  console.log('Sign in as ceo@afro.example / am@afro.example / admin@afro.example');
 }
 
 main()

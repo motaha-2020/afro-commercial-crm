@@ -8,8 +8,7 @@
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node prisma/seed.ts"
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@acms/shared": "*",

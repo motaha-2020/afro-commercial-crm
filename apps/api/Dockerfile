@@ -26,4 +26,6 @@ COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/prisma ./prisma
 EXPOSE 4000
 # Migrations run at start so a fresh volume converges without a manual step.
+# Seeding is a separate one-off (npm run db:seed) — deliberately not on the
+# hot startup path, so a seeding hiccup can never keep the API from booting.
 CMD ["sh", "-c", "npx prisma migrate deploy && node apps/api/dist/main.js"]
