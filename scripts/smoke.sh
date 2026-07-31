@@ -172,7 +172,7 @@ check "Arabic shell is RTL" "$(curl -s -b /tmp/acms_smoke.jar $WEB/ar/dashboard 
 check "notification bell present" "$(curl -s -b /tmp/acms_smoke.jar $WEB/en/dashboard | grep -c 'bell-wrap')" "1"
 check "signed-out visitor is redirected" "$(code $WEB/en/dashboard)" "307"
 check "and lands on the login page" \
-  "$(curl -sL $WEB/en/dashboard | grep -c 'name="password"')" "1"
+  "$(curl -sL $WEB/en/dashboard | grep -c 'type="password"')" "1"
 rm -f /tmp/acms_smoke.jar
 
 echo
