@@ -54,9 +54,42 @@ cd ~/acms && bash docker/deploy.sh
 - **الأسرار:** كل الأسرار في `~/acms/.env` (chmod 600، خارج Git). لا تضعها في المستودع.
 - **النسخ الاحتياطي:** بيانات PostgreSQL في volume باسم `acms_postgres_data`، وMinIO في `acms_minio_data`.
 
+## الـMigrations — تحذير مهم
+
+عند توليد migration بـ`prisma migrate diff ... --script > migration.sql`، تكتب Prisma
+تحذيراتها على **stdout** مع الـSQL، فيبدأ الملف بسطر `warn ...` وPostgres يرفضه كله
+(`42601`). هذا حدث فعلًا: بقيت جداول Document/Notification غير موجودة على السيرفر،
+وPrisma رفضت كل migration تالٍ لوجود migration فاشل مسجَّل.
+
+قبل أي commit لملف migration، تأكد أن أول سطر SQL أو تعليق `--`.
+
+للتعافي من migration فاشل (بعد إصلاح الملف وإيقاف الـAPI حتى لا يعيد المحاولة):
+
+```bash
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml --env-file .env stop api
+docker compose ... build api
+docker compose ... run --rm --no-deps --entrypoint sh api -c \
+  'npx prisma migrate resolve --rolled-back <migration_name>'
+docker compose ... up -d --force-recreate api
+```
+
+اختبار آمن لأي migration قبل تطبيقه على قاعدة حقيقية:
+
+```bash
+docker exec acms-postgres-1 psql -U acms -d postgres -c 'CREATE DATABASE acms_migtest;'
+for f in prisma/migrations/2026*/migration.sql; do
+  docker exec -i acms-postgres-1 psql -U acms -d acms_migtest -v ON_ERROR_STOP=1 -q < $f
+done
+docker exec acms-postgres-1 psql -U acms -d postgres -c 'DROP DATABASE acms_migtest;'
+```
+
 ## التحقق السريع
 
 ```bash
-curl http://100.122.6.64:4000/api/health        # {"status":"ok","database":"up"}
+curl http://100.122.6.64:4000/api/health/live   # {"status":"ok","uptimeSeconds":...}
+curl http://100.122.6.64:4000/api/health/ready  # {"status":"ok","database":"up","storage":"up"}
 curl http://100.122.6.64:3100/ar/login          # HTTP 200
 ```
+
+`live` لا يلمس قاعدة البيانات (عطل القاعدة يجب ألا يعيد تشغيل الحاويات السليمة)،
+و`ready` يرد 503 إذا سقطت القاعدة فتُسحب النسخة من الخدمة.
