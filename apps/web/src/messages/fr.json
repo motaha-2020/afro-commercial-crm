@@ -128,7 +128,17 @@
     "deadline": "Date limite de remise",
     "mandatoryChecklist": "Éléments obligatoires",
     "noBids": "Aucun appel d’offres enregistré",
-    "backToBoard": "Retour au tableau"
+    "backToBoard": "Retour au tableau",
+    "costing": "Coûts et prix",
+    "noCosting": "Aucun scénario de coût",
+    "selectedScenario": "Sélectionné",
+    "version": "Version",
+    "versionStatus": "Statut",
+    "cost": "Coût",
+    "price": "Prix",
+    "margin": "Marge (sur le prix)",
+    "locked": "Approuvée et verrouillée",
+    "noVersions": "Aucune version"
   },
   "bid": {
     "title": "Évaluation Bid / No-Bid",

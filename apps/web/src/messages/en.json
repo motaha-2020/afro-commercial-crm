@@ -128,7 +128,17 @@
     "deadline": "Submission deadline",
     "mandatoryChecklist": "Mandatory items",
     "noBids": "No tenders registered",
-    "backToBoard": "Back to the board"
+    "backToBoard": "Back to the board",
+    "costing": "Costing & Pricing",
+    "noCosting": "No costing scenarios yet",
+    "selectedScenario": "Selected",
+    "version": "Version",
+    "versionStatus": "Status",
+    "cost": "Cost",
+    "price": "Price",
+    "margin": "Margin (on price)",
+    "locked": "Approved and locked",
+    "noVersions": "No versions"
   },
   "bid": {
     "title": "Bid / No-Bid assessment",

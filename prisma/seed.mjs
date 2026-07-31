@@ -158,6 +158,9 @@ async function main() {
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'CEO' },
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'BID_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
+    { eventType: 'COSTING_SUBMITTED', roleTarget: 'FINANCE' },
+    { eventType: 'COSTING_APPROVED', roleTarget: 'SALES_DIRECTOR' },
+    { eventType: 'COSTING_REJECTED', roleTarget: 'ESTIMATION' },
   ];
 
   for (const r of ruleSeeds) {
@@ -188,6 +191,69 @@ async function main() {
       update: {},
       create: { factor, weight },
     });
+  }
+
+  // Cost Element Library. The spec replaces free-text cost lines with a
+  // controlled list precisely so two bids can be compared; seeding the FTTH
+  // essentials means the first costing has something to point at.
+  const elementSeeds = [
+    ['MAT-CABLE', 'DIRECT_MATERIAL', 'كابل ألياف', 'Fiber cable'],
+    ['MAT-CABINET', 'DIRECT_MATERIAL', 'كابينة', 'Cabinet'],
+    ['MAT-DUCT', 'DIRECT_MATERIAL', 'مواسير', 'Duct'],
+    ['MAT-ACC', 'DIRECT_MATERIAL', 'مستلزمات', 'Accessories'],
+    ['LAB-SPLICER', 'DIRECT_LABOR', 'فني لحام', 'Splicer'],
+    ['LAB-TECH', 'DIRECT_LABOR', 'فني', 'Technician'],
+    ['LAB-ENG', 'DIRECT_LABOR', 'مهندس', 'Engineer'],
+    ['EQP-EXCAVATOR', 'EQUIPMENT', 'حفار', 'Excavator'],
+    ['EQP-OTDR', 'EQUIPMENT', 'جهاز OTDR', 'OTDR'],
+    ['EQP-SPLICER', 'EQUIPMENT', 'ماكينة لحام', 'Fusion splicer'],
+    ['VEH-PICKUP', 'VEHICLE', 'سيارة نقل', 'Pickup'],
+    ['SUB-CIVIL', 'SUBCONTRACTOR', 'أعمال مدنية', 'Civil works'],
+    ['SUB-INSTALL', 'SUBCONTRACTOR', 'تركيبات', 'Installation'],
+    ['IND-PM', 'INDIRECT_COST', 'إدارة المشروع', 'Project management'],
+    ['IND-HSE', 'INDIRECT_COST', 'السلامة والصحة', 'HSE'],
+    ['FIN-GUARANTEE', 'FINANCIAL_COST', 'خطاب ضمان', 'Bank guarantee'],
+    ['COR-GA', 'CORPORATE', 'مصروفات عمومية', 'G&A'],
+    ['COR-CONT', 'CORPORATE', 'احتياطي', 'Contingency'],
+    ['PRF-MARGIN', 'PROFIT', 'هامش الربح', 'Profit margin'],
+  ];
+
+  for (const [code, category, nameAr, nameEn] of elementSeeds) {
+    await prisma.costElement.upsert({
+      where: { code },
+      update: {},
+      create: { code, category, nameAr, nameEn },
+    });
+  }
+
+  // A few standard rates, effective-dated from the start of the year. New
+  // prices must be added as new rows — never by editing these.
+  const resourceSeeds = [
+    ['RES-SPLICE-TEAM', 'LABOR', 'فريق لحام', 'Splicing team', 'day', 4200],
+    ['RES-CIVIL-CREW', 'LABOR', 'طاقم مدني', 'Civil crew', 'meter', 95],
+    ['RES-EXCAVATOR', 'EQUIPMENT', 'حفار', 'Excavator', 'hour', 850],
+    ['RES-PICKUP', 'VEHICLE', 'سيارة نقل', 'Pickup', 'month', 9000],
+    ['RES-PM', 'LABOR', 'مدير مشروع', 'Project manager', 'month', 38000],
+  ];
+
+  for (const [code, type, nameAr, nameEn, unit, standardCost] of resourceSeeds) {
+    const exists = await prisma.resource.findFirst({ where: { code } });
+    if (!exists) {
+      await prisma.resource.create({
+        data: {
+          code,
+          type,
+          nameAr,
+          nameEn,
+          unit,
+          standardCost,
+          currency: 'EGP',
+          country: 'EG',
+          source: 'INTERNAL_RATE',
+          effectiveFrom: new Date('2026-01-01'),
+        },
+      });
+    }
   }
 
   console.log('Seed complete.');

@@ -15,6 +15,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ScopeModule } from './scope/scope.module';
 import { BidsModule } from './bids/bids.module';
+import { CostingModule } from './costing/costing.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
@@ -32,6 +33,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     OpportunitiesModule,
     ScopeModule,
     BidsModule,
+    CostingModule,
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,

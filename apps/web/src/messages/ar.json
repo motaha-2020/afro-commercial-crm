@@ -128,7 +128,17 @@
     "deadline": "موعد التسليم",
     "mandatoryChecklist": "المتطلبات الإلزامية",
     "noBids": "لا توجد مناقصات مسجلة",
-    "backToBoard": "العودة إلى اللوحة"
+    "backToBoard": "العودة إلى اللوحة",
+    "costing": "التكلفة والتسعير",
+    "noCosting": "لا توجد سيناريوهات تكلفة بعد",
+    "selectedScenario": "المعتمد",
+    "version": "النسخة",
+    "versionStatus": "الحالة",
+    "cost": "التكلفة",
+    "price": "السعر",
+    "margin": "الهامش (على السعر)",
+    "locked": "معتمدة ومقفلة",
+    "noVersions": "لا توجد نسخ"
   },
   "bid": {
     "title": "تقييم Bid / No-Bid",

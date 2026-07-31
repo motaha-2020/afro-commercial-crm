@@ -30,9 +30,15 @@ describe('segregation of duties', () => {
   });
 
   it('does not claim to enforce rules whose module has not shipped', () => {
-    // Costing arrives in Release 4; pretending SOD_01 is live before then would
-    // be a false assurance in an audit.
-    expect(sodRulesFor('Costing').map((r) => r.code)).not.toContain('SOD_01');
-    expect(SOD_RULE_BY_CODE.SOD_01.awaitingRelease).toBe(4);
+    // Purchase orders arrive in Release 5; pretending SOD_03 is live before
+    // then would be a false assurance in an audit.
+    expect(sodRulesFor('PurchaseOrder').map((r) => r.code)).not.toContain('SOD_03');
+    expect(SOD_RULE_BY_CODE.SOD_03.awaitingRelease).toBe(5);
+  });
+
+  it('enforces the costing rule now that Release 4 supplies both halves', () => {
+    // Whoever builds a costing must not be the one who finally approves it.
+    expect(SOD_RULE_BY_CODE.SOD_01.awaitingRelease).toBeNull();
+    expect(sodRulesFor('CostingVersion').map((r) => r.code)).toContain('SOD_01');
   });
 });

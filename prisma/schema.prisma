@@ -239,6 +239,12 @@ model User {
   bidAssessments       BidAssessment[]  @relation("BidAssessor")
   bidDecisions         BidAssessment[]  @relation("BidDecider")
 
+  costingScenarios   CostingScenario[] @relation("ScenarioAuthor")
+  costingVersions    CostingVersion[]  @relation("VersionAuthor")
+  submittedVersions  CostingVersion[]  @relation("VersionSubmitter")
+  approvedVersions   CostingVersion[]  @relation("VersionApprover")
+  ownedCostPackages  CostPackage[]     @relation("PackageOwner")
+
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -498,6 +504,7 @@ model Opportunity {
   clarifications Clarification[]
   bids           Bid[]
   assessments    BidAssessment[]
+  costingScenarios CostingScenario[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1027,6 +1034,299 @@ model BidScoringWeight {
   weight    Int
   updatedAt DateTime @updatedAt
   updatedById String?
+}
+
+// ---------------------------------------------------------------------------
+// Release 4 — Costing and Pricing
+//
+// The hierarchy the spec lays out:
+//   Opportunity > Costing Scenario > Costing Version > Cost Package
+//              > BOQ Item > Cost Breakdown > Cost Element
+//
+// The governing rule, in the spec's words: "لا يتم تعديل النسخة المعتمدة، بل
+// إنشاء نسخة جديدة" — an approved version is never edited, only superseded.
+// ---------------------------------------------------------------------------
+
+enum CostingScenarioType {
+  SELF_EXECUTION
+  FULL_SUBCONTRACTING
+  MIXED_MODEL
+  IMPORTED_MATERIALS
+  LOCAL_MATERIALS
+}
+
+enum CostingVersionStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+enum CostPackageType {
+  MATERIALS
+  CIVIL_WORKS
+  INSTALLATION
+  PROJECT_MANAGEMENT
+  LOGISTICS
+  WARRANTY
+  OTHER
+}
+
+enum CostElementCategory {
+  DIRECT_MATERIAL
+  DIRECT_LABOR
+  EQUIPMENT
+  VEHICLE
+  SUBCONTRACTOR
+  INDIRECT_COST
+  FINANCIAL_COST
+  CORPORATE
+  PROFIT
+}
+
+enum ResourceType {
+  MATERIAL
+  LABOR
+  EQUIPMENT
+  VEHICLE
+  SUBCONTRACT
+  SERVICE
+}
+
+/// Where a number came from. Kept because it says how much of a bid is
+/// evidenced: a quote is somebody else's commitment, an estimate is an opinion.
+enum CostSource {
+  VENDOR_QUOTE
+  SUBCONTRACTOR_QUOTE
+  ERP_PURCHASE_PRICE
+  HISTORICAL_RATE
+  INTERNAL_RATE
+  MARKET_BENCHMARK
+  MANUAL_ESTIMATE
+}
+
+/// An opportunity may be priced several ways at once — self-execution against
+/// full subcontracting — and exactly one is carried forward.
+model CostingScenario {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  name         String
+  type         CostingScenarioType @default(MIXED_MODEL)
+  currency     String              @default("USD")
+  exchangeRateDate DateTime?
+  /// Exactly one scenario per opportunity may be selected; enforced in service.
+  isSelected   Boolean             @default(false)
+  notes        String?
+
+  createdById String
+  createdBy   User   @relation("ScenarioAuthor", fields: [createdById], references: [id])
+
+  versions CostingVersion[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([isSelected])
+}
+
+/// Immutable once approved. `lockedAt` is the gate every write checks.
+model CostingVersion {
+  id         String          @id @default(uuid())
+  scenarioId String
+  scenario   CostingScenario @relation(fields: [scenarioId], references: [id])
+
+  versionNumber  Int
+  status         CostingVersionStatus @default(DRAFT)
+  revisionReason String?
+
+  /// Set when approved. Any write to a locked version is refused, and the way
+  /// forward is a new version cloned from it.
+  lockedAt   DateTime?
+  previousVersionId String?
+  previousVersion   CostingVersion?  @relation("VersionChain", fields: [previousVersionId], references: [id])
+  nextVersions      CostingVersion[] @relation("VersionChain")
+
+  submittedAt  DateTime?
+  submittedById String?
+  submittedBy   User?    @relation("VersionSubmitter", fields: [submittedById], references: [id])
+  approvedAt   DateTime?
+  approvedById String?
+  approvedBy   User?    @relation("VersionApprover", fields: [approvedById], references: [id])
+  rejectionReason String?
+
+  /// Totals cached at approval so an approved bid keeps the numbers it was
+  /// approved on even if a library rate changes afterwards.
+  totalCost  Decimal? @db.Decimal(18, 2)
+  totalPrice Decimal? @db.Decimal(18, 2)
+  marginPercent Decimal? @db.Decimal(6, 2)
+
+  createdById String
+  createdBy   User   @relation("VersionAuthor", fields: [createdById], references: [id])
+
+  packages CostPackage[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([scenarioId, versionNumber])
+  @@index([scenarioId])
+  @@index([status])
+}
+
+model CostPackage {
+  id        String         @id @default(uuid())
+  versionId String
+  version   CostingVersion @relation(fields: [versionId], references: [id])
+
+  code      String?
+  name      String
+  type      CostPackageType @default(OTHER)
+  ownerId   String?
+  owner     User?           @relation("PackageOwner", fields: [ownerId], references: [id])
+  sortOrder Int             @default(0)
+
+  items BoqItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([versionId])
+}
+
+/// Self-referencing: the spec breaks "Cabinet Installation" into concrete base,
+/// transport, crane, team, earthing, testing and supervision.
+model BoqItem {
+  id        String      @id @default(uuid())
+  packageId String
+  package   CostPackage @relation(fields: [packageId], references: [id])
+
+  parentId String?
+  parent   BoqItem?  @relation("BoqTree", fields: [parentId], references: [id])
+  children BoqItem[] @relation("BoqTree")
+
+  itemNumber           String?
+  description          String
+  technicalDescription String?
+  quantity             Decimal @db.Decimal(18, 3)
+  unit                 String?
+
+  /// What the customer's own BOQ says, when they issued one — kept apart from
+  /// our selling numbers so the two can be compared rather than conflated.
+  customerRate  Decimal? @db.Decimal(18, 4)
+  customerTotal Decimal? @db.Decimal(18, 2)
+
+  /// Rolled up from the breakdown lines; not typed in by hand.
+  internalCost Decimal? @db.Decimal(18, 2)
+  sellingRate  Decimal? @db.Decimal(18, 4)
+  sellingTotal Decimal? @db.Decimal(18, 2)
+  grossProfit  Decimal? @db.Decimal(18, 2)
+  /// Over selling price. Never markup — see @acms/shared.
+  grossMargin  Decimal? @db.Decimal(6, 2)
+
+  sortOrder Int @default(0)
+
+  breakdown CostBreakdown[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([packageId])
+  @@index([parentId])
+}
+
+model CostBreakdown {
+  id        String  @id @default(uuid())
+  boqItemId String
+  boqItem   BoqItem @relation(fields: [boqItemId], references: [id])
+
+  elementId String?
+  element   CostElement? @relation(fields: [elementId], references: [id])
+  resourceId String?
+  resource   Resource?   @relation(fields: [resourceId], references: [id])
+
+  description      String?
+  quantity         Decimal  @db.Decimal(18, 3)
+  unit             String?
+  unitCost         Decimal  @db.Decimal(18, 4)
+  wastePercent     Decimal? @db.Decimal(6, 2)
+  productivityRate Decimal? @db.Decimal(18, 3)
+  durationDays     Decimal? @db.Decimal(10, 2)
+  exchangeRate     Decimal? @db.Decimal(12, 6)
+  taxAmount        Decimal? @db.Decimal(18, 2)
+  allocationPercent Decimal? @db.Decimal(6, 2)
+  /// Computed by the service from the fields above, never sent by a client.
+  totalCost        Decimal  @db.Decimal(18, 2)
+
+  source          CostSource @default(MANUAL_ESTIMATE)
+  sourceReference String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([boqItemId])
+  @@index([source])
+}
+
+/// The Cost Element Library. The spec's point is that free-text cost lines make
+/// two bids incomparable; a controlled list makes them add up across projects.
+model CostElement {
+  id       String              @id @default(uuid())
+  code     String              @unique
+  category CostElementCategory
+  nameAr   String
+  nameEn   String
+  nameFr   String?
+  isActive Boolean             @default(true)
+
+  breakdown CostBreakdown[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([category])
+}
+
+/// Standard rates, effective-dated. "يجب الاحتفاظ بتاريخ الأسعار، وليس استبدال
+/// السعر القديم" — a superseded rate stays queryable, so an old bid can still be
+/// explained with the numbers that were true when it was priced.
+model Resource {
+  id       String       @id @default(uuid())
+  code     String
+  type     ResourceType
+  nameAr   String
+  nameEn   String
+  unit     String
+  standardCost Decimal  @db.Decimal(18, 4)
+  currency String       @default("USD")
+  country  String?
+  orgUnitId String?
+  source   CostSource   @default(INTERNAL_RATE)
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+
+  breakdown CostBreakdown[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  /// Same code may exist many times over time — one row per price period.
+  @@unique([code, effectiveFrom])
+  @@index([code])
+  @@index([type])
+  @@index([effectiveFrom, effectiveTo])
 }
 
 // ---------------------------------------------------------------------------

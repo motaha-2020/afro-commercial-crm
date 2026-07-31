@@ -60,6 +60,23 @@ interface BidRow {
   checklist: { mandatoryComplete: number; mandatoryTotal: number; mandatoryOutstanding: number };
 }
 
+interface CostingScenario {
+  id: string;
+  name: string;
+  type: string;
+  currency: string;
+  isSelected: boolean;
+  versions: {
+    id: string;
+    versionNumber: number;
+    status: string;
+    lockedAt: string | null;
+    totalCost: string | null;
+    totalPrice: string | null;
+    marginPercent: string | null;
+  }[];
+}
+
 interface Opportunity {
   id: string;
   code: string;
@@ -108,7 +125,7 @@ export default async function OpportunityDetailPage({
 
   // Four independent reads. Any one failing must not blank the page — a bid
   // team still needs the scope when the assessment service is unhappy.
-  const [opportunity, scope, bids, assessment] = await Promise.all([
+  const [opportunity, scope, bids, assessment, costing] = await Promise.all([
     apiFetch<Opportunity>(`/opportunities/${id}`, { token }),
     apiFetch<ScopeOverview>(`/opportunities/${id}/scope`, { token }).catch(() => null),
     apiFetch<BidRow[]>(`/opportunities/${id}/bids`, { token }).catch(() => []),
@@ -123,6 +140,9 @@ export default async function OpportunityDetailPage({
       };
       weights: { factors: { code: string; titleAr: string; titleEn: string; weight: number }[] };
     }>(`/opportunities/${id}/bid-assessment`, { token }).catch(() => null),
+    apiFetch<CostingScenario[]>(`/opportunities/${id}/costing`, { token }).catch(
+      () => [] as CostingScenario[],
+    ),
   ]);
 
   const readiness = scope?.readiness;
@@ -313,6 +333,67 @@ export default async function OpportunityDetailPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <h3>{t('costing')}</h3>
+        {costing.length === 0 && <p className="muted">{t('noCosting')}</p>}
+
+        {costing.map((s) => (
+          <div className="scope-package" key={s.id}>
+            <div className="scope-package-head">
+              <strong>{s.name}</strong>
+              <span className="badge">{s.type}</span>
+              {s.isSelected && <span className="badge badge-ok">{t('selectedScenario')}</span>}
+            </div>
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>{t('version')}</th>
+                  <th>{t('versionStatus')}</th>
+                  <th>{t('cost')}</th>
+                  <th>{t('price')}</th>
+                  {/* Margin is over selling price. Markup is a different number
+                      and is never shown under this heading. */}
+                  <th>{t('margin')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.versions.map((v) => (
+                  <tr key={v.id}>
+                    <td>
+                      v{v.versionNumber}
+                      {v.lockedAt && <span title={t('locked')}> 🔒</span>}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          v.status === 'APPROVED'
+                            ? 'badge-ok'
+                            : v.status === 'REJECTED'
+                              ? 'badge-warn'
+                              : ''
+                        }`}
+                      >
+                        {v.status}
+                      </span>
+                    </td>
+                    <td>{v.totalCost ? Number(v.totalCost).toLocaleString() : '—'}</td>
+                    <td>{v.totalPrice ? Number(v.totalPrice).toLocaleString() : '—'}</td>
+                    <td>{v.marginPercent ? `${Number(v.marginPercent).toFixed(1)}%` : '—'}</td>
+                  </tr>
+                ))}
+                {s.versions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="muted">
+                      {t('noVersions')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
       <p style={{ marginTop: 16 }}>

@@ -46,8 +46,10 @@ export const SOD_RULES: readonly SodRule[] = [
     titleEn: 'Whoever creates a costing never gives it final approval',
     originatingAction: 'COSTING_CREATE',
     blockedAction: 'COSTING_FINAL_APPROVE',
-    entityTypes: ['Costing'],
-    awaitingRelease: 4,
+    entityTypes: ['CostingVersion'],
+    // Enforced from Release 4: CostingService.approveVersion refuses the
+    // approval when the actor created the version.
+    awaitingRelease: null,
   },
   {
     code: 'SOD_02',
