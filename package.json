@@ -1,0 +1,28 @@
+{
+  "name": "afro-commercial-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Afro Commercial Management System (ACMS) — CRM, Bid Management, Costing & Pricing, Approvals, Contracts and Project Handover for Afro Group",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspace @acms/shared && npm run build --workspace @acms/api && npm run build --workspace @acms/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:seed": "npm run seed --workspace @acms/api"
+  },
+  "devDependencies": {
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.3"
+  }
+}

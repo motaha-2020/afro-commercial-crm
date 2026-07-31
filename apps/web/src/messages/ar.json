@@ -1,0 +1,56 @@
+{
+  "app": {
+    "name": "نظام Afro التجاري",
+    "shortName": "ACMS",
+    "tagline": "من الفرصة إلى المشروع إلى الربح الفعلي"
+  },
+  "nav": {
+    "dashboard": "لوحة القيادة",
+    "accounts": "العملاء والعلاقات",
+    "opportunities": "الفرص التجارية",
+    "leads": "العملاء المحتملون",
+    "costing": "التكلفة والتسعير",
+    "suppliers": "الموردون والمقاولون",
+    "approvals": "الموافقات",
+    "contracts": "العقود والتسليم",
+    "admin": "الإعدادات والحوكمة"
+  },
+  "stage": {
+    "LEAD_INTAKE": "تسجيل الفرصة",
+    "LEAD_QUALIFICATION": "تأهيل العميل المحتمل",
+    "OPPORTUNITY_QUALIFICATION": "تأهيل الفرصة",
+    "SCOPE_DISCOVERY": "دراسة النطاق",
+    "BID_STRATEGY_SOLUTION": "استراتيجية العطاء والحل",
+    "COSTING_SOURCING": "التكلفة والتوريد",
+    "OPERATIONAL_FINANCIAL_REVIEW": "المراجعة التشغيلية والمالية",
+    "MANAGEMENT_APPROVAL": "موافقة الإدارة",
+    "PROPOSAL_SUBMISSION": "تقديم العرض",
+    "CLARIFICATIONS_NEGOTIATION": "الاستيضاحات والتفاوض",
+    "AWARD_CONTRACTING": "الترسية والتعاقد",
+    "PROJECT_HANDOVER": "تسليم المشروع",
+    "ACTUAL_PERFORMANCE_FEEDBACK": "الأداء الفعلي"
+  },
+  "status": {
+    "ACTIVE": "نشطة",
+    "ON_HOLD": "معلّقة",
+    "CANCELLED": "ملغاة",
+    "LOST": "خسارة",
+    "CLOSED": "مغلقة"
+  },
+  "forecast": {
+    "PIPELINE": "خط الأنابيب",
+    "UPSIDE": "محتملة",
+    "BEST_CASE": "أفضل الحالات",
+    "COMMIT": "ملتزم بها",
+    "CLOSED_WON": "فوز مؤكد"
+  },
+  "health": {
+    "GREEN": "سليمة",
+    "AMBER": "تحتاج متابعة",
+    "RED": "متعثرة"
+  },
+  "common": {
+    "loading": "جاري التحميل…",
+    "language": "اللغة"
+  }
+}

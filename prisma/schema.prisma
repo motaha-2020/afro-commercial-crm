@@ -1,0 +1,597 @@
+// Afro Commercial Management System — Phase A schema.
+//
+// Governance rules baked in from day one (per spec):
+//   - Soft delete only. `deletedAt` on every business record; nothing is ever
+//     physically removed.
+//   - Every state-changing operation lands in AuditLog.
+//   - Enum values are CODES. Display translation never touches the database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  OWNER_BOARD
+  CEO
+  SALES_DIRECTOR
+  ACCOUNT_MANAGER
+  PRESALES
+  ESTIMATION
+  PROCUREMENT
+  FINANCE
+  OPERATIONS
+  LEGAL
+  PROJECT_MANAGER
+  SYSTEM_ADMIN
+}
+
+enum DataScope {
+  OWN
+  TEAM
+  BUSINESS_UNIT
+  COUNTRY
+  LEGAL_ENTITY
+  GROUP
+}
+
+enum OrgUnitType {
+  GROUP
+  LEGAL_ENTITY
+  COUNTRY
+  BUSINESS_UNIT
+  DEPARTMENT
+  TEAM
+}
+
+enum OpportunityStage {
+  LEAD_INTAKE
+  LEAD_QUALIFICATION
+  OPPORTUNITY_QUALIFICATION
+  SCOPE_DISCOVERY
+  BID_STRATEGY_SOLUTION
+  COSTING_SOURCING
+  OPERATIONAL_FINANCIAL_REVIEW
+  MANAGEMENT_APPROVAL
+  PROPOSAL_SUBMISSION
+  CLARIFICATIONS_NEGOTIATION
+  AWARD_CONTRACTING
+  PROJECT_HANDOVER
+  ACTUAL_PERFORMANCE_FEEDBACK
+}
+
+enum OpportunityStatus {
+  ACTIVE
+  ON_HOLD
+  CANCELLED
+  LOST
+  CLOSED
+}
+
+enum ForecastCategory {
+  PIPELINE
+  UPSIDE
+  BEST_CASE
+  COMMIT
+  CLOSED_WON
+}
+
+enum HealthState {
+  GREEN
+  AMBER
+  RED
+}
+
+enum ExitReason {
+  NO_BID
+  LOST
+  CANCELLED
+  ON_HOLD
+  DISQUALIFIED
+}
+
+enum AccountType {
+  OPERATOR
+  CONTRACTOR
+  GOVERNMENT
+  ENTERPRISE
+  DEVELOPER
+  VENDOR
+}
+
+enum CreditStatus {
+  GOOD
+  WATCH
+  HOLD
+  BLOCKED
+}
+
+enum Industry {
+  FTTH
+  FTTS
+  WIRELESS
+  FIXED
+  SUBMARINE
+  MEP
+  ELV
+  CORE_NETWORK
+  IT
+  SUPPLY
+}
+
+enum LeadSource {
+  TENDER_PORTAL
+  DIRECT_INVITATION
+  REFERRAL
+  EXISTING_CLIENT
+  MARKETING
+  PARTNER
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  WORKING
+  QUALIFIED
+  CONVERTED
+  DISQUALIFIED
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  EMAIL
+  SITE_VISIT
+  NOTE
+  TASK
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  SOFT_DELETE
+  RESTORE
+  STAGE_CHANGE
+  STATUS_CHANGE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+}
+
+// ---------------------------------------------------------------------------
+// Organization & security
+// ---------------------------------------------------------------------------
+
+/// Self-referencing tree: Group > Legal Entity > Country > Business Unit > Team.
+/// Data scope resolution walks this tree, so depth is deliberately unconstrained.
+model OrganizationUnit {
+  id        String      @id @default(uuid())
+  code      String      @unique
+  nameAr    String
+  nameEn    String
+  nameFr    String?
+  type      OrgUnitType
+  country   String?
+  currency  String?
+  parentId  String?
+  parent    OrganizationUnit?  @relation("OrgTree", fields: [parentId], references: [id])
+  children  OrganizationUnit[] @relation("OrgTree")
+
+  users         User[]
+  accounts      Account[]
+  opportunities Opportunity[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([parentId])
+  @@index([type])
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String
+  fullNameAr   String
+  fullNameEn   String
+  jobTitle     String?
+  phone        String?
+  locale       String  @default("ar")
+  isActive     Boolean @default(true)
+
+  orgUnitId String
+  orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+
+  managerId String?
+  manager   User?  @relation("UserManager", fields: [managerId], references: [id])
+  reports   User[] @relation("UserManager")
+
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+
+  ownedAccounts      Account[]              @relation("AccountOwner")
+  ownedOpportunities Opportunity[]          @relation("OpportunityOwner")
+  ownedLeads         Lead[]                 @relation("LeadOwner")
+  teamMemberships    OpportunityTeam[]
+  activities         Activity[]
+  stageChanges       OpportunityStageHistory[]
+  auditEntries       AuditLog[]
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([orgUnitId])
+  @@index([managerId])
+}
+
+/// Role assignment carries its own scope: the same person can be an
+/// ACCOUNT_MANAGER over their own records and FINANCE over a whole country.
+model UserRole {
+  id     String    @id @default(uuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id])
+  role   Role
+  scope  DataScope @default(OWN)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, role])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Accounts & contacts
+// ---------------------------------------------------------------------------
+
+model Account {
+  id        String  @id @default(uuid())
+  code      String  @unique
+  legalName String
+  tradeName String?
+
+  parentId String?
+  parent   Account?  @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[] @relation("AccountTree")
+
+  type         AccountType
+  industry     Industry?
+  country      String
+  city         String?
+  address      String?
+  website      String?
+  taxId        String?
+  creditStatus CreditStatus @default(GOOD)
+  /// Agreed payment terms in days. Feeds approval rules (spec flags long terms).
+  paymentTermDays Int?
+
+  ownerId String
+  owner   User   @relation("AccountOwner", fields: [ownerId], references: [id])
+
+  orgUnitId String
+  orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+
+  contacts             Contact[]
+  opportunities        Opportunity[]
+  leads                Lead[]
+  activities           Activity[]
+  relationshipsFrom    AccountRelationship[] @relation("RelFrom")
+  relationshipsTo      AccountRelationship[] @relation("RelTo")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([ownerId])
+  @@index([orgUnitId])
+  @@index([country])
+  @@index([parentId])
+}
+
+model Contact {
+  id        String  @id @default(uuid())
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
+
+  fullName  String
+  jobTitle  String?
+  email     String?
+  phone     String?
+  mobile    String?
+  /// Decision-making weight, used by relationship mapping.
+  influence String?
+  isPrimary Boolean @default(false)
+  notes     String?
+
+  roles                ContactRole[]
+  primaryFor           Opportunity[] @relation("OpportunityPrimaryContact")
+  leads                Lead[]
+  activities           Activity[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([accountId])
+}
+
+/// A contact can hold several distinct roles (technical approver AND
+/// commercial signatory), so roles are rows rather than a column.
+model ContactRole {
+  id        String  @id @default(uuid())
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+  roleCode  String
+  notes     String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, roleCode])
+  @@index([contactId])
+}
+
+/// Directed account-to-account link (parent, JV partner, competitor, ...).
+model AccountRelationship {
+  id       String  @id @default(uuid())
+  fromId   String
+  from     Account @relation("RelFrom", fields: [fromId], references: [id])
+  toId     String
+  to       Account @relation("RelTo", fields: [toId], references: [id])
+  typeCode String
+  notes    String?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([fromId, toId, typeCode])
+  @@index([fromId])
+  @@index([toId])
+}
+
+// ---------------------------------------------------------------------------
+// Leads
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id          String     @id @default(uuid())
+  code        String     @unique
+  name        String
+  description String?
+  source      LeadSource
+  status      LeadStatus @default(NEW)
+  country     String
+  industry    Industry?
+
+  estimatedValue Decimal? @db.Decimal(18, 2)
+  currency       String   @default("USD")
+
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  ownerId String
+  owner   User   @relation("LeadOwner", fields: [ownerId], references: [id])
+
+  /// Set when the lead is promoted; keeps the conversion trail intact.
+  convertedOpportunityId String?      @unique
+  convertedOpportunity   Opportunity? @relation("LeadConversion", fields: [convertedOpportunityId], references: [id])
+  convertedAt            DateTime?
+
+  disqualifyReason String?
+  nextStep         String?
+  activities       Activity[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([ownerId])
+  @@index([accountId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Opportunities
+// ---------------------------------------------------------------------------
+
+model Opportunity {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
+
+  primaryContactId String?
+  primaryContact   Contact? @relation("OpportunityPrimaryContact", fields: [primaryContactId], references: [id])
+
+  ownerId String
+  owner   User   @relation("OpportunityOwner", fields: [ownerId], references: [id])
+
+  orgUnitId String
+  orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+
+  // The four independent readings. See packages/shared/src/opportunity.ts.
+  stage            OpportunityStage  @default(LEAD_INTAKE)
+  status           OpportunityStatus @default(ACTIVE)
+  forecastCategory ForecastCategory  @default(PIPELINE)
+  health           HealthState       @default(GREEN)
+
+  exitReason    ExitReason?
+  exitNotes     String?
+  exitedAt      DateTime?
+
+  source   LeadSource?
+  country  String
+  industry Industry?
+  currency String      @default("USD")
+
+  estimatedValue Decimal? @db.Decimal(18, 2)
+  estimatedCost  Decimal? @db.Decimal(18, 2)
+  proposedPrice  Decimal? @db.Decimal(18, 2)
+  awardedValue   Decimal? @db.Decimal(18, 2)
+  /// Profit over SELLING PRICE — not markup. Stored so historical bids keep the
+  /// margin they were approved at even if the formula is ever revised.
+  marginPercent  Decimal? @db.Decimal(6, 2)
+  probability    Int?
+
+  /// Bid/No-Bid score out of 100 (spec's weighted model).
+  bidNoBidScore Int?
+  bidDecision   String?
+
+  scopeSummary     String?
+  solutionStrategy String?
+  nextStep         String?
+
+  expectedCloseDate DateTime?
+  submissionDate    DateTime?
+  awardDate         DateTime?
+
+  stageHistory OpportunityStageHistory[]
+  team         OpportunityTeam[]
+  activities   Activity[]
+  convertedFromLead Lead? @relation("LeadConversion")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([accountId])
+  @@index([ownerId])
+  @@index([orgUnitId])
+  @@index([stage])
+  @@index([status])
+  @@index([forecastCategory])
+  @@index([expectedCloseDate])
+}
+
+/// Append-only stage trail. Duration between rows powers velocity and
+/// bottleneck analytics later; rows are never updated or deleted.
+model OpportunityStageHistory {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  fromStage OpportunityStage?
+  toStage   OpportunityStage
+  changedById String
+  changedBy   User   @relation(fields: [changedById], references: [id])
+  reason      String?
+  /// Time spent in fromStage, in hours. Denormalised so trend queries do not
+  /// need a self-join over the whole history table.
+  durationHours Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([opportunityId])
+  @@index([toStage])
+}
+
+model OpportunityTeam {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  role          Role
+  isLead        Boolean     @default(false)
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([opportunityId, userId, role])
+  @@index([opportunityId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Activities
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id      String       @id @default(uuid())
+  type    ActivityType
+  subject String
+  body    String?
+
+  accountId     String?
+  account       Account?     @relation(fields: [accountId], references: [id])
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  leadId        String?
+  lead          Lead?        @relation(fields: [leadId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([accountId])
+  @@index([opportunityId])
+  @@index([userId])
+  @@index([dueAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Append-only. Never updated, never deleted — not even by SYSTEM_ADMIN.
+/// `before`/`after` hold the changed fields only, not whole entities.
+model AuditLog {
+  id         String      @id @default(uuid())
+  entityType String
+  entityId   String
+  action     AuditAction
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  before Json?
+  after  Json?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}

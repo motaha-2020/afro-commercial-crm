@@ -1,0 +1,56 @@
+{
+  "app": {
+    "name": "Système Commercial Afro",
+    "shortName": "ACMS",
+    "tagline": "De l'opportunité au projet au profit réalisé"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "accounts": "Comptes et relations",
+    "opportunities": "Opportunités",
+    "leads": "Prospects",
+    "costing": "Coûts et tarification",
+    "suppliers": "Fournisseurs et sous-traitants",
+    "approvals": "Approbations",
+    "contracts": "Contrats et transfert",
+    "admin": "Paramètres et gouvernance"
+  },
+  "stage": {
+    "LEAD_INTAKE": "Saisie du prospect",
+    "LEAD_QUALIFICATION": "Qualification du prospect",
+    "OPPORTUNITY_QUALIFICATION": "Qualification de l'opportunité",
+    "SCOPE_DISCOVERY": "Découverte du périmètre",
+    "BID_STRATEGY_SOLUTION": "Stratégie d'offre et solution",
+    "COSTING_SOURCING": "Chiffrage et approvisionnement",
+    "OPERATIONAL_FINANCIAL_REVIEW": "Revue opérationnelle et financière",
+    "MANAGEMENT_APPROVAL": "Approbation de la direction",
+    "PROPOSAL_SUBMISSION": "Soumission de l'offre",
+    "CLARIFICATIONS_NEGOTIATION": "Clarifications et négociation",
+    "AWARD_CONTRACTING": "Attribution et contractualisation",
+    "PROJECT_HANDOVER": "Transfert du projet",
+    "ACTUAL_PERFORMANCE_FEEDBACK": "Performance réelle"
+  },
+  "status": {
+    "ACTIVE": "Active",
+    "ON_HOLD": "En attente",
+    "CANCELLED": "Annulée",
+    "LOST": "Perdue",
+    "CLOSED": "Clôturée"
+  },
+  "forecast": {
+    "PIPELINE": "Pipeline",
+    "UPSIDE": "Potentielle",
+    "BEST_CASE": "Meilleur cas",
+    "COMMIT": "Engagée",
+    "CLOSED_WON": "Gagnée"
+  },
+  "health": {
+    "GREEN": "Saine",
+    "AMBER": "À surveiller",
+    "RED": "À risque"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "language": "Langue"
+  }
+}

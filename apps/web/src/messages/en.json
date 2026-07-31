@@ -1,0 +1,56 @@
+{
+  "app": {
+    "name": "Afro Commercial System",
+    "shortName": "ACMS",
+    "tagline": "From opportunity to project to realised profit"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "accounts": "Accounts & Relationships",
+    "opportunities": "Opportunities",
+    "leads": "Leads",
+    "costing": "Costing & Pricing",
+    "suppliers": "Suppliers & Subcontractors",
+    "approvals": "Approvals",
+    "contracts": "Contracts & Handover",
+    "admin": "Settings & Governance"
+  },
+  "stage": {
+    "LEAD_INTAKE": "Lead Intake",
+    "LEAD_QUALIFICATION": "Lead Qualification",
+    "OPPORTUNITY_QUALIFICATION": "Opportunity Qualification",
+    "SCOPE_DISCOVERY": "Scope Discovery",
+    "BID_STRATEGY_SOLUTION": "Bid Strategy & Solution",
+    "COSTING_SOURCING": "Costing & Sourcing",
+    "OPERATIONAL_FINANCIAL_REVIEW": "Operational & Financial Review",
+    "MANAGEMENT_APPROVAL": "Management Approval",
+    "PROPOSAL_SUBMISSION": "Proposal Submission",
+    "CLARIFICATIONS_NEGOTIATION": "Clarifications & Negotiation",
+    "AWARD_CONTRACTING": "Award & Contracting",
+    "PROJECT_HANDOVER": "Project Handover",
+    "ACTUAL_PERFORMANCE_FEEDBACK": "Actual Performance Feedback"
+  },
+  "status": {
+    "ACTIVE": "Active",
+    "ON_HOLD": "On Hold",
+    "CANCELLED": "Cancelled",
+    "LOST": "Lost",
+    "CLOSED": "Closed"
+  },
+  "forecast": {
+    "PIPELINE": "Pipeline",
+    "UPSIDE": "Upside",
+    "BEST_CASE": "Best Case",
+    "COMMIT": "Commit",
+    "CLOSED_WON": "Closed Won"
+  },
+  "health": {
+    "GREEN": "Healthy",
+    "AMBER": "Needs Attention",
+    "RED": "At Risk"
+  },
+  "common": {
+    "loading": "Loading…",
+    "language": "Language"
+  }
+}

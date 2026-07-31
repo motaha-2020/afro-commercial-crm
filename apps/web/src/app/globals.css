@@ -1,0 +1,33 @@
+:root {
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --text: #182033;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --primary: #5a35c7;
+  --primary-2: #7957e8;
+  --primary-soft: #eee9ff;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --dark: #13192a;
+  --shadow: 0 10px 30px rgba(26, 33, 54, 0.08);
+  --radius: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
