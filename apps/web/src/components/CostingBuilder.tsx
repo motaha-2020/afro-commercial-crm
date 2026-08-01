@@ -68,6 +68,21 @@ export interface CostingVersionDetail {
     markupPercent: number;
   };
   confidence: { score: number; quotedShare: number; estimatedShare: number };
+  warnings?: {
+    warnings: CostingWarning[];
+    blocking: number;
+    high: number;
+    info: number;
+    byItem: Record<string, CostingWarning[]>;
+  };
+  notChecked?: { code: string; needs: string }[];
+}
+
+export interface CostingWarning {
+  code: string;
+  severity: 'BLOCKING' | 'HIGH' | 'INFO';
+  boqItemId: string;
+  detail?: string;
 }
 
 export interface CostingScenarioRow {
@@ -462,6 +477,31 @@ export function CostingBuilder({
             </div>
           </div>
 
+          {version.warnings && version.warnings.warnings.length > 0 && (
+            <div
+              className={`readiness ${version.warnings.blocking > 0 ? 'not-ok' : 'ok'}`}
+              style={{ marginTop: 12 }}
+            >
+              <strong>
+                {version.warnings.blocking > 0
+                  ? t('warningsBlocking', { n: version.warnings.blocking })
+                  : t('warningsOnly', { n: version.warnings.warnings.length })}
+              </strong>
+              <span>
+                {version.warnings.blocking > 0 ? t('warningsBlockingHint') : t('warningsHint')}
+              </span>
+            </div>
+          )}
+
+          {/* Said out loud rather than left implied: a check that never runs
+              looks exactly like a check that always passes. */}
+          {version.notChecked && version.notChecked.length > 0 && (
+            <p className="muted" style={{ marginTop: 8 }}>
+              {t('notChecked')}:{' '}
+              {version.notChecked.map((n) => t(`warn_${n.code}`)).join(' • ')}
+            </p>
+          )}
+
           {locked && <p className="muted">{t('lockedHint')}</p>}
 
           {!locked && (
@@ -618,7 +658,23 @@ export function CostingBuilder({
                   {pkg.items.map((item) => (
                     <Fragment key={item.id}>
                       <tr>
-                        <td>{item.description}</td>
+                        <td>
+                          {item.description}
+                          {/* The warning sits on the row it is about. A list
+                              somewhere else makes the reader hunt for which
+                              line is wrong, which is most of the work. */}
+                          {(version.warnings?.byItem[item.id] ?? []).map((w) => (
+                            <span
+                              key={w.code + (w.detail ?? '')}
+                              className={`badge ${w.severity === 'BLOCKING' ? 'badge-danger' : w.severity === 'HIGH' ? 'badge-warn' : ''}`}
+                              title={t(`warn_${w.code}_hint`)}
+                              style={{ marginInlineStart: 6 }}
+                            >
+                              {t(`warn_${w.code}`)}
+                              {w.detail && w.code === 'WEAK_COST_SOURCE' ? ` ${w.detail}` : ''}
+                            </span>
+                          ))}
+                        </td>
                         <td>
                           {Number(item.quantity)} {item.unit ?? ''}
                         </td>

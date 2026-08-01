@@ -6,7 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  NOT_YET_COMPUTABLE,
   costConfidence,
+  warningsForVersion,
   costLineTotal,
   priceForTargetMargin,
   rollup,
@@ -455,7 +457,76 @@ export class CostingService {
       },
     });
 
-    return { ...version, totals: totals.rollup, confidence: totals.confidence, packageTotals: totals.byPackage };
+    // The spec's Visual Warnings. Computed on read rather than stored: every
+    // input moves underneath them — a quotation lapses with the passage of
+    // time alone, and a stored flag would still say the price was firm.
+    const items = (version?.packages ?? []).flatMap((p) => p.items);
+    const quoteExpiry = await this.quotationExpiryByReference(
+      items.flatMap((i) => i.breakdown.map((b) => b.sourceReference)),
+    );
+
+    const warnings = warningsForVersion(
+      items.map((item) => ({
+        id: item.id,
+        quantity: item.quantity === null ? null : Number(item.quantity),
+        internalCost: item.internalCost === null ? null : Number(item.internalCost),
+        sellingTotal: item.sellingTotal === null ? null : Number(item.sellingTotal),
+        breakdown: item.breakdown.map((b) => ({
+          id: b.id,
+          source: b.source,
+          totalCost: Number(b.totalCost),
+          elementId: b.elementId,
+          quotationValidUntil: b.sourceReference
+            ? (quoteExpiry.get(b.sourceReference) ?? null)
+            : null,
+        })),
+      })),
+    );
+
+    return {
+      ...version,
+      totals: totals.rollup,
+      confidence: totals.confidence,
+      packageTotals: totals.byPackage,
+      warnings,
+      // Named so the screen can say which checks it is NOT doing. A warning
+      // that never fires reads as assurance.
+      notChecked: NOT_YET_COMPUTABLE,
+    };
+  }
+
+  /**
+   * Validity dates of the quotations behind cost lines, keyed by the reference
+   * the costing link wrote onto them.
+   *
+   * One query for the whole version rather than one per line: a costing with
+   * three hundred lines would otherwise open three hundred round trips to
+   * decide the colour of a row.
+   */
+  private async quotationExpiryByReference(references: (string | null)[]) {
+    const codes = [
+      ...new Set(
+        references
+          .filter((r): r is string => Boolean(r))
+          // The link writes "CODE · Partner name"; the code is what identifies it.
+          .map((r) => r.split('·')[0].trim()),
+      ),
+    ];
+    if (codes.length === 0) return new Map<string, Date>();
+
+    const quotations = await this.prisma.partnerQuotation.findMany({
+      where: { code: { in: codes }, deletedAt: null },
+      select: { code: true, validUntil: true },
+    });
+
+    const byReference = new Map<string, Date>();
+    for (const reference of references) {
+      if (!reference) continue;
+      const code = reference.split('·')[0].trim();
+      const found = quotations.find((q) => q.code === code);
+      if (found?.validUntil) byReference.set(reference, found.validUntil);
+    }
+    return byReference;
   }
 
   /**

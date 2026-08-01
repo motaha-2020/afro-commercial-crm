@@ -1037,6 +1037,33 @@ check "and a stricter band on this one opportunity changes the same score's verd
      -d '{"ratings":{"RELATIONSHIP_STRENGTH":4,"TECHNICAL_FIT":4,"DELIVERY_CAPACITY":4,"EXPECTED_PROFITABILITY":4,"PAYMENT_TERMS":4,"COMPETITION":4,"SCOPE_CLARITY":4,"STRATEGIC_VALUE":4}}' \
      | JQ "print(json.load(sys.stdin)['suggestedDecision'])")" "BID_WITH_CONDITIONS"
 
+# The Costing Builder's visual warnings. Computed on read, because a quotation
+# lapses with the passage of time alone and a stored flag would still call the
+# price firm.
+WARN_ITEM=$(curl -s -X POST $API/costing/packages/$CPK2/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Unpriced works","quantity":0,"unit":"lot"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/costing/items/$WARN_ITEM/breakdown -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"quantity":1,"unitCost":5000,"source":"MANUAL_ESTIMATE"}'
+
+WARNINGS=$(curl -s $API/costing/versions/$CVER -H "Authorization: Bearer $CEO")
+check "an item that costs money and is priced at nothing blocks" \
+  "$(echo "$WARNINGS" | JQ "
+d=json.load(sys.stdin); print(any(w['code']=='NO_SELLING_PRICE' and w['severity']=='BLOCKING' for w in d['warnings']['warnings']))")" "True"
+check "a quantity of zero is raised too" \
+  "$(echo "$WARNINGS" | JQ "
+d=json.load(sys.stdin); print(any(w['code']=='ZERO_OR_MISSING_QUANTITY' for w in d['warnings']['warnings']))")" "True"
+check "cost resting mostly on a guess is reported, without blocking" \
+  "$(echo "$WARNINGS" | JQ "
+d=json.load(sys.stdin); w=[x for x in d['warnings']['warnings'] if x['code']=='WEAK_COST_SOURCE']
+print(w[0]['severity'] if w else 'MISSING')")" "INFO"
+check "warnings are indexed by the item they belong to" \
+  "$(echo "$WARNINGS" | JQ "
+d=json.load(sys.stdin); print('$WARN_ITEM' in d['warnings']['byItem'])")" "True"
+check "and the screen is told which checks it is NOT making" \
+  "$(echo "$WARNINGS" | JQ "
+d=json.load(sys.stdin); print(sorted(n['code'] for n in d['notChecked']))")" "['BELOW_HISTORICAL_AVERAGE', 'STALE_EXCHANGE_RATE']"
+
 check "all eight segregation-of-duties rules are now enforced" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
 rs=json.load(sys.stdin)['rules']; print(sum(1 for r in rs if r['enforced']))")" "8"
