@@ -33,7 +33,11 @@ function build(overrides: Record<string, unknown> = {}) {
         Promise.resolve({ id: 'assessment-1', ...data }),
       ),
     },
-    opportunity: { update: jest.fn().mockResolvedValue({}) },
+    opportunity: {
+      update: jest.fn().mockResolvedValue({}),
+      // Read to resolve which Bid/No-Bid bands apply to this opportunity.
+      findUnique: jest.fn().mockResolvedValue({ country: 'EG', orgUnitId: 'org-1' }),
+    },
     $transaction: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -43,14 +47,24 @@ function build(overrides: Record<string, unknown> = {}) {
     assertVia: jest.fn().mockResolvedValue({ id: 'opp-1', code: 'OPP-2026-000001' }),
   };
   const notifications = { dispatchEvent: jest.fn().mockResolvedValue(1) };
+  // The Bid/No-Bid bands now come from the approval-policy settings; the
+  // existing tests pin the provisional 70/55 so they keep asserting the same
+  // decisions while the source of the numbers moves.
+  const policies = {
+    valueOf: jest.fn().mockImplementation(async (key: string) =>
+      key === 'BID_GO_THRESHOLD' ? 70 : 55,
+    ),
+  };
 
   return {
     service: new AssessmentService(
       prisma as never,
       audit as never,
+      policies as never,
       access as never,
       notifications as never,
     ),
+    policies,
     prisma,
     audit,
     notifications,

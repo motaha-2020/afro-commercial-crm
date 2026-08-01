@@ -1056,7 +1056,9 @@ model BidAssessment {
 
   /// What the bands suggested, and what a human actually decided. Keeping both
   /// makes an override visible instead of silently overwriting the advice.
-  suggestedDecision BidDecision
+  /// Null when Afro has not configured the Bid/No-Bid bands: the score is
+  /// still real, but where the line falls is theirs to set.
+  suggestedDecision BidDecision?
   decision          BidDecision?
   decisionRationale String?
   decidedById       String?

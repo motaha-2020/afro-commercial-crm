@@ -6,7 +6,8 @@ import {
   BID_SCORE_FACTOR_DEFINITIONS,
   bidScore,
   defaultWeights,
-  suggestDecision,
+  suggestDecisionWithBands,
+  type DecisionBands,
   unratedFactors,
   validateWeights,
   type BidScoreFactor,
@@ -14,6 +15,7 @@ import {
 import type { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PoliciesService } from '../approvals/policies.service';
 import { OpportunityAccessService } from '../common/opportunity-access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -31,6 +33,7 @@ export class AssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly policies: PoliciesService,
     private readonly access: OpportunityAccessService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -141,7 +144,11 @@ export class AssessmentService {
 
     const weights = await this.currentWeights();
     const score = bidScore(ratings, weights);
-    const suggested = suggestDecision(score);
+    // The bands are Afro's to set, scoped like every other limit. With none
+    // configured the system scores the bid and declines to suggest — a
+    // fallback here would be a number nobody chose sitting beside a real one.
+    const bands = await this.decisionBands(opportunityId);
+    const suggestion = suggestDecisionWithBands(score, bands);
 
     const assessment = await this.prisma.bidAssessment.create({
       data: {
@@ -151,7 +158,7 @@ export class AssessmentService {
         // assessment stays reproducible after someone re-tunes them.
         weights: weights as Prisma.InputJsonValue,
         score,
-        suggestedDecision: suggested,
+        suggestedDecision: suggestion.decision,
         assessedById: user.id,
       },
     });
@@ -166,15 +173,50 @@ export class AssessmentService {
       entityId: assessment.id,
       action: 'CREATE',
       userId: user.id,
-      after: { opportunityId, score, suggestedDecision: suggested },
+      after: {
+        opportunityId,
+        score,
+        suggestedDecision: suggestion.decision,
+        bandsConfigured: suggestion.configured,
+      },
     });
 
     return {
       ...assessment,
       unrated: unratedFactors(ratings),
       /** Never applied automatically — a person records the decision. */
-      suggestedDecision: suggested,
+      suggestedDecision: suggestion.decision,
+      bands: suggestion.bands,
+      bandsConfigured: suggestion.configured,
     };
+  }
+
+  /**
+   * The Bid/No-Bid bands in force for this opportunity, or null if Afro has
+   * not set them. Scoped by country and business unit like every other limit,
+   * because the score at which a company walks away is not the same in a
+   * market it knows and one it does not.
+   */
+  private async decisionBands(opportunityId: string): Promise<DecisionBands | null> {
+    const opportunity = await this.prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      select: { country: true, orgUnitId: true },
+    });
+    const ctx = {
+      country: opportunity?.country ?? null,
+      orgUnitId: opportunity?.orgUnitId ?? null,
+      opportunityId,
+    };
+
+    const [bid, conditions] = await Promise.all([
+      this.policies.valueOf('BID_GO_THRESHOLD', ctx),
+      this.policies.valueOf('BID_CONDITIONAL_THRESHOLD', ctx),
+    ]);
+
+    // Both or neither: one band alone cannot divide a score into three
+    // outcomes, and guessing the other would reintroduce the invented number.
+    if (bid === null || conditions === null) return null;
+    return { bid, conditions };
   }
 
   /**
@@ -190,7 +232,13 @@ export class AssessmentService {
     if (!assessment) throw new BadRequestException('Assessment not found');
     const opportunity = await this.access.assertVia(user, assessment.opportunityId);
 
-    if (dto.decision !== assessment.suggestedDecision && !dto.rationale) {
+    // With no bands configured there is no suggestion, and so nothing to
+    // depart from. The score is still recorded; what is missing is Afro's line.
+    if (
+      assessment.suggestedDecision !== null &&
+      dto.decision !== assessment.suggestedDecision &&
+      !dto.rationale
+    ) {
       throw new BadRequestException({
         message: `Decision "${dto.decision}" differs from the suggested "${assessment.suggestedDecision}" — a rationale is required`,
         suggestedDecision: assessment.suggestedDecision,

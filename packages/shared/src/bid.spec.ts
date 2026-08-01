@@ -1,4 +1,5 @@
 import {
+  suggestDecisionWithBands,
   BID_SCORE_FACTORS,
   BID_SCORE_FACTOR_DEFINITIONS,
   bidScore,
@@ -89,5 +90,43 @@ describe('decision suggestion', () => {
     // Guards the intent: nothing here writes a decision, and the bands are
     // provisional until Afro Group states its real thresholds.
     expect(typeof suggestDecision(50)).toBe('string');
+  });
+});
+
+describe('the Bid/No-Bid bands are Afro\'s to set', () => {
+  it('suggests nothing at all when nobody has set them', () => {
+    // The fallback is the whole problem: 70 shown beside a real score reads
+    // like a company decision, and nobody at Afro chose it.
+    const result = suggestDecisionWithBands(88, null);
+
+    expect(result.decision).toBeNull();
+    expect(result.configured).toBe(false);
+  });
+
+  it('follows the configured bands rather than the provisional ones', () => {
+    const strict = suggestDecisionWithBands(72, { bid: 80, conditions: 60 });
+    const loose = suggestDecisionWithBands(72, { bid: 70, conditions: 50 });
+
+    // Same score, different company policy, different suggestion.
+    expect(strict.decision).toBe('BID_WITH_CONDITIONS');
+    expect(loose.decision).toBe('BID');
+  });
+
+  it('falls to NO_BID below the lower band', () => {
+    expect(suggestDecisionWithBands(20, { bid: 70, conditions: 55 }).decision).toBe('NO_BID');
+  });
+
+  it('treats the band itself as inclusive', () => {
+    expect(suggestDecisionWithBands(70, { bid: 70, conditions: 55 }).decision).toBe('BID');
+    expect(suggestDecisionWithBands(55, { bid: 70, conditions: 55 }).decision).toBe(
+      'BID_WITH_CONDITIONS',
+    );
+  });
+
+  it('reports the bands it used, so a suggestion can be argued with', () => {
+    const result = suggestDecisionWithBands(60, { bid: 70, conditions: 55 });
+
+    expect(result.bands).toEqual({ bid: 70, conditions: 55 });
+    expect(result.configured).toBe(true);
   });
 });

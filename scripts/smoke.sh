@@ -994,6 +994,32 @@ check "the same party cannot answer twice" \
   "$(code -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
      -d '{"party":"PROJECT_MANAGER","accept":true}')" "400"
 
+# The Bid/No-Bid bands were the last constants pretending to be policy. They
+# are settings now, and with none set the system scores the bid and declines
+# to suggest rather than showing a number nobody at Afro chose.
+BID_OPP=$(curl -s -X POST $API/opportunities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke Bid Bands","accountId":"'$ACC'","country":"KE","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "with no bands configured the assessment scores but suggests nothing" \
+  "$(curl -s -X POST $API/opportunities/$BID_OPP/bid-assessment -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"ratings":{"RELATIONSHIP_STRENGTH":5,"TECHNICAL_FIT":5,"DELIVERY_CAPACITY":5,"EXPECTED_PROFITABILITY":5,"PAYMENT_TERMS":5,"COMPETITION":5,"SCOPE_CLARITY":5,"STRATEGIC_VALUE":5}}' \
+     | JQ "d=json.load(sys.stdin); print(str(d['score'])+'/'+str(d['suggestedDecision'])+'/'+str(d['bandsConfigured']))")" "100/None/False"
+
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"key":"BID_GO_THRESHOLD","value":70,"country":"KE"}'
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"key":"BID_CONDITIONAL_THRESHOLD","value":55,"country":"KE"}'
+check "once Afro sets them the suggestion appears, from the settings" \
+  "$(curl -s -X POST $API/opportunities/$BID_OPP/bid-assessment -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"ratings":{"RELATIONSHIP_STRENGTH":5,"TECHNICAL_FIT":5,"DELIVERY_CAPACITY":5,"EXPECTED_PROFITABILITY":5,"PAYMENT_TERMS":5,"COMPETITION":5,"SCOPE_CLARITY":5,"STRATEGIC_VALUE":5}}' \
+     | JQ "d=json.load(sys.stdin); print(str(d['suggestedDecision'])+'/'+str(d['bands']['bid']))")" "BID/70"
+check "and a stricter band in another country changes the same score's verdict" \
+  "$(curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+       -d '{"key":"BID_GO_THRESHOLD","value":95,"country":"KE"}'; \
+     curl -s -X POST $API/opportunities/$BID_OPP/bid-assessment -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"ratings":{"RELATIONSHIP_STRENGTH":4,"TECHNICAL_FIT":4,"DELIVERY_CAPACITY":4,"EXPECTED_PROFITABILITY":4,"PAYMENT_TERMS":4,"COMPETITION":4,"SCOPE_CLARITY":4,"STRATEGIC_VALUE":4}}' \
+     | JQ "print(json.load(sys.stdin)['suggestedDecision'])")" "BID_WITH_CONDITIONS"
+
 check "all eight segregation-of-duties rules are now enforced" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
 rs=json.load(sys.stdin)['rules']; print(sum(1 for r in rs if r['enforced']))")" "8"

@@ -184,6 +184,54 @@ export function unratedFactors(
  */
 export const PROVISIONAL_DECISION_BANDS = { bid: 70, conditions: 55, hold: 40 } as const;
 
+export interface DecisionBands {
+  /** At or above this score the assessment suggests bidding. */
+  bid: number;
+  /** At or above this it suggests bidding with conditions. */
+  conditions: number;
+}
+
+export interface DecisionSuggestion {
+  decision: BidDecision | null;
+  bands: DecisionBands | null;
+  /** True when the bands came from Afro's settings rather than the fallback. */
+  configured: boolean;
+}
+
+/**
+ * Suggest a decision from the score, using the bands Afro configured.
+ *
+ * Release 6 made every other threshold a row a person edits, and these two
+ * were the last constants pretending to be policy. They now come from
+ * BID_GO_THRESHOLD and BID_CONDITIONAL_THRESHOLD.
+ *
+ * With no bands configured it returns null rather than falling back to 70/55.
+ * The fallback is the whole problem: a number nobody at Afro chose, shown
+ * beside a real score, reads exactly like a company decision. A missing
+ * suggestion reads like what it is — nobody has said where the line is.
+ */
+export function suggestDecisionWithBands(
+  score: number,
+  bands: DecisionBands | null,
+): DecisionSuggestion {
+  if (!bands) return { decision: null, bands: null, configured: false };
+
+  const decision: BidDecision =
+    score >= bands.bid
+      ? 'BID'
+      : score >= bands.conditions
+        ? 'BID_WITH_CONDITIONS'
+        : 'NO_BID';
+
+  return { decision, bands, configured: true };
+}
+
+/**
+ * The original fixed-band form, kept for the tests that pin the provisional
+ * numbers and for any caller that has no settings to read.
+ *
+ * @deprecated Prefer suggestDecisionWithBands with the configured bands.
+ */
 export function suggestDecision(score: number): BidDecision {
   if (score >= PROVISIONAL_DECISION_BANDS.bid) return 'BID';
   if (score >= PROVISIONAL_DECISION_BANDS.conditions) return 'BID_WITH_CONDITIONS';
