@@ -334,7 +334,23 @@
     "NOT_MAPPED_TO_BOQ": "غير مرتبط ببند في جدول الكميات",
     "COSTING_LOCKED": "نسخة التسعير معتمدة ومقفلة — أنشئ نسخة جديدة",
     "CURRENCY_MISMATCH": "العرض بعملة مختلفة عن عملة التسعير",
-    "BOQ_ITEM_FOREIGN": "بند جدول الكميات يخصّ فرصة أخرى"
+    "BOQ_ITEM_FOREIGN": "بند جدول الكميات يخصّ فرصة أخرى",
+    "enterQuotation": "إدخال عرض سعر",
+    "lines": "البنود",
+    "lineDescription": "الوصف",
+    "quantity": "الكمية",
+    "unitPrice": "سعر الوحدة",
+    "boqItem": "بند جدول الكميات",
+    "noBoqItem": "— غير مرتبط —",
+    "addLine": "إضافة بند",
+    "total": "الإجمالي",
+    "deliveryDays": "التوريد (أيام)",
+    "blacklisted": "محظور",
+    "unmappedWarning": "{n} بند غير مرتبط ببند في جدول الكميات",
+    "unmappedHint": "البند غير المرتبط لا يصل إلى التكلفة عند اختيار هذا العرض — ويبقى العرض مسعَّرًا على التقدير.",
+    "save": "حفظ العرض",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء"
   },
   "stage": {
     "LEAD_INTAKE": "تسجيل الفرصة",
@@ -896,7 +912,17 @@
     "OPEN": "مفتوح",
     "ACCEPTED": "مقبول",
     "REJECTED": "مرفوض",
-    "MITIGATED": "تمت معالجته"
+    "MITIGATED": "تمت معالجته",
+    "recordAward": "تسجيل ترسية",
+    "customerReference": "مرجع العميل",
+    "customerReferencePlaceholder": "رقم أمر الشراء أو مرجع خطاب النوايا…",
+    "erpCostCentre": "مركز التكلفة في الـERP",
+    "willBeBinding": "ستُحتسب ترسية ملزمة",
+    "willNotBeBinding": "لن تُحتسب ترسية ملزمة",
+    "save": "تسجيل",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "failed": "تعذّر الحفظ"
   },
   "handover": {
     "gate": "قبل أن يصير هذا مشروعًا",

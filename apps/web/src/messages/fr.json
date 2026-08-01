@@ -334,7 +334,23 @@
     "NOT_MAPPED_TO_BOQ": "non rattachée à un poste du BOQ",
     "COSTING_LOCKED": "la version de chiffrage est approuvée et verrouillée — créez une nouvelle version",
     "CURRENCY_MISMATCH": "offre libellée dans une autre devise que le chiffrage",
-    "BOQ_ITEM_FOREIGN": "le poste BOQ appartient à une autre opportunité"
+    "BOQ_ITEM_FOREIGN": "le poste BOQ appartient à une autre opportunité",
+    "enterQuotation": "Saisir une offre",
+    "lines": "Lignes",
+    "lineDescription": "Description",
+    "quantity": "Quantité",
+    "unitPrice": "Prix unitaire",
+    "boqItem": "Poste BOQ",
+    "noBoqItem": "— non rattachée —",
+    "addLine": "Ajouter une ligne",
+    "total": "Total",
+    "deliveryDays": "Délai (jours)",
+    "blacklisted": "liste noire",
+    "unmappedWarning": "{n} ligne(s) non rattachée(s) à un poste BOQ",
+    "unmappedHint": "Une ligne non rattachée n'atteint pas le chiffrage lorsque l'offre est retenue — le prix reste basé sur l'estimation.",
+    "save": "Enregistrer l'offre",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler"
   },
   "stage": {
     "LEAD_INTAKE": "Saisie du prospect",
@@ -896,7 +912,17 @@
     "OPEN": "Ouvert",
     "ACCEPTED": "Accepté",
     "REJECTED": "Rejeté",
-    "MITIGATED": "Atténué"
+    "MITIGATED": "Atténué",
+    "recordAward": "Enregistrer l'attribution",
+    "customerReference": "Référence client",
+    "customerReferencePlaceholder": "N° de bon de commande, référence LOI…",
+    "erpCostCentre": "Centre de coûts ERP",
+    "willBeBinding": "Comptera comme une attribution engageante",
+    "willNotBeBinding": "Ne comptera pas comme engageante",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler",
+    "failed": "Échec de l'enregistrement"
   },
   "handover": {
     "gate": "Avant que cela devienne un projet",

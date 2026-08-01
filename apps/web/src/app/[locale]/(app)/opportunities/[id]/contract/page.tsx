@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { HandoverGate, type Readiness, type SignoffRow } from '@/components/HandoverGate';
+import { RecordAwardForm } from '@/components/RecordAwardForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,7 +88,10 @@ export default async function ContractPage({
       </div>
 
       <div className="panel">
-        <h3 style={{ marginTop: 0, fontSize: 14 }}>{t('awards')}</h3>
+        <div className="btn-row" style={{ justifyContent: 'space-between' }}>
+          <h3>{t('awards')}</h3>
+          <RecordAwardForm opportunityId={id} />
+        </div>
         {/* The reading that matters is the firmest award, not the latest. */}
         <div className={`readiness ${awards.isBinding ? 'ok' : 'not-ok'}`}>
           <strong>

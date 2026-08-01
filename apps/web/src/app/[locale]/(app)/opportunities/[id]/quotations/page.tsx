@@ -8,6 +8,11 @@ import {
   type ComparisonRow,
   type ComparisonViews,
 } from '@/components/QuotationComparison';
+import {
+  NewQuotationForm,
+  type BoqOption,
+  type PartnerOption,
+} from '@/components/NewQuotationForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,9 +51,38 @@ export default async function QuotationComparisonPage({
     notFound();
   }
 
-  const rfqs = await apiFetch<RfqRow[]>(`/opportunities/${id}/rfqs`, { token }).catch(
-    () => [] as RfqRow[],
-  );
+  const [rfqs, partners, scenarios] = await Promise.all([
+    apiFetch<RfqRow[]>(`/opportunities/${id}/rfqs`, { token }).catch(() => [] as RfqRow[]),
+    apiFetch<{ items: PartnerOption[] }>('/partners?pageSize=100', { token }).catch(() => ({
+      items: [] as PartnerOption[],
+    })),
+    // The BOQ items a quotation line can be mapped to. Without the mapping the
+    // price never reaches the costing, so the list has to be in front of
+    // whoever is typing the quotation in.
+    apiFetch<{ id: string; isSelected: boolean; versions: { id: string }[] }[]>(
+      `/opportunities/${id}/costing`,
+      { token },
+    ).catch(() => []),
+  ]);
+
+  const liveVersionId =
+    scenarios.find((s) => s.isSelected)?.versions[0]?.id ?? scenarios[0]?.versions[0]?.id;
+
+  const boqItems: BoqOption[] = liveVersionId
+    ? await apiFetch<{
+        packages: { name: string; items: { id: string; description: string }[] }[];
+      }>(`/costing/versions/${liveVersionId}`, { token })
+        .then((v) =>
+          v.packages.flatMap((p) =>
+            p.items.map((i) => ({
+              id: i.id,
+              description: i.description,
+              packageName: p.name,
+            })),
+          ),
+        )
+        .catch(() => [])
+    : [];
 
   return (
     <>
@@ -68,7 +102,15 @@ export default async function QuotationComparisonPage({
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('rfqs')}</h2>
+        <div className="btn-row" style={{ justifyContent: 'space-between' }}>
+          <h2>{t('rfqs')}</h2>
+          <NewQuotationForm
+            opportunityId={id}
+            partners={partners.items}
+            boqItems={boqItems}
+            currency="USD"
+          />
+        </div>
         <table className="data">
           <thead>
             <tr>

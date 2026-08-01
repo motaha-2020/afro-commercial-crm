@@ -334,7 +334,23 @@
     "NOT_MAPPED_TO_BOQ": "not mapped to a BOQ item",
     "COSTING_LOCKED": "the costing version is approved and locked — raise a new version",
     "CURRENCY_MISMATCH": "quoted in a different currency from the costing",
-    "BOQ_ITEM_FOREIGN": "the BOQ item belongs to another opportunity"
+    "BOQ_ITEM_FOREIGN": "the BOQ item belongs to another opportunity",
+    "enterQuotation": "Enter a quotation",
+    "lines": "Lines",
+    "lineDescription": "Description",
+    "quantity": "Quantity",
+    "unitPrice": "Unit price",
+    "boqItem": "BOQ item",
+    "noBoqItem": "— not mapped —",
+    "addLine": "Add line",
+    "total": "Total",
+    "deliveryDays": "Delivery (days)",
+    "blacklisted": "blacklisted",
+    "unmappedWarning": "{n} line(s) are not mapped to a BOQ item",
+    "unmappedHint": "An unmapped line cannot reach the costing when this quotation is selected — the bid stays priced on the estimate.",
+    "save": "Save quotation",
+    "saving": "Saving…",
+    "cancel": "Cancel"
   },
   "stage": {
     "LEAD_INTAKE": "Lead Intake",
@@ -896,7 +912,17 @@
     "OPEN": "Open",
     "ACCEPTED": "Accepted",
     "REJECTED": "Rejected",
-    "MITIGATED": "Mitigated"
+    "MITIGATED": "Mitigated",
+    "recordAward": "Record award",
+    "customerReference": "Customer reference",
+    "customerReferencePlaceholder": "PO number, LOI reference…",
+    "erpCostCentre": "ERP cost centre",
+    "willBeBinding": "This will count as a binding award",
+    "willNotBeBinding": "This will not count as a binding award",
+    "save": "Record",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "failed": "Could not save"
   },
   "handover": {
     "gate": "Before this becomes a project",
