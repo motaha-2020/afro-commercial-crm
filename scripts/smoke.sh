@@ -820,7 +820,164 @@ check "both remaining SoD rules are now published as enforced" \
 rs=json.load(sys.stdin)['rules']
 print(str([x for x in rs if x['code']=='SOD_04'][0]['enforced'])+'/'+str([x for x in rs if x['code']=='SOD_08'][0]['enforced']))")" "True/True"
 
-echo "=== 19. Soft delete only ==="
+echo "=== 19. Release 7: award, contracts and handover ==="
+# "لا يجب اعتبار Verbal Award مساويًا لعقد موقع" — the rule the release exists
+# for. A win is a strength, not a flag, and a phone call cannot hand a project
+# to operations.
+
+R7_OPP=$(curl -s -X POST $API/opportunities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke Award Deal","accountId":"'$ACC'","country":"EG","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+
+curl -s -o /dev/null -X POST $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"VERBAL_AWARD","awardedAt":"2026-07-01T00:00:00.000Z","awardedValue":1000000}'
+check "a verbal award is recorded but is not binding" \
+  "$(curl -s $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(str(d['strongest'])+'/'+str(d['isBinding']))")" "VERBAL_AWARD/False"
+
+GATE=$(curl -s $API/opportunities/$R7_OPP/handover-readiness -H "Authorization: Bearer $CEO")
+check "so the project cannot be handed over on it" \
+  "$(echo "$GATE" | JQ "
+d=json.load(sys.stdin); print(str(d['readiness']['ready'])+'/'+str('BINDING_AWARD' in d['readiness']['missing']))")" "False/True"
+check "and the gate names what is missing rather than counting it" \
+  "$(echo "$GATE" | JQ "print(len(json.load(sys.stdin)['readiness']['missing'])>=5)")" "True"
+
+curl -s -o /dev/null -X POST $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"PURCHASE_ORDER","awardedAt":"2026-07-15T00:00:00.000Z","awardedValue":1000000,"customerReference":"PO-99811","erpCostCode":"OPP-SMOKE-001","erpCostCenter":"CC-FTTH-2026"}'
+check "a purchase order is binding" \
+  "$(curl -s $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(str(d['strongest'])+'/'+str(d['isBinding']))")" "PURCHASE_ORDER/True"
+
+# A later verbal award must not un-order the work.
+curl -s -o /dev/null -X POST $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"VERBAL_AWARD","awardedAt":"2026-07-20T00:00:00.000Z"}'
+check "and a later phone call does not weaken it" \
+  "$(curl -s $API/opportunities/$R7_OPP/awards -H "Authorization: Bearer $CEO" | JQ "
+print(json.load(sys.stdin)['strongest'])")" "PURCHASE_ORDER"
+check "the ERP cost code is kept against the award" \
+  "$(psql_ "select \"erpCostCode\" from \"Award\" where \"opportunityId\"='$R7_OPP' and \"erpCostCode\" is not null;")" "OPP-SMOKE-001"
+
+# A costing and an approved proposal to compare the contract against.
+R7_SCN=$(curl -s -X POST $API/opportunities/$R7_OPP/costing -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Baseline","type":"SELF_EXECUTION","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+R7_VER=$(curl -s -X POST $API/costing/scenarios/$R7_SCN/versions -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{}' | JQ "print(json.load(sys.stdin)['id'])")
+R7_PKG=$(curl -s -X POST $API/costing/versions/$R7_VER/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Works","type":"CIVIL_WORKS"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+R7_ITM=$(curl -s -X POST $API/costing/packages/$R7_PKG/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Works","quantity":1,"unit":"lot"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/costing/items/$R7_ITM/breakdown -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"quantity":1,"unitCost":800000,"source":"MANUAL_ESTIMATE"}'
+curl -s -o /dev/null -X PATCH $API/costing/items/$R7_ITM -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"targetMarginPercent":20}'
+curl -s -o /dev/null -X POST $API/costing/versions/$R7_VER/submit -H "Authorization: Bearer $CEO"
+curl -s -o /dev/null -X POST $API/costing/versions/$R7_VER/approve -H "Authorization: Bearer $FIN"
+R7_PRICE=$(psql_ "select \"totalPrice\" from \"CostingVersion\" where id='$R7_VER';")
+
+R7_PRP=$(curl -s -X POST $API/opportunities/$R7_OPP/proposals -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"title":"Smoke offer"}' | JQ "print(json.load(sys.stdin)['id'])")
+R7_PV=$(curl -s -X POST $API/proposals/$R7_PRP/versions -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"type":"COMMERCIAL","costingVersionId":"'$R7_VER'","sellingPrice":'$R7_PRICE'}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+
+# The contract, deliberately worse than the offer in three ways.
+R7_CNT=$(curl -s -X POST $API/opportunities/$R7_OPP/contracts -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"proposalVersionId":"'$R7_PV'","contractNumber":"CNT-SMOKE-1","contractValue":900000,
+       "ldPercent":10,"warrantyMonths":24,"startDate":"2026-09-01T00:00:00.000Z","endDate":"2027-01-01T00:00:00.000Z"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "a contract with no proposal behind it cannot be reviewed" \
+  "$(R7_BARE=$(curl -s -X POST $API/opportunities/$R7_OPP/contracts -H "Authorization: Bearer $CEO" \
+       -H 'Content-Type: application/json' -d '{"contractNumber":"CNT-SMOKE-BARE"}' \
+       | JQ "print(json.load(sys.stdin)['id'])"); \
+     code -X POST $API/contracts/$R7_BARE/review -H "Authorization: Bearer $CEO")" "400"
+
+REV=$(curl -s -X POST $API/contracts/$R7_CNT/review -H "Authorization: Bearer $CEO")
+check "the review finds the price cut" \
+  "$(echo "$REV" | JQ "
+d=json.load(sys.stdin); print(any(x['field']=='PRICE' for x in d['deviations']))")" "True"
+check "and grades a 10% cut as critical" \
+  "$(echo "$REV" | JQ "
+d=json.load(sys.stdin); print([x['riskLevel'] for x in d['deviations'] if x['field']=='PRICE'][0])")" "CRITICAL"
+check "a penalty that was never offered is critical too" \
+  "$(echo "$REV" | JQ "
+d=json.load(sys.stdin); print([x['riskLevel'] for x in d['deviations'] if x['field']=='PENALTIES'][0])")" "CRITICAL"
+check "the contract is marked reviewed" \
+  "$(psql_ "select (\"reviewedAt\" is not null) from \"Contract\" where id='$R7_CNT';")" "t"
+
+R7_DEV=$(psql_ "select id from \"ContractDeviation\" where \"contractId\"='$R7_CNT' and field='PRICE' and \"deletedAt\" is null limit 1;")
+check "whoever ran the review cannot then approve what it found (SOD_06)" \
+  "$(code -X POST $API/deviations/$R7_DEV/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"status":"ACCEPTED","note":"fine"}')" "403"
+check "and the blocked attempt is recorded as SOD_06" \
+  "$(psql_ "select count(*) from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_06' and \"entityId\"='$R7_DEV';")" "1"
+check "accepting a critical deviation without a written reason is refused" \
+  "$(code -X POST $API/deviations/$R7_DEV/decide -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' -d '{"status":"ACCEPTED"}')" "400"
+check "with a reason, somebody else may accept it" \
+  "$(code -X POST $API/deviations/$R7_DEV/decide -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' \
+     -d '{"status":"ACCEPTED","note":"Customer would not move; risk priced into contingency"}')" "201"
+
+check "re-reviewing does not reopen a decision already taken" \
+  "$(curl -s -o /dev/null -X POST $API/contracts/$R7_CNT/review -H "Authorization: Bearer $CEO"; \
+     psql_ "select status from \"ContractDeviation\" where id='$R7_DEV';")" "ACCEPTED"
+
+# The handover and its gate.
+R7_HND=$(curl -s -X POST $API/opportunities/$R7_OPP/handovers -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"contractId":"'$R7_CNT'","costBaselineVersionId":"'$R7_VER'"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "the pack starts as a checklist of what is owed, not an empty page" \
+  "$(psql_ "select count(*) from \"HandoverItem\" where \"handoverId\"='$R7_HND';")" "12"
+check "with a row per required party, so an unanswered seat is visible" \
+  "$(psql_ "select count(*) from \"HandoverSignoff\" where \"handoverId\"='$R7_HND';")" "6"
+check "and legal is not required by default — the spec says عند الحاجة" \
+  "$(psql_ "select count(*) from \"HandoverSignoff\" where \"handoverId\"='$R7_HND' and party='LEGAL';")" "0"
+
+check "nobody may accept while the gate is unmet" \
+  "$(code -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"party":"SALES","accept":true}')" "400"
+check "and the refusal names the conditions rather than just saying no" \
+  "$(curl -s -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"party":"SALES","accept":true}' \
+     | JQ "print(len(json.load(sys.stdin)['missing'])>0)")" "True"
+
+curl -s -o /dev/null -X PATCH $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"projectManagerId":"'$(psql_ "select id from \"User\" where email='am@afro.example';")'","plannedStartDate":"2026-09-01T00:00:00.000Z"}'
+check "with everything in place the gate opens" \
+  "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
+print(json.load(sys.stdin)['readiness']['ready'])")" "True"
+
+check "marking a pack item not applicable costs a reason" \
+  "$(R7_ITEM=$(psql_ "select id from \"HandoverItem\" where \"handoverId\"='$R7_HND' and category='SUBCONTRACTORS' limit 1;"); \
+     code -X PATCH $API/handover-items/$R7_ITEM -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"notApplicable":true}')" "400"
+
+check "a refusal without a reason is refused" \
+  "$(code -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"party":"OPERATIONS","accept":false}')" "400"
+check "the project manager refusing stops the handover" \
+  "$(code -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"party":"PROJECT_MANAGER","accept":false,"comment":"The schedule cannot be delivered with the priced crew"}')" "201"
+check "even before the other five have answered" \
+  "$(psql_ "select status from \"ProjectHandover\" where id='$R7_HND';")" "REJECTED"
+check "and their refusal is kept in their own words" \
+  "$(psql_ "select (comment like '%priced crew%') from \"HandoverSignoff\" where \"handoverId\"='$R7_HND' and party='PROJECT_MANAGER';")" "t"
+check "the same party cannot answer twice" \
+  "$(code -X POST $API/handovers/$R7_HND/signoff -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"party":"PROJECT_MANAGER","accept":true}')" "400"
+
+check "all eight segregation-of-duties rules are now enforced" \
+  "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
+rs=json.load(sys.stdin)['rules']; print(sum(1 for r in rs if r['enforced']))")" "8"
+
+echo "=== 20. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -831,7 +988,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 20. Web UI in three locales ==="
+echo "=== 21. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
