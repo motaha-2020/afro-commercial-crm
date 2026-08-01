@@ -340,18 +340,92 @@ check "all eight SoD rules are now published with rule 1 enforced" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
 r=[x for x in json.load(sys.stdin)['rules'] if x['code']=='SOD_01'][0]; print(r['enforced'])")" "True"
 
-echo "=== 15. Soft delete only ==="
+echo "=== 15. Release 2 completion: contacts, leads and activities ==="
+CONTACT=$(curl -s -X POST $API/contacts -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"accountId":"'$ACC'","fullName":"Smoke Contact","jobTitle":"Procurement Lead","email":"smoke@example.com","influence":"HIGH","isPrimary":true,"roles":["TECHNICAL_EVALUATOR","COMMERCIAL_EVALUATOR"]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+[ "$CONTACT" != "None" ] && ok "contact created on an account" || bad "contact create" "$CONTACT"
+check "one person holds both evaluator roles, because roles are rows" \
+  "$(curl -s $API/contacts/$CONTACT -H "Authorization: Bearer $CEO" | JQ "print(len(json.load(sys.stdin)['roles']))")" "2"
+check "a removed role is soft-deleted, not erased" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE $API/contacts/$CONTACT/roles/BLOCKER -H "Authorization: Bearer $CEO")" "404"
+curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT/roles/TECHNICAL_EVALUATOR -H "Authorization: Bearer $CEO"
+check "and re-granting it revives the same row rather than duplicating it" \
+  "$(curl -s -X POST $API/contacts/$CONTACT/roles -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"roleCode":"TECHNICAL_EVALUATOR"}' >/dev/null; psql_ "select count(*) from \"ContactRole\" where \"contactId\"='$CONTACT' and \"roleCode\"='TECHNICAL_EVALUATOR';")" "1"
+
+CONTACT2=$(curl -s -X POST $API/contacts -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"accountId":"'$ACC'","fullName":"Second Smoke Contact","isPrimary":true}' | JQ "print(json.load(sys.stdin)['id'])")
+check "promoting a new primary demotes the incumbent — only one can be primary" \
+  "$(psql_ "select count(*) from \"Contact\" where \"accountId\"='$ACC' and \"isPrimary\"=true and \"deletedAt\" is null;")" "1"
+
+LEAD=$(curl -s -X POST $API/leads -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke Enquiry","source":"REFERRAL","country":"EG","estimatedValue":90000}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+[ "$LEAD" != "None" ] && ok "lead created without naming a company yet" || bad "lead create" "$LEAD"
+check "a NEW lead cannot be converted — only a qualified one enters the pipeline" \
+  "$(code -X POST $API/leads/$LEAD/convert -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"accountId":"'$ACC'"}')" "400"
+check "disqualifying without a reason is refused" \
+  "$(code -X PATCH $API/leads/$LEAD/status -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"status":"DISQUALIFIED"}')" "400"
+curl -s -o /dev/null -X PATCH $API/leads/$LEAD/status -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"status":"QUALIFIED"}'
+curl -s -o /dev/null -X POST $API/activities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"leadId":"'$LEAD'","type":"CALL","subject":"Intro call with the enquirer"}'
+CONV=$(curl -s -X POST $API/leads/$LEAD/convert -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"accountId":"'$ACC'"}')
+NEWOPP=$(echo "$CONV" | JQ "print(json.load(sys.stdin)['opportunity']['id'])")
+[ "$NEWOPP" != "None" ] && ok "a qualified lead converts into an opportunity" || bad "lead convert" "$CONV"
+check "the converted lead survives and points at what it became" \
+  "$(curl -s $API/leads/$LEAD -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(d['status']+'/'+str(d['convertedOpportunityId']==\"$NEWOPP\"))")" "CONVERTED/True"
+check "it enters at qualification, not intake — that work is already done" \
+  "$(curl -s $API/opportunities/$NEWOPP -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['stage'])")" "LEAD_QUALIFICATION"
+check "the lead's call history followed it into the opportunity" \
+  "$(curl -s "$API/activities?opportunityId=$NEWOPP" -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['total'])")" "1"
+check "a converted lead is closed to further edits" \
+  "$(code -X PATCH $API/leads/$LEAD -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"nextStep":"too late"}')" "400"
+check "and cannot be converted twice" \
+  "$(code -X POST $API/leads/$LEAD/convert -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"accountId":"'$ACC'"}')" "400"
+
+check "an activity with no parent is refused — it would never be found again" \
+  "$(code -X POST $API/activities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"type":"NOTE","subject":"orphan"}')" "400"
+TASK=$(curl -s -X POST $API/activities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"accountId":"'$ACC'","type":"TASK","subject":"Send the pricing summary","dueAt":"2026-12-01T00:00:00.000Z"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "a logged call is complete on arrival, a task stays open" \
+  "$(psql_ "select (\"completedAt\" is null) from \"Activity\" where id='$TASK';")" "t"
+check "the open-items filter finds it" \
+  "$(curl -s "$API/activities?accountId=$ACC&openOnly=true" -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['total'])")" "1"
+curl -s -o /dev/null -X PATCH $API/activities/$TASK/complete -H "Authorization: Bearer $CEO"
+check "completing it twice is refused, so the timestamp cannot be rewritten" \
+  "$(code -X PATCH $API/activities/$TASK/complete -H "Authorization: Bearer $CEO")" "400"
+check "an activity on an opportunity also lands on that opportunity's account" \
+  "$(psql_ "select count(*) from \"Activity\" where \"opportunityId\"='$NEWOPP' and \"accountId\"='$ACC';")" "1"
+check "another team's contact is invisible (404, not 403)" \
+  "$(code $API/contacts/$CONTACT -H "Authorization: Bearer $AM")" "404"
+check "master data publishes the lead transition table for the UI" \
+  "$(curl -s $API/master-data | JQ "print(len(json.load(sys.stdin)['leadStatusTransitions']['QUALIFIED']))")" "2"
+
+echo "=== 16. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
 check "but the row survives in the database" \
   "$(psql_ "select (\"deletedAt\" is not null) from \"Opportunity\" where id='$OPP';")" "t"
 
-echo "=== 16. Web UI in three locales ==="
+check "the contact goes too, but only softly" \
+  "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
+     psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
+
+echo "=== 17. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
-  for P in dashboard accounts opportunities; do
+  for P in dashboard accounts leads leads/new opportunities; do
     check "$L/$P renders" "$(code -b /tmp/acms_smoke.jar $WEB/$L/$P)" "200"
   done
 done

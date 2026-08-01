@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { BidScoreForm } from '@/components/BidScoreForm';
+import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,7 +126,7 @@ export default async function OpportunityDetailPage({
 
   // Four independent reads. Any one failing must not blank the page — a bid
   // team still needs the scope when the assessment service is unhappy.
-  const [opportunity, scope, bids, assessment, costing] = await Promise.all([
+  const [opportunity, scope, bids, assessment, costing, activities] = await Promise.all([
     apiFetch<Opportunity>(`/opportunities/${id}`, { token }),
     apiFetch<ScopeOverview>(`/opportunities/${id}/scope`, { token }).catch(() => null),
     apiFetch<BidRow[]>(`/opportunities/${id}/bids`, { token }).catch(() => []),
@@ -143,6 +144,10 @@ export default async function OpportunityDetailPage({
     apiFetch<CostingScenario[]>(`/opportunities/${id}/costing`, { token }).catch(
       () => [] as CostingScenario[],
     ),
+    apiFetch<{ items: ActivityRow[] }>(
+      `/activities?opportunityId=${id}&pageSize=50`,
+      { token },
+    ).catch(() => ({ items: [] as ActivityRow[] })),
   ]);
 
   const readiness = scope?.readiness;
@@ -394,6 +399,10 @@ export default async function OpportunityDetailPage({
             </table>
           </div>
         ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <ActivityTimeline activities={activities.items} anchor={{ opportunityId: id }} />
       </div>
 
       <p style={{ marginTop: 16 }}>

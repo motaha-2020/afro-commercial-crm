@@ -155,6 +155,7 @@ async function main() {
     { eventType: 'OPPORTUNITY_STAGE_CHANGED', roleTarget: 'CEO' },
     { eventType: 'OPPORTUNITY_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'ACCOUNT_CREDIT_CHANGED', roleTarget: 'FINANCE' },
+    { eventType: 'LEAD_CONVERTED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'CEO' },
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'BID_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },

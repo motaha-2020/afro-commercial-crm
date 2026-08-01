@@ -3,6 +3,10 @@ import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
+import { ContactsPanel, type ContactRow } from '@/components/ContactsPanel';
+import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
+
+export const dynamic = 'force-dynamic';
 
 interface Account360 {
   id: string;
@@ -16,7 +20,7 @@ interface Account360 {
   creditStatus: string;
   paymentTermDays: number | null;
   owner: { fullNameEn: string; fullNameAr: string };
-  contacts: { id: string; fullName: string; jobTitle: string | null; email: string | null; isPrimary: boolean }[];
+  contacts: ContactRow[];
   opportunities: {
     id: string;
     code: string;
@@ -45,6 +49,13 @@ export default async function AccountDetailPage({
   } catch {
     notFound();
   }
+
+  // The 360 payload deliberately stops short of the timeline: it is the one
+  // part that grows without limit, so it is paged on its own endpoint.
+  const activities = await apiFetch<{ items: ActivityRow[] }>(
+    `/activities?accountId=${id}&pageSize=50`,
+    { token },
+  );
 
   const facts = [
     { label: t('code'), value: account.code },
@@ -77,35 +88,11 @@ export default async function AccountDetailPage({
         ))}
       </div>
 
-      <div className="grid cols-2">
-        <div className="panel">
-          <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('contacts')}</h2>
-          <table className="data">
-            <thead>
-              <tr>
-                <th>{t('contactName')}</th>
-                <th>{t('jobTitle')}</th>
-                <th>{t('email')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {account.contacts.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    {c.fullName}{' '}
-                    {c.isPrimary && <span className="badge badge-info">{t('primary')}</span>}
-                  </td>
-                  <td>{c.jobTitle ?? '—'}</td>
-                  <td>{c.email ?? '—'}</td>
-                </tr>
-              ))}
-              {account.contacts.length === 0 && (
-                <tr><td colSpan={3} style={{ color: 'var(--muted)' }}>{t('noContacts')}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <ContactsPanel accountId={account.id} contacts={account.contacts} />
+      </div>
 
+      <div className="grid cols-2">
         <div className="panel">
           <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('opportunities')}</h2>
           <table className="data">
@@ -132,6 +119,8 @@ export default async function AccountDetailPage({
             </tbody>
           </table>
         </div>
+
+        <ActivityTimeline activities={activities.items} anchor={{ accountId: account.id }} />
       </div>
     </>
   );

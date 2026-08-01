@@ -1,6 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import {
+  ACCOUNT_RELATIONSHIP_TYPES,
   ACCOUNT_TYPES,
+  ACTIVITY_TYPES,
+  CONTACT_INFLUENCE_LEVELS,
+  CONTACT_ROLES,
   COUNTRIES,
   CREDIT_STATUSES,
   CURRENCIES,
@@ -8,6 +12,8 @@ import {
   HEALTH_STATES,
   INDUSTRIES,
   LEAD_SOURCES,
+  LEAD_STATUSES,
+  LEAD_STATUS_TRANSITIONS,
   OPPORTUNITY_STAGES,
   OPPORTUNITY_STATUSES,
   ROLES,
@@ -41,6 +47,14 @@ export class MasterDataController {
       accountTypes: ACCOUNT_TYPES,
       creditStatuses: CREDIT_STATUSES,
       leadSources: LEAD_SOURCES,
+      leadStatuses: LEAD_STATUSES,
+      // Shipped alongside the list so a screen can grey out the moves a lead
+      // cannot make instead of offering them and letting the API refuse.
+      leadStatusTransitions: LEAD_STATUS_TRANSITIONS,
+      activityTypes: ACTIVITY_TYPES,
+      contactRoles: CONTACT_ROLES,
+      contactInfluenceLevels: CONTACT_INFLUENCE_LEVELS,
+      accountRelationshipTypes: ACCOUNT_RELATIONSHIP_TYPES,
       countries: COUNTRIES,
       currencies: CURRENCIES,
     };

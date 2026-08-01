@@ -192,6 +192,7 @@ model OrganizationUnit {
   users         User[]
   accounts      Account[]
   opportunities Opportunity[]
+  leads         Lead[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -369,8 +370,11 @@ model ContactRole {
   roleCode  String
   notes     String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
+  // Soft delete plus a unique pair means re-adding a role that was removed
+  // restores the original row rather than inserting a second one.
   @@unique([contactId, roleCode])
   @@index([contactId])
 }
@@ -418,6 +422,9 @@ model Lead {
   ownerId String
   owner   User   @relation("LeadOwner", fields: [ownerId], references: [id])
 
+  orgUnitId String
+  orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+
   /// Set when the lead is promoted; keeps the conversion trail intact.
   convertedOpportunityId String?      @unique
   convertedOpportunity   Opportunity? @relation("LeadConversion", fields: [convertedOpportunityId], references: [id])
@@ -432,6 +439,7 @@ model Lead {
   deletedAt DateTime?
 
   @@index([ownerId])
+  @@index([orgUnitId])
   @@index([accountId])
   @@index([status])
 }

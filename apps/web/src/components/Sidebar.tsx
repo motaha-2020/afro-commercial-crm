@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 const ITEMS: { key: string; href: string; icon: string }[] = [
   { key: 'dashboard', href: 'dashboard', icon: '⌂' },
   { key: 'accounts', href: 'accounts', icon: '◫' },
+  { key: 'leads', href: 'leads', icon: '◇' },
   { key: 'opportunities', href: 'opportunities', icon: '◆' },
 ];
 

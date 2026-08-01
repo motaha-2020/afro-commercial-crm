@@ -12,6 +12,9 @@ import { RequestContextMiddleware } from './common/request-context.middleware';
 import { GovernanceModule } from './governance/governance.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { ContactsModule } from './contacts/contacts.module';
+import { LeadsModule } from './leads/leads.module';
+import { ActivitiesModule } from './activities/activities.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ScopeModule } from './scope/scope.module';
 import { BidsModule } from './bids/bids.module';
@@ -30,6 +33,9 @@ import { MasterDataModule } from './master-data/master-data.module';
     AuthModule,
     HealthModule,
     AccountsModule,
+    ContactsModule,
+    LeadsModule,
+    ActivitiesModule,
     OpportunitiesModule,
     ScopeModule,
     BidsModule,
