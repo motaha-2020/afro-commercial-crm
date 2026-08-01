@@ -423,7 +423,7 @@ check "a new partner is a prospect — nobody creates an approved one" \
 curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_A/ratings -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' -d '{"technicalRating":5}'
 check "the overall rating carries how many of the four were actually scored" \
-  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(str(d['overallRating'])+'/'+str(d['ratedDimensions']))")" "5.0/1"
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(str(d['overallRating'])+'/'+str(d['ratedDimensions']))")" "5/1"
 check "and no overall rating can be written directly" \
   "$(curl -s -X PATCH $API/partners/$PARTNER_A/ratings -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
      -d '{"overallRating":5}' | JQ "print(json.load(sys.stdin).get('statusCode',200))")" "400"
@@ -482,10 +482,31 @@ check "but the recommendation follows overall value, not price" \
   "$(echo "$CMP" | JQ "print(json.load(sys.stdin)['views']['recommendedId']=='$QUO_A')")" "True"
 check "and the comparison selects nothing by itself" \
   "$(echo "$CMP" | JQ "print(sum(1 for q in json.load(sys.stdin)['quotations'] if q['isSelected']))")" "0"
-check "an unscored dimension counts as zero, so the weighted score is not flattered" \
+check "the weighted score is the spec's weights applied to the six ratings" \
   "$(echo "$CMP" | JQ "
 d=json.load(sys.stdin); q=[x for x in d['quotations'] if x['id']=='$QUO_B'][0]
-print(round(float(q['evaluation']['weightedScore']),1))")" "42.0"
+print(round(float(q['evaluation']['weightedScore']),1))")" "46.0"
+
+# A partner scored on price alone. The other five dimensions must count as zero
+# rather than being dropped from the denominator, or a barely-reviewed offer
+# would outrank a fully examined one.
+PARTNER_C=$(curl -s -X POST $API/partners -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Half-Reviewed Ltd","country":"EG","types":["SUPPLIER"]}' | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_C/approval -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"approvalStatus":"APPROVED"}'
+QUO_C=$(curl -s -X POST $API/opportunities/$NEWOPP/quotations -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$PARTNER_C'","validUntil":"2027-01-01T00:00:00.000Z",
+       "items":[{"description":"Fibre cable 24F","quantity":1000,"unitPrice":20}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/quotations/$QUO_C/evaluation -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' \
+  -d '{"priceScore":5}'
+check "a dimension nobody scored counts as zero, not as excused" \
+  "$(curl -s $API/opportunities/$NEWOPP/quotation-comparison -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); q=[x for x in d['quotations'] if x['id']=='$QUO_C'][0]
+print(round(float(q['evaluation']['weightedScore']),1))")" "30.0"
+check "so a barely-reviewed offer does not outrank a fully examined one" \
+  "$(curl -s $API/opportunities/$NEWOPP/quotation-comparison -H "Authorization: Bearer $CEO" | JQ "
+print(json.load(sys.stdin)['views']['recommendedId']=='$QUO_A')")" "True"
 
 check "whoever wrote the recommendation cannot select it (SOD_03)" \
   "$(code -X POST $API/quotations/$QUO_A/select -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' -d '{}')" "403"
