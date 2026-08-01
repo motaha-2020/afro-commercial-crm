@@ -1040,13 +1040,23 @@ check "and a stricter band on this one opportunity changes the same score's verd
 # The Costing Builder's visual warnings. Computed on read, because a quotation
 # lapses with the passage of time alone and a stored flag would still call the
 # price firm.
-WARN_ITEM=$(curl -s -X POST $API/costing/packages/$CPK2/items -H "Authorization: Bearer $CEO" \
+# A scenario of its own: the version used earlier is approved and locked, and
+# a locked version refuses new items — correctly.
+WSCN=$(curl -s -X POST $API/opportunities/$NEWOPP/costing -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Warning checks","type":"SELF_EXECUTION","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+WVER=$(curl -s -X POST $API/costing/scenarios/$WSCN/versions -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{}' | JQ "print(json.load(sys.stdin)['id'])")
+WPKG=$(curl -s -X POST $API/costing/versions/$WVER/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Warnings","type":"OTHER"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+WARN_ITEM=$(curl -s -X POST $API/costing/packages/$WPKG/items -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' -d '{"description":"Unpriced works","quantity":0,"unit":"lot"}' \
   | JQ "print(json.load(sys.stdin)['id'])")
 curl -s -o /dev/null -X POST $API/costing/items/$WARN_ITEM/breakdown -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' -d '{"quantity":1,"unitCost":5000,"source":"MANUAL_ESTIMATE"}'
 
-WARNINGS=$(curl -s $API/costing/versions/$CVER -H "Authorization: Bearer $CEO")
+WARNINGS=$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO")
 check "an item that costs money and is priced at nothing blocks" \
   "$(echo "$WARNINGS" | JQ "
 d=json.load(sys.stdin); print(any(w['code']=='NO_SELLING_PRICE' and w['severity']=='BLOCKING' for w in d['warnings']['warnings']))")" "True"
