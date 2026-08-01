@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { ContactsPanel, type ContactRow } from '@/components/ContactsPanel';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
+import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,11 @@ export default async function AccountDetailPage({
     `/activities?accountId=${id}&pageSize=50`,
     { token },
   );
+
+  const documents = await apiFetch<DocumentRow[]>(
+    `/documents?entityType=Account&entityId=${id}`,
+    { token },
+  ).catch(() => [] as DocumentRow[]);
 
   const facts = [
     { label: t('code'), value: account.code },
@@ -121,6 +127,10 @@ export default async function AccountDetailPage({
         </div>
 
         <ActivityTimeline activities={activities.items} anchor={{ accountId: account.id }} />
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <DocumentsPanel entityType="Account" entityId={account.id} documents={documents} />
       </div>
     </>
   );

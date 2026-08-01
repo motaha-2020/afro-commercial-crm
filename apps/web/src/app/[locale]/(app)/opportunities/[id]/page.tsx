@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { BidScoreForm } from '@/components/BidScoreForm';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
+import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,7 +127,7 @@ export default async function OpportunityDetailPage({
 
   // Four independent reads. Any one failing must not blank the page — a bid
   // team still needs the scope when the assessment service is unhappy.
-  const [opportunity, scope, bids, assessment, costing, activities] = await Promise.all([
+  const [opportunity, scope, bids, assessment, costing, activities, documents] = await Promise.all([
     apiFetch<Opportunity>(`/opportunities/${id}`, { token }),
     apiFetch<ScopeOverview>(`/opportunities/${id}/scope`, { token }).catch(() => null),
     apiFetch<BidRow[]>(`/opportunities/${id}/bids`, { token }).catch(() => []),
@@ -148,6 +149,10 @@ export default async function OpportunityDetailPage({
       `/activities?opportunityId=${id}&pageSize=50`,
       { token },
     ).catch(() => ({ items: [] as ActivityRow[] })),
+    apiFetch<DocumentRow[]>(
+      `/documents?entityType=Opportunity&entityId=${id}`,
+      { token },
+    ).catch(() => [] as DocumentRow[]),
   ]);
 
   const readiness = scope?.readiness;
@@ -405,8 +410,21 @@ export default async function OpportunityDetailPage({
         <ActivityTimeline activities={activities.items} anchor={{ opportunityId: id }} />
       </div>
 
+      <div style={{ marginTop: 16 }}>
+        <DocumentsPanel entityType="Opportunity" entityId={id} documents={documents} />
+      </div>
+
       <p style={{ marginTop: 16 }} className="btn-row">
         <Link href={`/${locale}/opportunities`}>← {t('backToBoard')}</Link>
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/scope`}>
+          {t('scopeBuilder')} →
+        </Link>
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/bids`}>
+          {t('bidWorkspace')} →
+        </Link>
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/costing`}>
+          {t('costingBuilder')} →
+        </Link>
         <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/quotations`}>
           {t('supplierComparison')} →
         </Link>

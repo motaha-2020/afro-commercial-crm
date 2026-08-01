@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch, type ApiError } from './api';
+import { API_URL, apiFetch, type ApiError } from './api';
 import { ACCESS_COOKIE } from './session';
 
 /**
@@ -35,5 +35,30 @@ export async function forward(
   } catch (err) {
     const e = err as ApiError;
     return NextResponse.json(e, { status: e.statusCode ?? 502 });
+  }
+}
+
+/**
+ * Forwards a multipart upload untouched. `apiFetch` always sets a JSON
+ * Content-Type, which would corrupt a file body — this reads the incoming
+ * FormData and reposts it with only the Authorization header, so `fetch`
+ * derives the correct multipart boundary itself.
+ */
+export async function forwardMultipart(req: NextRequest, path: string): Promise<NextResponse> {
+  const token = req.cookies.get(ACCESS_COOKIE)?.value;
+  if (!token) return NextResponse.json({ message: 'Unauthenticated' }, { status: 401 });
+
+  const formData = await req.formData();
+
+  try {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const data = res.status === 204 ? { success: true } : await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch {
+    return NextResponse.json({ message: 'Upload failed' }, { status: 502 });
   }
 }
