@@ -103,10 +103,8 @@ export class ApprovalsService {
       throw new BadRequestException('An approval for this record is already pending');
     }
 
-    const firstStep = await this.prisma.workflowStep.findFirst({
-      where: { workflowId: workflow.id, deletedAt: null },
-      orderBy: { sequence: 'asc' },
-    });
+    const steps = await this.applicableSteps(workflow.id, requiredApprovers(evaluation));
+    const firstStep = steps[0] ?? null;
 
     const request = await this.prisma.approvalRequest.create({
       data: {
@@ -254,16 +252,13 @@ export class ApprovalsService {
       throw new BadRequestException('Rejecting or returning a request requires a reason');
     }
 
-    const nextStep = step
-      ? await this.prisma.workflowStep.findFirst({
-          where: {
-            workflowId: request.workflowId,
-            sequence: { gt: step.sequence },
-            deletedAt: null,
-          },
-          orderBy: { sequence: 'asc' },
-        })
-      : null;
+    // Only the steps this deal actually needs, so a request that requires the
+    // CEO is not also parked on two intermediate desks that no rule asked for.
+    const required = (
+      (request.triggeredBy as { fired?: { requiredRole: string }[] } | null)?.fired ?? []
+    ).map((f) => f.requiredRole);
+    const steps = step ? await this.applicableSteps(request.workflowId, required) : [];
+    const nextStep = step ? (steps.find((s) => s.sequence > step.sequence) ?? null) : null;
 
     // An approval with a further mandatory step is not yet an approval.
     const advances = decision === 'APPROVE' && nextStep !== null;
@@ -396,6 +391,30 @@ export class ApprovalsService {
     facts.scopeNotReady = blockingClarifications > 0;
 
     return facts;
+  }
+
+  /**
+   * The steps a particular deal has to pass through.
+   *
+   * The spec keeps two separate things: a workflow's steps (the chain of desks)
+   * and a rule's required approver (who this deal's risk demands). Routing
+   * every request down the whole chain would make the rules decorative and
+   * bury a CEO-level exception behind two desks that had no reason to see it.
+   * So the chain is filtered to the roles this deal actually triggered, plus
+   * any step marked mandatory, and it stays in sequence order.
+   */
+  private async applicableSteps(workflowId: string, requiredRoles: string[]) {
+    const all = await this.prisma.workflowStep.findMany({
+      where: { workflowId, deletedAt: null },
+      orderBy: { sequence: 'asc' },
+    });
+
+    const needed = all.filter(
+      (s) => requiredRoles.includes(s.approverRole) || s.isMandatory === true,
+    );
+    // Nothing matched and nothing is mandatory: fall back to the full chain
+    // rather than producing a request with no approver at all.
+    return needed.length > 0 ? needed : all;
   }
 
   private async rulesFor(opportunity: { id: string; country?: string | null; orgUnitId?: string | null }) {

@@ -628,7 +628,196 @@ check "but the procurement decision itself still stands" \
 check "and the approved numbers are exactly as they were approved" \
   "$(psql_ "select \"internalCost\" from \"BoqItem\" where id='$BOQ';")" "12000.00"
 
-echo "=== 18. Soft delete only ==="
+echo "=== 18. Release 6: approvals as configurable settings ==="
+# Afro Group's decision: no fixed approval limits. They are rows a manager
+# edits per project, opportunity and country. Everything below proves the
+# numbers really are data, and that moving one is itself a governed act.
+
+check "the workflow ships as structure, not as numbers" \
+  "$(psql_ "select count(*) from \"WorkflowDefinition\" where code='WF-PRICING-DEFAULT';")" "1"
+check "with the spec's rules stored as rows" \
+  "$(psql_ "select count(*) from \"ApprovalRule\" r join \"WorkflowDefinition\" w on w.id=r.\"workflowId\" where w.code='WF-PRICING-DEFAULT';")" "5"
+
+SETTINGS=$(curl -s "$API/approval-policies" -H "Authorization: Bearer $CEO")
+check "and the settings screen lists every limit, including the unset ones" \
+  "$(echo "$SETTINGS" | JQ "print(len(json.load(sys.stdin)['keys']))")" "7"
+check "an account manager may read the limits but not change them" \
+  "$(curl -s "$API/approval-policies" -H "Authorization: Bearer $AM" | JQ "print(json.load(sys.stdin)['canEdit'])")" "False"
+check "and the CEO may" \
+  "$(echo "$SETTINGS" | JQ "print(json.load(sys.stdin)['canEdit'])")" "True"
+
+# SOD_08: whoever approves deals against a limit does not move that limit.
+SD=$(login sales.director@afro.example)
+check "a sales director cannot raise the margin floor they approve deals against" \
+  "$(code -X POST $API/approval-policies -H "Authorization: Bearer $SD" -H 'Content-Type: application/json' \
+     -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":1}')" "403"
+check "and the blocked attempt is recorded as SOD_08" \
+  "$(psql_ "select count(*) from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_08';")" "1"
+check "a percentage outside 0..100 is refused as a typo, not stored as policy" \
+  "$(code -X POST $API/approval-policies -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":1200}')" "400"
+
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":12,"note":"Group floor, smoke test"}'
+check "finance or the CEO can set it" \
+  "$(curl -s "$API/approval-policies" -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12.0"
+
+# The scoping Afro asked for: same limit, different answer per country.
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":18,"country":"EG","note":"Egypt runs tighter"}'
+check "a country override wins over the group default" \
+  "$(curl -s "$API/approval-policies?country=EG" -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "18.0"
+check "while another country still sees the group default" \
+  "$(curl -s "$API/approval-policies?country=KE" -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12.0"
+check "and the narrower scope says so on the screen" \
+  "$(curl -s "$API/approval-policies?country=EG" -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print([k['scope']['level'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "COUNTRY"
+
+# Changing a limit must not rewrite history.
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":8,"country":"EG","note":"Lowered for a hard year"}'
+check "a change is a new row; the old value is closed, not erased" \
+  "$(psql_ "select count(*) from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG';")" "2"
+check "exactly one of them is currently in force" \
+  "$(psql_ "select count(*) from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG' and \"effectiveTo\" is null;")" "1"
+check "and the change is on the audit trail with both numbers" \
+  "$(psql_ "select count(*) from \"AuditLog\" where \"entityType\"='ApprovalPolicy' and before->>'value'='18' and after->>'value'='8';")" "1"
+
+# Raising an approval on a real deal.
+APPR_OPP=$(curl -s -X POST $API/opportunities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke Approval Deal","accountId":"'$ACC'","country":"EG","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+ASCN=$(curl -s -X POST $API/opportunities/$APPR_OPP/costing -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Thin margin","type":"SELF_EXECUTION","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/costing/scenarios/$ASCN/select -H "Authorization: Bearer $CEO"
+AVER=$(curl -s -X POST $API/costing/scenarios/$ASCN/versions -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{}' | JQ "print(json.load(sys.stdin)['id'])")
+APKG=$(curl -s -X POST $API/costing/versions/$AVER/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Works","type":"CIVIL_WORKS"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+AITM=$(curl -s -X POST $API/costing/packages/$APKG/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Works","quantity":1,"unit":"lot"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/costing/items/$AITM/breakdown -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"quantity":1,"unitCost":100000,"source":"MANUAL_ESTIMATE"}'
+# 5% margin, well under Egypt's 8% floor.
+curl -s -o /dev/null -X PATCH $API/costing/items/$AITM -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"targetMarginPercent":5}'
+
+PREVIEW=$(curl -s $API/opportunities/$APPR_OPP/approval-preview -H "Authorization: Bearer $CEO")
+check "the deal can be checked before anyone is disturbed" \
+  "$(echo "$PREVIEW" | JQ "print(json.load(sys.stdin)['needsApproval'])")" "True"
+check "and it names the rule that fired and the limit it read" \
+  "$(echo "$PREVIEW" | JQ "
+d=json.load(sys.stdin); f=[x for x in d['fired'] if x['conditionField']=='GROSS_MARGIN_PERCENT'][0]
+print(str(f['threshold'])+'/'+f['requiredRole'])")" "8.0/CEO"
+
+REQ=$(curl -s -X POST $API/opportunities/$APPR_OPP/approvals -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' -d '{}')
+REQ_ID=$(echo "$REQ" | JQ "print(json.load(sys.stdin)['id'])")
+[ "$REQ_ID" != "None" ] && ok "approval raised" || bad "raise approval" "$REQ"
+check "the limits in force are snapshotted onto the request" \
+  "$(psql_ "select \"policySnapshot\"->>'MIN_GROSS_MARGIN_PERCENT' from \"ApprovalRequest\" where id='$REQ_ID';")" "8"
+
+# Now move the limit. The pending request must keep the number it was raised on.
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":3,"country":"EG","note":"Changed after the fact"}'
+check "changing the policy afterwards does not rewrite what the approver was asked" \
+  "$(psql_ "select \"policySnapshot\"->>'MIN_GROSS_MARGIN_PERCENT' from \"ApprovalRequest\" where id='$REQ_ID';")" "8"
+
+check "the requester cannot approve their own request (SOD_07)" \
+  "$(code -X POST $API/approvals/$REQ_ID/decide -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' -d '{"decision":"APPROVE"}')" "403"
+check "a rejection without a reason is refused" \
+  "$(code -X POST $API/approvals/$REQ_ID/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"decision":"REJECT"}')" "400"
+check "approving with conditions requires the conditions written down" \
+  "$(code -X POST $API/approvals/$REQ_ID/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"decision":"APPROVE_WITH_CONDITIONS"}')" "400"
+check "it routes to the approver the rule named, not down the whole chain" \
+  "$(curl -s $API/approvals/my-queue -H "Authorization: Bearer $CEO" | JQ "
+print(any(r['id']=='$REQ_ID' for r in json.load(sys.stdin)))")" "True"
+check "a decision with its conditions is accepted" \
+  "$(code -X POST $API/approvals/$REQ_ID/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' \
+     -d '{"decision":"APPROVE_WITH_CONDITIONS","conditions":"Advance payment of 30% before mobilisation"}')" "201"
+check "and the condition is kept, not just the verdict" \
+  "$(psql_ "select count(*) from \"ApprovalAction\" where \"requestId\"='$REQ_ID' and conditions is not null;")" "1"
+check "the request is closed" \
+  "$(psql_ "select status from \"ApprovalRequest\" where id='$REQ_ID';")" "APPROVED_WITH_CONDITIONS"
+check "and deciding it twice is refused" \
+  "$(code -X POST $API/approvals/$REQ_ID/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"decision":"APPROVE"}')" "400"
+
+# Discounts — SOD_04 and the delegated ceiling.
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"key":"MAX_DISCOUNT_PERCENT","value":10}'
+check "a discount inside the delegated authority needs nobody" \
+  "$(curl -s -X POST $API/opportunities/$APPR_OPP/discounts -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' \
+     -d '{"requestedPercent":5,"fromPrice":100000,"toPrice":95000,"justification":"Repeat customer"}' \
+     | JQ "print(json.load(sys.stdin)['status'])")" "APPROVED"
+BIGDSC=$(curl -s -X POST $API/opportunities/$APPR_OPP/discounts -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' \
+  -d '{"requestedPercent":25,"fromPrice":100000,"toPrice":75000,"justification":"Competitive pressure"}')
+BIGDSC_ID=$(echo "$BIGDSC" | JQ "print(json.load(sys.stdin)['id'])")
+check "one above it waits for a decision" \
+  "$(echo "$BIGDSC" | JQ "print(json.load(sys.stdin)['status'])")" "PENDING"
+check "and the person who asked cannot grant it (SOD_04)" \
+  "$(code -X POST $API/discounts/$BIGDSC_ID/decide -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' -d '{"approve":true}')" "403"
+check "recorded as SOD_04, not silently dropped" \
+  "$(psql_ "select count(*) from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_04' and \"entityId\"='$BIGDSC_ID';")" "1"
+check "somebody else can" \
+  "$(code -X POST $API/discounts/$BIGDSC_ID/decide -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"approve":true,"note":"Strategic account"}')" "201"
+
+# Proposals — the spec's hard rule.
+PRP=$(curl -s -X POST $API/opportunities/$APPR_OPP/proposals -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"title":"Smoke commercial offer"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "a commercial proposal with no costing behind it is refused" \
+  "$(code -X POST $API/proposals/$PRP/versions -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"type":"COMMERCIAL","sellingPrice":500000}')" "400"
+check "and one citing a costing that is still a draft is refused too" \
+  "$(code -X POST $API/proposals/$PRP/versions -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"type":"COMMERCIAL","costingVersionId":"'$AVER'","sellingPrice":105263.16}')" "400"
+check "a purely technical proposal needs none of that" \
+  "$(code -X POST $API/proposals/$PRP/versions -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"type":"TECHNICAL"}')" "201"
+
+curl -s -o /dev/null -X POST $API/costing/versions/$AVER/submit -H "Authorization: Bearer $CEO"
+curl -s -o /dev/null -X POST $API/costing/versions/$AVER/approve -H "Authorization: Bearer $FIN"
+APPROVED_PRICE=$(psql_ "select \"totalPrice\" from \"CostingVersion\" where id='$AVER';")
+check "once the costing is approved the commercial version is allowed" \
+  "$(code -X POST $API/proposals/$PRP/versions -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"type":"COMMERCIAL","costingVersionId":"'$AVER'","sellingPrice":'$APPROVED_PRICE'}')" "201"
+check "but a price contradicting the costing it cites is still refused" \
+  "$(code -X POST $API/proposals/$PRP/versions -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"type":"COMMERCIAL","costingVersionId":"'$AVER'","sellingPrice":1}')" "400"
+
+PV=$(psql_ "select id from \"ProposalVersion\" where \"proposalId\"='$PRP' and type='COMMERCIAL' limit 1;")
+check "sending it is recorded" \
+  "$(code -X POST $API/proposal-versions/$PV/submit -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"submittedTo":"Customer procurement","submissionMethod":"EMAIL"}')" "201"
+check "and what the customer holds is never replaced, only revised" \
+  "$(code -X POST $API/proposal-versions/$PV/submit -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{}')" "400"
+
+check "both remaining SoD rules are now published as enforced" \
+  "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
+rs=json.load(sys.stdin)['rules']
+print(str([x for x in rs if x['code']=='SOD_04'][0]['enforced'])+'/'+str([x for x in rs if x['code']=='SOD_08'][0]['enforced']))")" "True/True"
+
+echo "=== 19. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -639,7 +828,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 19. Web UI in three locales ==="
+echo "=== 20. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do

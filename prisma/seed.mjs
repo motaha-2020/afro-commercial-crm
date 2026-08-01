@@ -287,10 +287,14 @@ async function main() {
     },
   });
 
+  // The desks available, in order. isMandatory is false on all of them so the
+  // RULES decide which are engaged: a margin exception that needs the CEO
+  // should not also be parked on two desks no rule asked for. Afro can mark a
+  // step mandatory later if some approver must always sign.
   const steps = [
-    { sequence: 1, name: 'Sales Director', approverRole: 'SALES_DIRECTOR', slaHours: 24 },
-    { sequence: 2, name: 'Finance', approverRole: 'FINANCE', slaHours: 48 },
-    { sequence: 3, name: 'Chief Executive', approverRole: 'CEO', slaHours: 72 },
+    { sequence: 1, name: 'Sales Director', approverRole: 'SALES_DIRECTOR', slaHours: 24, isMandatory: false },
+    { sequence: 2, name: 'Finance', approverRole: 'FINANCE', slaHours: 48, isMandatory: false },
+    { sequence: 3, name: 'Chief Executive', approverRole: 'CEO', slaHours: 72, isMandatory: false },
   ];
   for (const step of steps) {
     const exists = await prisma.workflowStep.findFirst({
