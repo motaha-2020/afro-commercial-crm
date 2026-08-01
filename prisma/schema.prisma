@@ -193,6 +193,7 @@ model OrganizationUnit {
   accounts      Account[]
   opportunities Opportunity[]
   leads         Lead[]
+  partners      BusinessPartner[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -245,6 +246,12 @@ model User {
   submittedVersions  CostingVersion[]  @relation("VersionSubmitter")
   approvedVersions   CostingVersion[]  @relation("VersionApprover")
   ownedCostPackages  CostPackage[]     @relation("PackageOwner")
+
+  ownedPartners        BusinessPartner[]     @relation("PartnerOwner")
+  createdRfqs          Rfq[]                 @relation("RfqCreatedBy")
+  receivedQuotations   PartnerQuotation[]    @relation("QuotationReceivedBy")
+  selectedQuotations   PartnerQuotation[]    @relation("QuotationSelectedBy")
+  quotationEvaluations QuotationEvaluation[] @relation("QuotationEvaluator")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -513,6 +520,8 @@ model Opportunity {
   bids           Bid[]
   assessments    BidAssessment[]
   costingScenarios CostingScenario[]
+  rfqs             Rfq[]
+  partnerQuotations PartnerQuotation[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1240,7 +1249,8 @@ model BoqItem {
 
   sortOrder Int @default(0)
 
-  breakdown CostBreakdown[]
+  breakdown      CostBreakdown[]
+  quotationItems PartnerQuotationItem[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1385,4 +1395,300 @@ model NotificationRule {
   deletedAt DateTime?
 
   @@index([eventType, isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Release 5 — Partners and Quotations
+//
+// The spec settles the shape itself (section 21): "يمكن أن يكون المورد والمقاول
+// داخل جدول Business Partner واحد مع أنواع مختلفة". One table, types as rows —
+// the company that supplies the cable and also installs it is one relationship
+// with one performance history, not two half-records.
+// ---------------------------------------------------------------------------
+
+enum PartnerType {
+  SUPPLIER
+  SUBCONTRACTOR
+  CONSULTANT
+  LOCAL_PARTNER
+  LOGISTICS_PROVIDER
+  EQUIPMENT_RENTAL
+}
+
+enum PartnerApprovalStatus {
+  PROSPECT
+  UNDER_QUALIFICATION
+  APPROVED
+  CONDITIONAL
+  SUSPENDED
+}
+
+enum RfqStatus {
+  DRAFT
+  ISSUED
+  CLOSED
+  CANCELLED
+}
+
+enum QuotationTechnicalStatus {
+  NOT_REVIEWED
+  COMPLIANT
+  COMPLIANT_WITH_DEVIATIONS
+  NON_COMPLIANT
+}
+
+enum QuotationCommercialStatus {
+  NOT_REVIEWED
+  ACCEPTABLE
+  NEEDS_NEGOTIATION
+  UNACCEPTABLE
+}
+
+enum QuotationCompliance {
+  COMPLIANT
+  ALTERNATIVE
+  DEVIATION
+  NOT_QUOTED
+}
+
+model BusinessPartner {
+  id        String  @id @default(uuid())
+  code      String  @unique
+  legalName String
+  tradeName String?
+
+  country   String
+  city      String?
+  address   String?
+  taxNumber String?
+  website   String?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+
+  approvalStatus PartnerApprovalStatus @default(PROSPECT)
+
+  /// Four INDEPENDENT readings, never averaged into a stored "overall". A
+  /// partner strong technically and weak financially is a specific risk; one
+  /// number would hide exactly the half that matters.
+  technicalRating  Int?
+  commercialRating Int?
+  financialRating  Int?
+  hseRating        Int?
+
+  /// Blacklisting is a hard gate, not a warning label: the selection endpoint
+  /// refuses a blacklisted partner outright.
+  isBlacklisted   Boolean   @default(false)
+  blacklistReason String?
+  blacklistedAt   DateTime?
+
+  notes String?
+
+  ownerId String
+  owner   User   @relation("PartnerOwner", fields: [ownerId], references: [id])
+
+  orgUnitId String
+  orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+
+  types         PartnerTypeAssignment[]
+  quotations    PartnerQuotation[]
+  rfqRecipients RfqRecipient[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([ownerId])
+  @@index([orgUnitId])
+  @@index([country])
+  @@index([approvalStatus])
+}
+
+/// A partner holds several types at once (supplies AND installs), so types are
+/// rows. Soft-deleted and re-granted like ContactRole, keeping the unique pair.
+model PartnerTypeAssignment {
+  id        String          @id @default(uuid())
+  partnerId String
+  partner   BusinessPartner @relation(fields: [partnerId], references: [id])
+  type      PartnerType
+  notes     String?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([partnerId, type])
+  @@index([partnerId])
+}
+
+/// A request for quotation issued against an opportunity's scope.
+model Rfq {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  title       String
+  description String?
+  status      RfqStatus @default(DRAFT)
+
+  issuedAt DateTime?
+  dueAt    DateTime?
+  currency String    @default("USD")
+
+  createdById String
+  createdBy   User   @relation("RfqCreatedBy", fields: [createdById], references: [id])
+
+  recipients RfqRecipient[]
+  quotations PartnerQuotation[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([status])
+}
+
+model RfqRecipient {
+  id        String          @id @default(uuid())
+  rfqId     String
+  rfq       Rfq             @relation(fields: [rfqId], references: [id])
+  partnerId String
+  partner   BusinessPartner @relation(fields: [partnerId], references: [id])
+
+  respondedAt   DateTime?
+  declinedAt    DateTime?
+  declineReason String?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([rfqId, partnerId])
+  @@index([rfqId])
+  @@index([partnerId])
+}
+
+/// Section 22's Partner Quotation. Kept apart from the costing tables: a
+/// quotation is what a partner said, a cost breakdown is what we decided to
+/// carry. Linking them without merging them is what lets a price be traced.
+model PartnerQuotation {
+  id        String          @id @default(uuid())
+  code      String          @unique
+  partnerId String
+  partner   BusinessPartner @relation(fields: [partnerId], references: [id])
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  rfqId String?
+  rfq   Rfq?   @relation(fields: [rfqId], references: [id])
+
+  quotationNumber String?
+  quotationDate   DateTime?
+  /// Past this date the offer is history, not a current price. The comparison
+  /// excludes it and says so rather than quietly leaving it out.
+  validUntil      DateTime?
+
+  currency     String  @default("USD")
+  paymentTerms String?
+  deliveryDays Int?
+  warranty     String?
+  freightTerms String?
+  taxTreatment String?
+
+  totalValue Decimal @default(0) @db.Decimal(18, 2)
+  /// Freight, duty and handling on top of the quoted price. The cheapest
+  /// quotation is regularly not the cheapest delivered.
+  landedAdjustment Decimal? @db.Decimal(18, 2)
+
+  technicalStatus  QuotationTechnicalStatus  @default(NOT_REVIEWED)
+  commercialStatus QuotationCommercialStatus @default(NOT_REVIEWED)
+
+  /// Set only through the selection endpoint, which demands a human decision.
+  isSelected         Boolean   @default(false)
+  selectedAt         DateTime?
+  selectedById       String?
+  selectedBy         User?     @relation("QuotationSelectedBy", fields: [selectedById], references: [id])
+  selectionRationale String?
+
+  receivedById String
+  receivedBy   User   @relation("QuotationReceivedBy", fields: [receivedById], references: [id])
+
+  items       PartnerQuotationItem[]
+  evaluations QuotationEvaluation[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([partnerId])
+  @@index([opportunityId])
+  @@index([rfqId])
+  @@index([validUntil])
+}
+
+/// A quoted line, tied to the BOQ item it answers. The spec's exit gate for
+/// costing is "عروض الموردين مرتبطة بالبنود" — quotations linked to items — so
+/// the link is the point of this table, not an optional extra.
+model PartnerQuotationItem {
+  id          String           @id @default(uuid())
+  quotationId String
+  quotation   PartnerQuotation @relation(fields: [quotationId], references: [id])
+
+  boqItemId String?
+  boqItem   BoqItem? @relation(fields: [boqItemId], references: [id])
+
+  description String
+  quantity    Decimal @db.Decimal(18, 3)
+  unit        String?
+  unitPrice   Decimal @db.Decimal(18, 4)
+  /// Computed by the service from quantity x unit price, never client-supplied.
+  totalPrice  Decimal @db.Decimal(18, 2)
+
+  leadTimeDays Int?
+  compliance   QuotationCompliance @default(COMPLIANT)
+  exception    String?
+  notes        String?
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([quotationId])
+  @@index([boqItemId])
+}
+
+/// Section 23's Quotation Evaluation. Six scores kept separate, and the weights
+/// in force stored on the row — an old comparison must stay readable with the
+/// weights that actually produced it, not with today's.
+model QuotationEvaluation {
+  id          String           @id @default(uuid())
+  quotationId String
+  quotation   PartnerQuotation @relation(fields: [quotationId], references: [id])
+
+  priceScore     Int?
+  technicalScore Int?
+  deliveryScore  Int?
+  paymentScore   Int?
+  qualityScore   Int?
+  riskScore      Int?
+
+  /// Computed from the scores and the weights below.
+  weightedScore Decimal? @db.Decimal(6, 2)
+  /// Snapshot of the weights used, as a code -> weight map.
+  weightsUsed   Json?
+
+  recommendation String?
+
+  evaluatorId String
+  evaluator   User   @relation("QuotationEvaluator", fields: [evaluatorId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([quotationId])
 }

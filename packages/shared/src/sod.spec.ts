@@ -30,10 +30,18 @@ describe('segregation of duties', () => {
   });
 
   it('does not claim to enforce rules whose module has not shipped', () => {
-    // Purchase orders arrive in Release 5; pretending SOD_03 is live before
-    // then would be a false assurance in an audit.
-    expect(sodRulesFor('PurchaseOrder').map((r) => r.code)).not.toContain('SOD_03');
-    expect(SOD_RULE_BY_CODE.SOD_03.awaitingRelease).toBe(5);
+    // Discounts and approval limits arrive in Release 6; claiming they are
+    // live before then would be a false assurance in an audit.
+    expect(SOD_RULE_BY_CODE.SOD_04.awaitingRelease).toBe(6);
+    expect(SOD_RULE_BY_CODE.SOD_08.awaitingRelease).toBe(6);
+  });
+
+  it('binds the supplier rule to the commitment that exists today', () => {
+    // Release 5 has no purchase order yet, so SOD_03 binds where a partner is
+    // actually chosen: selecting the winning quotation. Leaving it pointed at
+    // PurchaseOrder would have left the rule declared but unenforced.
+    expect(SOD_RULE_BY_CODE.SOD_03.awaitingRelease).toBeNull();
+    expect(sodRulesFor('PartnerQuotation').map((r) => r.code)).toContain('SOD_03');
   });
 
   it('enforces the costing rule now that Release 4 supplies both halves', () => {

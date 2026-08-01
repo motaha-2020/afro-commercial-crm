@@ -19,6 +19,8 @@ import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ScopeModule } from './scope/scope.module';
 import { BidsModule } from './bids/bids.module';
 import { CostingModule } from './costing/costing.module';
+import { PartnersModule } from './partners/partners.module';
+import { QuotationsModule } from './quotations/quotations.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
@@ -40,6 +42,8 @@ import { MasterDataModule } from './master-data/master-data.module';
     ScopeModule,
     BidsModule,
     CostingModule,
+    PartnersModule,
+    QuotationsModule,
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,

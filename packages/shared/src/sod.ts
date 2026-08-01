@@ -68,9 +68,16 @@ export const SOD_RULES: readonly SodRule[] = [
     titleAr: 'من يوصي بالمورد لا يعتمد أمر الشراء منفردًا',
     titleEn: 'Whoever recommends a supplier cannot approve the purchase order alone',
     originatingAction: 'SUPPLIER_RECOMMEND',
-    blockedAction: 'PURCHASE_ORDER_APPROVE',
-    entityTypes: ['PurchaseOrder'],
-    awaitingRelease: 5,
+    blockedAction: 'QUOTATION_SELECT',
+    entityTypes: ['PartnerQuotation'],
+    // Enforced from Release 5. The spec words the blocked side as approving a
+    // purchase order, but no purchase order exists until Award & Contracting.
+    // The commitment that DOES exist here is selecting the winning quotation —
+    // the moment a partner is actually chosen — so the rule binds there:
+    // QuotationsService.select refuses the actor who wrote the recommendation.
+    // When purchase orders arrive the same rule extends to their approval
+    // rather than a second rule being invented.
+    awaitingRelease: null,
   },
   {
     code: 'SOD_04',

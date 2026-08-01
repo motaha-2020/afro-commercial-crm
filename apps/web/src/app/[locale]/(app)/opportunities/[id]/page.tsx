@@ -405,8 +405,11 @@ export default async function OpportunityDetailPage({
         <ActivityTimeline activities={activities.items} anchor={{ opportunityId: id }} />
       </div>
 
-      <p style={{ marginTop: 16 }}>
+      <p style={{ marginTop: 16 }} className="btn-row">
         <Link href={`/${locale}/opportunities`}>← {t('backToBoard')}</Link>
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/quotations`}>
+          {t('supplierComparison')} →
+        </Link>
       </p>
     </>
   );

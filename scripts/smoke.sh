@@ -410,7 +410,115 @@ check "another team's contact is invisible (404, not 403)" \
 check "master data publishes the lead transition table for the UI" \
   "$(curl -s $API/master-data | JQ "print(len(json.load(sys.stdin)['leadStatusTransitions']['QUALIFIED']))")" "2"
 
-echo "=== 16. Soft delete only ==="
+echo "=== 16. Release 5: partners, quotations and the comparison ==="
+PARTNER_A=$(curl -s -X POST $API/partners -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Cable Co","country":"EG","types":["SUPPLIER","SUBCONTRACTOR"]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+[ "$PARTNER_A" != "None" ] && ok "partner created" || bad "partner create" "$PARTNER_A"
+check "one company holds both roles, because types are rows" \
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "print(len(json.load(sys.stdin)['types']))")" "2"
+check "a new partner is a prospect — nobody creates an approved one" \
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['approvalStatus'])")" "PROSPECT"
+
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_A/ratings -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"technicalRating":5}'
+check "the overall rating carries how many of the four were actually scored" \
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(str(d['overallRating'])+'/'+str(d['ratedDimensions']))")" "5.0/1"
+check "and no overall rating can be written directly" \
+  "$(curl -s -X PATCH $API/partners/$PARTNER_A/ratings -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"overallRating":5}' | JQ "print(json.load(sys.stdin).get('statusCode',200))")" "400"
+check "an account manager cannot approve a partner" \
+  "$(code -X PATCH $API/partners/$PARTNER_A/approval -H "Authorization: Bearer $AM" -H 'Content-Type: application/json' \
+     -d '{"approvalStatus":"APPROVED"}')" "404"
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_A/approval -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"approvalStatus":"APPROVED"}'
+check "procurement authority approves it" \
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['approvalStatus'])")" "APPROVED"
+
+PARTNER_B=$(curl -s -X POST $API/partners -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Rival Ltd","country":"EG","types":["SUPPLIER"]}' | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_B/approval -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"approvalStatus":"APPROVED"}'
+check "blacklisting without a reason is refused" \
+  "$(code -X PATCH $API/partners/$PARTNER_B/blacklist -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"isBlacklisted":true}')" "400"
+
+RFQ=$(curl -s -X POST $API/opportunities/$NEWOPP/rfqs -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"title":"Smoke RFQ — cable supply","partnerIds":["'$PARTNER_A'","'$PARTNER_B'"]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+[ "$RFQ" != "None" ] && ok "RFQ raised against the opportunity" || bad "rfq create" "$RFQ"
+
+RFQ_EMPTY=$(curl -s -X POST $API/opportunities/$NEWOPP/rfqs -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"title":"Smoke RFQ with nobody on it"}' | JQ "print(json.load(sys.stdin)['id'])")
+check "an RFQ addressed to nobody cannot be issued" \
+  "$(code -X PATCH $API/rfqs/$RFQ_EMPTY -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"status":"ISSUED"}')" "400"
+check "the one with recipients can" \
+  "$(code -X PATCH $API/rfqs/$RFQ -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"status":"ISSUED"}')" "200"
+
+# Two offers: A is dearer but scores better; B is cheapest. The spec's rule is
+# that cheapest must not win by default.
+QUO_A=$(curl -s -X POST $API/opportunities/$NEWOPP/quotations -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$PARTNER_A'","rfqId":"'$RFQ'","validUntil":"2027-01-01T00:00:00.000Z","deliveryDays":30,
+       "items":[{"description":"Fibre cable 24F","quantity":1000,"unitPrice":12}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "the header total is rolled up from the lines, not typed in" \
+  "$(curl -s $API/quotations/$QUO_A -H "Authorization: Bearer $CEO" | JQ "print(float(json.load(sys.stdin)['totalValue']))")" "12000.0"
+QUO_B=$(curl -s -X POST $API/opportunities/$NEWOPP/quotations -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$PARTNER_B'","rfqId":"'$RFQ'","validUntil":"2027-01-01T00:00:00.000Z","deliveryDays":90,
+       "items":[{"description":"Fibre cable 24F","quantity":1000,"unitPrice":9}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+
+curl -s -o /dev/null -X POST $API/quotations/$QUO_A/evaluation -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' \
+  -d '{"priceScore":3,"technicalScore":5,"deliveryScore":5,"paymentScore":4,"qualityScore":5,"riskScore":4,"recommendation":"Best overall"}'
+curl -s -o /dev/null -X POST $API/quotations/$QUO_B/evaluation -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' \
+  -d '{"priceScore":5,"technicalScore":1,"deliveryScore":1,"paymentScore":2,"qualityScore":1,"riskScore":1}'
+
+CMP=$(curl -s $API/opportunities/$NEWOPP/quotation-comparison -H "Authorization: Bearer $CEO")
+check "the cheapest offer is identified" \
+  "$(echo "$CMP" | JQ "print(json.load(sys.stdin)['views']['lowestPriceId']=='$QUO_B')")" "True"
+check "but the recommendation follows overall value, not price" \
+  "$(echo "$CMP" | JQ "print(json.load(sys.stdin)['views']['recommendedId']=='$QUO_A')")" "True"
+check "and the comparison selects nothing by itself" \
+  "$(echo "$CMP" | JQ "print(sum(1 for q in json.load(sys.stdin)['quotations'] if q['isSelected']))")" "0"
+check "an unscored dimension counts as zero, so the weighted score is not flattered" \
+  "$(echo "$CMP" | JQ "
+d=json.load(sys.stdin); q=[x for x in d['quotations'] if x['id']=='$QUO_B'][0]
+print(round(float(q['evaluation']['weightedScore']),1))")" "42.0"
+
+check "whoever wrote the recommendation cannot select it (SOD_03)" \
+  "$(code -X POST $API/quotations/$QUO_A/select -H "Authorization: Bearer $FIN" -H 'Content-Type: application/json' -d '{}')" "403"
+check "and the blocked attempt is itself recorded" \
+  "$(psql_ "select count(*) from \"AuditLog\" where \"entityId\"='$QUO_A' and action='SOD_BLOCKED';")" "1"
+check "choosing against the recommendation without a reason is refused" \
+  "$(code -X POST $API/quotations/$QUO_B/select -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' -d '{}')" "400"
+check "with a written reason it goes through" \
+  "$(code -X POST $API/quotations/$QUO_B/select -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"rationale":"Only bidder able to mobilise in March"}')" "201"
+check "and only one offer is ever the selected one" \
+  "$(psql_ "select count(*) from \"PartnerQuotation\" where \"opportunityId\"='$NEWOPP' and \"isSelected\"=true;")" "1"
+check "a selected quotation is locked against edits" \
+  "$(code -X PATCH $API/quotations/$QUO_B -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"paymentTerms":"changed"}')" "400"
+
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_A/blacklist -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"isBlacklisted":true,"reason":"Smoke test blacklisting"}'
+check "blacklisting withdraws approval in the same act" \
+  "$(curl -s $API/partners/$PARTNER_A -H "Authorization: Bearer $CEO" | JQ "print(json.load(sys.stdin)['approvalStatus'])")" "SUSPENDED"
+check "a blacklisted partner's offer drops out of every comparison view, with a reason" \
+  "$(curl -s $API/opportunities/$NEWOPP/quotation-comparison -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print([i['reason'] for i in d['views']['ineligible'] if i['id']=='$QUO_A'][0])")" "PARTNER_BLACKLISTED"
+check "and it cannot be selected at all" \
+  "$(code -X POST $API/quotations/$QUO_A/select -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' -d '{}')" "400"
+check "a blacklisted partner cannot be re-approved without lifting it" \
+  "$(code -X PATCH $API/partners/$PARTNER_A/approval -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"approvalStatus":"APPROVED"}')" "400"
+check "SoD rule 3 is now published as enforced" \
+  "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
+r=[x for x in json.load(sys.stdin)['rules'] if x['code']=='SOD_03'][0]; print(r['enforced'])")" "True"
+
+echo "=== 17. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -421,7 +529,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 17. Web UI in three locales ==="
+echo "=== 18. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do

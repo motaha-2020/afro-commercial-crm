@@ -9,15 +9,25 @@ import { PrismaService } from '../prisma/prisma.service';
  * so two concurrent creates cannot mint the same code. A UUID is still the
  * primary key; this is the reference people quote in email and tenders.
  */
+/**
+ * Named rather than repeated in both signatures below: when the two lists were
+ * spelled out separately, adding an entity to one and forgetting the other
+ * failed to compile in a way that pointed at the wrong line.
+ */
+export type CodedTable =
+  | 'account'
+  | 'opportunity'
+  | 'lead'
+  | 'bid'
+  | 'partner'
+  | 'rfq'
+  | 'quotation';
+
 @Injectable()
 export class CodeGeneratorService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async next(
-    prefix: string,
-    table: 'account' | 'opportunity' | 'lead' | 'bid',
-    year: number,
-  ): Promise<string> {
+  async next(prefix: string, table: CodedTable, year: number): Promise<string> {
     const like = `${prefix}-${year}-%`;
 
     // Raw query keeps the count off the soft-delete filter: a deleted record
@@ -32,7 +42,7 @@ export class CodeGeneratorService {
     return `${prefix}-${year}-${String(seq).padStart(6, '0')}`;
   }
 
-  private tableName(table: 'account' | 'opportunity' | 'lead' | 'bid'): string {
+  private tableName(table: CodedTable): string {
     switch (table) {
       case 'account':
         return 'Account';
@@ -42,6 +52,12 @@ export class CodeGeneratorService {
         return 'Lead';
       case 'bid':
         return 'Bid';
+      case 'partner':
+        return 'BusinessPartner';
+      case 'rfq':
+        return 'Rfq';
+      case 'quotation':
+        return 'PartnerQuotation';
     }
   }
 }

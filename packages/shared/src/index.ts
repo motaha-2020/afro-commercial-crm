@@ -6,3 +6,4 @@ export * from './sod';
 export * from './bid';
 export * from './scope';
 export * from './costing';
+export * from './partner';
