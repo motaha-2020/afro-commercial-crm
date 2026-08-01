@@ -1020,6 +1020,13 @@ for L in ar en fr; do
   check "$L supplier comparison renders" \
     "$(code -b /tmp/acms_smoke.jar $WEB/$L/opportunities/$NEWOPP/quotations)" "200"
 done
+# The sidebar is pinned to the START of the reading direction, so it renders on
+# the left in English and on the right in Arabic from one rule rather than two.
+# Asserted against the built stylesheet because it is a one-word change to flip
+# it back by accident, and nothing else would notice.
+SHEET=$(curl -sL $WEB/en/login | grep -oE '/_next/static/css/[^"]+[.]css' | head -1)
+check "the sidebar sits on the reading side, not the far side" \
+  "$(curl -s $WEB$SHEET | grep -c 'sidebar{position:fixed;top:0;inset-inline-start:0')" "1"
 check "Arabic shell is RTL" "$(curl -s -b /tmp/acms_smoke.jar $WEB/ar/dashboard | grep -c 'dir="rtl"')" "1"
 check "notification bell present" "$(curl -s -b /tmp/acms_smoke.jar $WEB/en/dashboard | grep -c 'bell-wrap')" "1"
 check "signed-out visitor is redirected" "$(code $WEB/en/dashboard)" "307"
