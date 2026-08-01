@@ -964,9 +964,10 @@ R7_PEN=$(psql_ "select id from \"ContractDeviation\" where \"contractId\"='$R7_C
 check "the gate still refuses while a critical deviation is open" \
   "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
 d=json.load(sys.stdin); print('DEVIATIONS_RESOLVED' in d['readiness']['missing'])")" "True"
-curl -s -o /dev/null -X POST $API/deviations/$R7_PEN/decide -H "Authorization: Bearer $FIN" \
-  -H 'Content-Type: application/json' \
-  -d '{"status":"ACCEPTED","note":"LD capped at 10% and priced into the contingency"}'
+check "and the penalty is resolved the same way" \
+  "$(code -X POST $API/deviations/$R7_PEN/decide -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' \
+     -d '{"status":"ACCEPTED","note":"LD capped at 10% and priced into the contingency"}')" "201"
 
 check "with everything in place the gate opens" \
   "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
