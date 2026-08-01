@@ -554,9 +554,12 @@ echo "=== 18. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
-  for P in dashboard accounts leads leads/new opportunities; do
+  for P in dashboard accounts leads leads/new opportunities partners partners/new; do
     check "$L/$P renders" "$(code -b /tmp/acms_smoke.jar $WEB/$L/$P)" "200"
   done
+  check "$L partner file renders" "$(code -b /tmp/acms_smoke.jar $WEB/$L/partners/$PARTNER_A)" "200"
+  check "$L supplier comparison renders" \
+    "$(code -b /tmp/acms_smoke.jar $WEB/$L/opportunities/$NEWOPP/quotations)" "200"
 done
 check "Arabic shell is RTL" "$(curl -s -b /tmp/acms_smoke.jar $WEB/ar/dashboard | grep -c 'dir="rtl"')" "1"
 check "notification bell present" "$(curl -s -b /tmp/acms_smoke.jar $WEB/en/dashboard | grep -c 'bell-wrap')" "1"
