@@ -860,6 +860,14 @@ print(json.load(sys.stdin)['strongest'])")" "PURCHASE_ORDER"
 check "the ERP cost code is kept against the award" \
   "$(psql_ "select \"erpCostCode\" from \"Award\" where \"opportunityId\"='$R7_OPP' and \"erpCostCode\" is not null;")" "OPP-SMOKE-001"
 
+# A scope, so the gate's SCOPE_FIXED condition has something to judge. Without
+# it the handover is correctly refused — which is the behaviour, not a fixture.
+R7_SPKG=$(curl -s -X POST $API/opportunities/$R7_OPP/scope/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Civil works","category":"CIVIL_WORKS"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/scope/packages/$R7_SPKG/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Trenching","quantity":1,"unit":"km"}'
+
 # A costing and an approved proposal to compare the contract against.
 R7_SCN=$(curl -s -X POST $API/opportunities/$R7_OPP/costing -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' -d '{"name":"Baseline","type":"SELF_EXECUTION","currency":"USD"}' \
