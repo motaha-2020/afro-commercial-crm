@@ -13,6 +13,7 @@ import {
   type BoqOption,
   type PartnerOption,
 } from '@/components/NewQuotationForm';
+import { NewRfqForm } from '@/components/NewRfqForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,12 +105,15 @@ export default async function QuotationComparisonPage({
       <div className="panel">
         <div className="btn-row" style={{ justifyContent: 'space-between' }}>
           <h2>{t('rfqs')}</h2>
-          <NewQuotationForm
-            opportunityId={id}
-            partners={partners.items}
-            boqItems={boqItems}
-            currency="USD"
-          />
+          <span className="btn-row">
+            <NewRfqForm opportunityId={id} partners={partners.items} />
+            <NewQuotationForm
+              opportunityId={id}
+              partners={partners.items}
+              boqItems={boqItems}
+              currency="USD"
+            />
+          </span>
         </div>
         <table className="data">
           <thead>

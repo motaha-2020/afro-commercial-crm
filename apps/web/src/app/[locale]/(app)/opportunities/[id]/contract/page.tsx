@@ -5,6 +5,11 @@ import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { HandoverGate, type Readiness, type SignoffRow } from '@/components/HandoverGate';
 import { RecordAwardForm } from '@/components/RecordAwardForm';
+import {
+  NewContractForm,
+  type AwardOption,
+  type ProposalVersionOption,
+} from '@/components/NewContractForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +78,23 @@ export default async function ContractPage({
       { token },
     ).catch(() => null),
   ]);
+
+  // The proposal versions a contract can be written against. Only approved,
+  // priced ones are worth offering: a contract compared to a draft would be
+  // compared to a number that can still move.
+  const proposals = await apiFetch<
+    { versions: { id: string; versionNumber: number; type: string; sellingPrice: string | null }[] }[]
+  >(`/opportunities/${id}/proposals`, { token }).catch(() => []);
+
+  const proposalVersions: ProposalVersionOption[] = proposals.flatMap((p) =>
+    p.versions
+      .filter((v) => v.sellingPrice !== null)
+      .map((v) => ({
+        id: v.id,
+        label: `v${v.versionNumber} — ${v.type}`,
+        sellingPrice: v.sellingPrice,
+      })),
+  );
 
   const handover = handovers.length
     ? await apiFetch<HandoverRow>(`/handovers/${handovers[0].id}`, { token }).catch(() => null)
@@ -184,11 +206,18 @@ export default async function ContractPage({
         </div>
       ))}
 
-      {contracts.length === 0 && (
-        <div className="panel">
-          <p className="muted">{t('noContracts')}</p>
+      <div className="panel">
+        <div className="btn-row" style={{ justifyContent: 'space-between' }}>
+          <h3>{t('contracts')}</h3>
+          <NewContractForm
+            opportunityId={id}
+            awards={awards.awards as AwardOption[]}
+            proposalVersions={proposalVersions}
+            currency="USD"
+          />
         </div>
-      )}
+        {contracts.length === 0 && <p className="muted">{t('noContracts')}</p>}
+      </div>
 
       {handover ? (
         <HandoverGate
