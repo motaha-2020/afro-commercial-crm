@@ -958,6 +958,16 @@ check "and the refusal names the conditions rather than just saying no" \
 curl -s -o /dev/null -X PATCH $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
   -d '{"projectManagerId":"'$(psql_ "select id from \"User\" where email='am@afro.example';")'","plannedStartDate":"2026-09-01T00:00:00.000Z"}'
+# The introduced penalty is still open and critical, and the gate is right to
+# block on it. Resolving it is part of the story, not a workaround.
+R7_PEN=$(psql_ "select id from \"ContractDeviation\" where \"contractId\"='$R7_CNT' and field='PENALTIES' and status='OPEN' limit 1;")
+check "the gate still refuses while a critical deviation is open" \
+  "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print('DEVIATIONS_RESOLVED' in d['readiness']['missing'])")" "True"
+curl -s -o /dev/null -X POST $API/deviations/$R7_PEN/decide -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"ACCEPTED","note":"LD capped at 10% and priced into the contingency"}'
+
 check "with everything in place the gate opens" \
   "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
 print(json.load(sys.stdin)['readiness']['ready'])")" "True"
