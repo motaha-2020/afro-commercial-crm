@@ -59,6 +59,13 @@ function contractsService(deviation: Record<string, unknown> = {}) {
       findUnique: jest.fn().mockResolvedValue({
         id: 'pv-1',
         sellingPrice: 1_000_000,
+        // Terms the proposal did not state stay null, so the comparison says
+        // nothing about them.
+        paymentTerms: null,
+        durationDays: null,
+        warrantyMonths: null,
+        ldPercent: null,
+        liabilityCap: null,
         proposal: { opportunityId: 'opp-1' },
       }),
     },
@@ -175,6 +182,64 @@ describe('reviewing a contract against its proposal', () => {
         data: expect.objectContaining({ field: 'PRICE', isDetected: true }),
       }),
     );
+  });
+
+  it('says nothing about a term the proposal never stated', async () => {
+    // The trap: Number(undefined) is NaN, which compares unequal to
+    // everything, so an unstated term would be reported as a deviation on
+    // every single contract.
+    const { service, prisma } = contractsService();
+    prisma.proposalVersion.findUnique.mockResolvedValue({
+      id: 'pv-1',
+      sellingPrice: 900_000,
+      proposal: { opportunityId: 'opp-1' },
+      // ldPercent, liabilityCap and the rest simply absent.
+    });
+
+    await service.review(preparer, 'cnt-1');
+
+    const fields = prisma.contractDeviation.create.mock.calls.map(
+      (c: [{ data: { field: string } }]) => c[0].data.field,
+    );
+    expect(fields).toEqual([]);
+  });
+
+  it('compares the terms once the proposal carries them', async () => {
+    const { service, prisma } = contractsService();
+    prisma.proposalVersion.findUnique.mockResolvedValue({
+      id: 'pv-1',
+      sellingPrice: 900_000,
+      warrantyMonths: 12,
+      ldPercent: 5,
+      liabilityCap: 500_000,
+      paymentTerms: '30 days net',
+      durationDays: null,
+      proposal: { opportunityId: 'opp-1' },
+    });
+    prisma.contract.findFirst.mockResolvedValue({
+      id: 'cnt-1',
+      opportunityId: 'opp-1',
+      status: 'DRAFT',
+      proposalVersionId: 'pv-1',
+      proposalVersion: { id: 'pv-1' },
+      contractValue: 900_000,
+      paymentTerms: '90 days net',
+      startDate: null,
+      endDate: null,
+      warrantyMonths: 24,
+      ldPercent: 5,
+      liabilityCap: 500_000,
+      deviations: [],
+      clauses: [],
+    });
+
+    await service.review(preparer, 'cnt-1');
+
+    const fields = prisma.contractDeviation.create.mock.calls.map(
+      (c: [{ data: { field: string } }]) => c[0].data.field,
+    );
+    // Price and LD match; the warranty and payment terms moved.
+    expect(fields.sort()).toEqual(['PAYMENT_TERMS', 'WARRANTY']);
   });
 
   it('does not overwrite a deviation a person already decided', async () => {

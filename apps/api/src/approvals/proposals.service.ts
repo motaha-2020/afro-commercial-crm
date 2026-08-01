@@ -151,6 +151,11 @@ export class ProposalsService {
         sellingPrice: dto.sellingPrice,
         currency: dto.currency ?? 'USD',
         validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
+        paymentTerms: dto.paymentTerms,
+        durationDays: dto.durationDays,
+        warrantyMonths: dto.warrantyMonths,
+        ldPercent: dto.ldPercent,
+        liabilityCap: dto.liabilityCap,
       },
     });
 

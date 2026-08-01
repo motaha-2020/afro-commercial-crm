@@ -278,6 +278,32 @@ export class CreateProposalVersionDto {
   @IsOptional()
   @IsDateString()
   validUntil?: string;
+
+  // The terms a contract will later be compared against, one by one.
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  durationDays?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  warrantyMonths?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ldPercent?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  liabilityCap?: number;
 }
 
 export class SubmitProposalVersionDto {

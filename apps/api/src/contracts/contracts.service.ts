@@ -269,31 +269,35 @@ export class ContractsService {
     });
     if (!proposal) throw new NotFoundException('Proposal version not found');
 
+    // A term the proposal never stated stays null, and detectDeviations then
+    // says nothing about it rather than inventing a difference against a zero.
+    // `undefined` has to fall through the same path as null: Number(undefined)
+    // is NaN, which compares unequal to everything and would report a
+    // deviation on every term the proposal simply did not mention.
+    const decimal = (v: unknown): number | null =>
+      v === null || v === undefined ? null : Number(v);
+
     const proposalTerms: ComparableTerms = {
-      price: proposal.sellingPrice === null ? null : Number(proposal.sellingPrice),
-      // The proposal module does not yet carry these terms as structured
-      // fields, so anything absent is left undefined rather than guessed —
-      // detectDeviations then stays silent about it instead of inventing a
-      // difference against a zero.
-      paymentTerms: null,
-      durationDays: null,
-      warrantyMonths: null,
-      ldPercent: null,
-      liabilityCap: null,
+      price: decimal(proposal.sellingPrice),
+      paymentTerms: proposal.paymentTerms ?? null,
+      durationDays: proposal.durationDays ?? null,
+      warrantyMonths: proposal.warrantyMonths ?? null,
+      ldPercent: decimal(proposal.ldPercent),
+      liabilityCap: decimal(proposal.liabilityCap),
     };
 
     const contractTerms: ComparableTerms = {
-      price: contract.contractValue === null ? null : Number(contract.contractValue),
-      paymentTerms: contract.paymentTerms,
+      price: decimal(contract.contractValue),
+      paymentTerms: contract.paymentTerms ?? null,
       durationDays:
         contract.startDate && contract.endDate
           ? Math.round(
               (contract.endDate.getTime() - contract.startDate.getTime()) / 86_400_000,
             )
           : null,
-      warrantyMonths: contract.warrantyMonths,
-      ldPercent: contract.ldPercent === null ? null : Number(contract.ldPercent),
-      liabilityCap: contract.liabilityCap === null ? null : Number(contract.liabilityCap),
+      warrantyMonths: contract.warrantyMonths ?? null,
+      ldPercent: decimal(contract.ldPercent),
+      liabilityCap: decimal(contract.liabilityCap),
     };
 
     const detected = detectDeviations(proposalTerms, contractTerms);

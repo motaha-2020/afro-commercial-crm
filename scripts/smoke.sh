@@ -897,8 +897,11 @@ R7_PRICE=$(psql_ "select \"totalPrice\" from \"CostingVersion\" where id='$R7_VE
 
 R7_PRP=$(curl -s -X POST $API/opportunities/$R7_OPP/proposals -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' -d '{"title":"Smoke offer"}' | JQ "print(json.load(sys.stdin)['id'])")
+# The proposal states its terms, so the contract comparison has both sides.
+# Without them everything except price was compared against nothing.
 R7_PV=$(curl -s -X POST $API/proposals/$R7_PRP/versions -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
-  -d '{"type":"COMMERCIAL","costingVersionId":"'$R7_VER'","sellingPrice":'$R7_PRICE'}' \
+  -d '{"type":"COMMERCIAL","costingVersionId":"'$R7_VER'","sellingPrice":'$R7_PRICE',
+       "paymentTerms":"30 days net","warrantyMonths":12,"durationDays":180}' \
   | JQ "print(json.load(sys.stdin)['id'])")
 
 # The contract, deliberately worse than the offer in three ways.
@@ -919,6 +922,12 @@ d=json.load(sys.stdin); print(any(x['field']=='PRICE' for x in d['deviations']))
 check "and grades a 10% cut as critical" \
   "$(echo "$REV" | JQ "
 d=json.load(sys.stdin); print([x['riskLevel'] for x in d['deviations'] if x['field']=='PRICE'][0])")" "CRITICAL"
+check "and a warranty stretched from 12 to 24 months is a deviation too" \
+  "$(echo "$REV" | JQ "
+d=json.load(sys.stdin); print([x['impact'] for x in d['deviations'] if x['field']=='WARRANTY'][0])")" "WORSE"
+check "while a term the contract left alone raises nothing" \
+  "$(echo "$REV" | JQ "
+d=json.load(sys.stdin); print(any(x['field']=='PAYMENT_TERMS' for x in d['deviations']))")" "False"
 check "a penalty that was never offered is critical too" \
   "$(echo "$REV" | JQ "
 d=json.load(sys.stdin); print([x['riskLevel'] for x in d['deviations'] if x['field']=='PENALTIES'][0])")" "CRITICAL"

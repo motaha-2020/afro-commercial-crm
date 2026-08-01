@@ -2006,6 +2006,17 @@ model ProposalVersion {
   currency     String    @default("USD")
   validUntil   DateTime?
 
+  /// The commercial terms offered, structured rather than buried in an
+  /// attached document. Release 7 compares a contract against the proposal it
+  /// claims to embody; with only a price here, every other term was being
+  /// compared against nothing and the deviation engine could report on one
+  /// field out of six.
+  paymentTerms   String?
+  durationDays   Int?
+  warrantyMonths Int?
+  ldPercent      Decimal? @db.Decimal(6, 2)
+  liabilityCap   Decimal? @db.Decimal(18, 2)
+
   status ProposalVersionStatus @default(DRAFT)
 
   submittedAt      DateTime?
