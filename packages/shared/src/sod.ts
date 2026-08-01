@@ -105,7 +105,10 @@ export const SOD_RULES: readonly SodRule[] = [
     originatingAction: 'CONTRACT_DEVIATION_PREPARE',
     blockedAction: 'CONTRACT_DEVIATION_APPROVE',
     entityTypes: ['ContractDeviation'],
-    awaitingRelease: 7,
+    // The last of the eight to bind. Note it catches the reviewer too: running
+    // the comparison records you as the preparer of everything it found, so
+    // whoever reviews a contract cannot also wave through its deviations.
+    awaitingRelease: null,
   },
   {
     code: 'SOD_07',

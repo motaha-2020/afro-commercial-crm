@@ -29,10 +29,18 @@ describe('segregation of duties', () => {
     expect(sodRulesFor('Account').map((r) => r.code)).toContain('SOD_05');
   });
 
-  it('does not claim to enforce rules whose module has not shipped', () => {
-    // Contract deviations arrive in Release 7; claiming the rule is live
-    // before then would be a false assurance in an audit.
-    expect(SOD_RULE_BY_CODE.SOD_06.awaitingRelease).toBe(7);
+  it('all eight rules are now enforced, none merely declared', () => {
+    // Release 7 binds the last one. An audit can be told every rule is live.
+    for (const rule of SOD_RULES) {
+      expect(rule.awaitingRelease).toBeNull();
+    }
+  });
+
+  it('binds the contract rule to the deviation, reviewer included', () => {
+    // Running the comparison records you as preparer of what it found, so the
+    // reviewer of a contract cannot also approve its deviations.
+    expect(SOD_RULE_BY_CODE.SOD_06.awaitingRelease).toBeNull();
+    expect(sodRulesFor('ContractDeviation').map((r) => r.code)).toContain('SOD_06');
   });
 
   it('enforces the discount and limit rules now that Release 6 supplies them', () => {

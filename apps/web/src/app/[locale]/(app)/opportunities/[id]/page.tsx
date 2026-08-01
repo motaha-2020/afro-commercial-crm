@@ -428,6 +428,9 @@ export default async function OpportunityDetailPage({
         <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/quotations`}>
           {t('supplierComparison')} →
         </Link>
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/contract`}>
+          {t('awardAndContract')} →
+        </Link>
       </p>
     </>
   );

@@ -24,7 +24,10 @@ export type CodedTable =
   | 'quotation'
   | 'approvalRequest'
   | 'discountRequest'
-  | 'proposal';
+  | 'proposal'
+  | 'award'
+  | 'contract'
+  | 'handover';
 
 @Injectable()
 export class CodeGeneratorService {
@@ -67,6 +70,12 @@ export class CodeGeneratorService {
         return 'DiscountRequest';
       case 'proposal':
         return 'Proposal';
+      case 'award':
+        return 'Award';
+      case 'contract':
+        return 'Contract';
+      case 'handover':
+        return 'ProjectHandover';
     }
   }
 }
