@@ -215,6 +215,13 @@ check "the deadline view finds it within the window" \
 
 check "eight scoring factors, weights totalling 100" \
   "$(curl -s $API/bid-weights -H "Authorization: Bearer $CEO" | JQ "d=json.load(sys.stdin);print(str(len(d['factors']))+'/'+str(d['total']))")" "8/100"
+# The Bid/No-Bid bands are settings now, so they have to be set before a
+# suggestion exists. Scoped to Egypt, which leaves other countries unset — and
+# section 18 relies on that to prove the unconfigured case.
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"key":"BID_GO_THRESHOLD","value":70,"country":"EG"}'
+curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"key":"BID_CONDITIONAL_THRESHOLD","value":55,"country":"EG"}'
 ASSESS=$(curl -s -X POST $API/opportunities/$OPP/bid-assessment -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
   -d '{"ratings":{"RELATIONSHIP_STRENGTH":5,"TECHNICAL_FIT":5,"DELIVERY_CAPACITY":4,"EXPECTED_PROFITABILITY":4,"PAYMENT_TERMS":3,"COMPETITION":3,"SCOPE_CLARITY":4,"STRATEGIC_VALUE":5}}')
