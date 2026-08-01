@@ -194,6 +194,8 @@ model OrganizationUnit {
   opportunities Opportunity[]
   leads         Lead[]
   partners      BusinessPartner[]
+  approvalPolicies    ApprovalPolicy[]
+  workflowDefinitions WorkflowDefinition[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -252,6 +254,14 @@ model User {
   receivedQuotations   PartnerQuotation[]    @relation("QuotationReceivedBy")
   selectedQuotations   PartnerQuotation[]    @relation("QuotationSelectedBy")
   quotationEvaluations QuotationEvaluation[] @relation("QuotationEvaluator")
+  approvalPolicies   ApprovalPolicy[]  @relation("PolicyAuthor")
+  approvalRequests   ApprovalRequest[] @relation("ApprovalRequester")
+  approvalActions    ApprovalAction[]  @relation("ApprovalActor")
+  approvalDelegations ApprovalAction[] @relation("ApprovalDelegator")
+  discountsRequested DiscountRequest[] @relation("DiscountRequester")
+  discountsDecided   DiscountRequest[] @relation("DiscountApprover")
+  proposalsAuthored  Proposal[]        @relation("ProposalAuthor")
+  proposalsSubmitted ProposalVersion[] @relation("ProposalSubmitter")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -522,6 +532,10 @@ model Opportunity {
   costingScenarios CostingScenario[]
   rfqs             Rfq[]
   partnerQuotations PartnerQuotation[]
+  approvalPolicies  ApprovalPolicy[]
+  approvalRequests  ApprovalRequest[]
+  discountRequests  DiscountRequest[]
+  proposals         Proposal[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -976,6 +990,7 @@ model Bid {
   notes               String?
 
   requirements BidRequirement[]
+  proposals    Proposal[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1186,6 +1201,7 @@ model CostingVersion {
   createdBy   User   @relation("VersionAuthor", fields: [createdById], references: [id])
 
   packages CostPackage[]
+  proposalVersions ProposalVersion[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1691,4 +1707,391 @@ model QuotationEvaluation {
   deletedAt DateTime?
 
   @@index([quotationId])
+}
+
+// ---------------------------------------------------------------------------
+// Release 6 — Approvals and Proposals
+//
+// The spec is unusually direct here (section 28): "لا أنصح بوضع Workflow ثابت
+// داخل الكود. نحتاج Workflow قابلًا للتهيئة" — do not hard-code the workflow;
+// make it configurable. Afro Group confirmed the same when asked for concrete
+// approval limits: there is no single set of numbers, because they differ by
+// project, by opportunity and by country, and the responsible manager needs
+// room to set them.
+//
+// So no threshold in this release is a constant in TypeScript. Every one is a
+// row a person can edit through a settings screen, and the rules that consume
+// them are rows too — "IF Gross Margin < 12% THEN CEO Approval" is data, per
+// the spec's own worked example.
+//
+// Two consequences that are easy to miss, both load-bearing:
+//
+// Changing a limit is itself a governed act. A limit anyone can raise on their
+// own authority is not a limit — instead of asking their director, a manager
+// edits the number and approves themselves. That is exactly SOD_08, which has
+// sat in @acms/shared marked awaitingRelease: 6 since the first release.
+//
+// And an approval must keep the thresholds it was granted under. Editing a
+// policy tomorrow must not silently make yesterday's approvals non-compliant,
+// so the values in force are snapshotted onto the request — the same reason a
+// costing version keeps the totals it was approved on.
+// ---------------------------------------------------------------------------
+
+/// A configurable threshold. The scope columns are what let one company run
+/// different limits per country and per opportunity without a code change.
+model ApprovalPolicy {
+  id    String            @id @default(uuid())
+  key   ApprovalPolicyKey
+  /// Numeric limit or threshold, read according to `key`.
+  value Decimal           @db.Decimal(18, 4)
+  currency String?
+
+  /// Scope, narrowest wins. All null = the group-wide default.
+  country       String?
+  orgUnitId     String?
+  orgUnit       OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity?      @relation(fields: [opportunityId], references: [id])
+
+  /// Dated so a change is a new row, never an overwrite — the same treatment
+  /// resource rates get, and for the same reason: an old decision has to stay
+  /// explainable with the numbers that applied at the time.
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  note String?
+
+  createdById String
+  createdBy   User   @relation("PolicyAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([key, country])
+  @@index([opportunityId])
+  @@index([effectiveFrom])
+}
+
+model WorkflowDefinition {
+  id              String          @id @default(uuid())
+  code            String          @unique
+  name            String
+  businessProcess ApprovalProcess
+  country         String?
+  orgUnitId       String?
+  orgUnit         OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
+  isActive        Boolean         @default(true)
+  version         Int             @default(1)
+
+  steps    WorkflowStep[]
+  rules    ApprovalRule[]
+  requests ApprovalRequest[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([businessProcess, country])
+}
+
+model WorkflowStep {
+  id         String             @id @default(uuid())
+  workflowId String
+  workflow   WorkflowDefinition @relation(fields: [workflowId], references: [id])
+
+  sequence     Int
+  name         String
+  approverRole String
+  approvalType ApprovalType @default(SINGLE)
+  /// Hours allowed before the step is late. The spec asks for an SLA per step
+  /// so "time waiting" on the approvals queue means something.
+  slaHours       Int?
+  isMandatory    Boolean @default(true)
+  escalationRole String?
+
+  requests ApprovalRequest[]
+  actions  ApprovalAction[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([workflowId, sequence])
+}
+
+/// "IF Gross Margin < 12% THEN CEO Approval Required" — the spec's example,
+/// stored rather than compiled.
+model ApprovalRule {
+  id         String             @id @default(uuid())
+  workflowId String
+  workflow   WorkflowDefinition @relation(fields: [workflowId], references: [id])
+
+  conditionField ApprovalConditionField
+  operator       ApprovalOperator
+  /// Either a fixed number, or the policy key whose current value to read.
+  threshold          Decimal?           @db.Decimal(18, 4)
+  thresholdPolicyKey ApprovalPolicyKey?
+
+  requiredRole String
+  priority     Int     @default(0)
+  isActive     Boolean @default(true)
+  reason       String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([workflowId])
+}
+
+model ApprovalRequest {
+  id         String             @id @default(uuid())
+  code       String             @unique
+  workflowId String
+  workflow   WorkflowDefinition @relation(fields: [workflowId], references: [id])
+
+  recordType    String
+  recordId      String
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  currentStepId String?
+  currentStep   WorkflowStep? @relation(fields: [currentStepId], references: [id])
+
+  status ApprovalRequestStatus @default(PENDING)
+
+  /// Why this approval exists at all: which rules fired, and on what numbers.
+  triggeredBy Json?
+  /// The thresholds in force when the request was raised. Editing a policy
+  /// afterwards must never rewrite what an approver was asked to judge.
+  policySnapshot Json?
+
+  requestedById String
+  requestedBy   User     @relation("ApprovalRequester", fields: [requestedById], references: [id])
+  requestedAt   DateTime @default(now())
+  decidedAt     DateTime?
+  dueAt         DateTime?
+
+  actions          ApprovalAction[]
+  proposalVersions ProposalVersion[] @relation("ProposalApproval")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([recordType, recordId])
+  @@index([status])
+  @@index([opportunityId])
+}
+
+model ApprovalAction {
+  id        String          @id @default(uuid())
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id])
+
+  stepId String?
+  step   WorkflowStep? @relation(fields: [stepId], references: [id])
+
+  approverId String
+  approver   User   @relation("ApprovalActor", fields: [approverId], references: [id])
+
+  decision ApprovalDecision
+  /// The spec: "لا موافقات شفوية غير مسجلة" and "كل تعليق يبقى محفوظًا".
+  comment String?
+  /// What an APPROVED_WITH_CONDITIONS decision actually requires.
+  conditions      String?
+  delegatedFromId String?
+  delegatedFrom   User?   @relation("ApprovalDelegator", fields: [delegatedFromId], references: [id])
+
+  actionDate DateTime @default(now())
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([requestId])
+  @@index([approverId])
+}
+
+/// Separated from a generic approval because SOD_04 names it specifically:
+/// whoever asks for the discount does not grant it.
+model DiscountRequest {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  requestedPercent Decimal               @db.Decimal(6, 2)
+  fromPrice        Decimal               @db.Decimal(18, 2)
+  toPrice          Decimal               @db.Decimal(18, 2)
+  justification    String
+  status           DiscountRequestStatus @default(PENDING)
+
+  requestedById String
+  requestedBy   User      @relation("DiscountRequester", fields: [requestedById], references: [id])
+  decidedById   String?
+  decidedBy     User?     @relation("DiscountApprover", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  decisionNote  String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([status])
+}
+
+model Proposal {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  bidId String?
+  bid   Bid?   @relation(fields: [bidId], references: [id])
+
+  title String
+
+  versions ProposalVersion[]
+
+  createdById String
+  createdBy   User   @relation("ProposalAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+}
+
+model ProposalVersion {
+  id         String   @id @default(uuid())
+  proposalId String
+  proposal   Proposal @relation(fields: [proposalId], references: [id])
+
+  versionNumber Int
+  type          ProposalType @default(INITIAL)
+
+  /// The spec's hard rule (section 26): "يجب أن يرتبط كل Commercial Proposal
+  /// بـCosting Version معتمدة. لا يسمح للمستخدم بإدخال سعر عشوائي لا يرتبط
+  /// بالتسعير." A commercial price with no approved costing behind it is the
+  /// thing this field exists to make impossible.
+  costingVersionId String?
+  costingVersion   CostingVersion? @relation(fields: [costingVersionId], references: [id])
+
+  approvalRequestId String?
+  approvalRequest   ApprovalRequest? @relation("ProposalApproval", fields: [approvalRequestId], references: [id])
+
+  sellingPrice Decimal?  @db.Decimal(18, 2)
+  currency     String    @default("USD")
+  validUntil   DateTime?
+
+  status ProposalVersionStatus @default(DRAFT)
+
+  submittedAt      DateTime?
+  submittedById    String?
+  submittedBy      User?     @relation("ProposalSubmitter", fields: [submittedById], references: [id])
+  submissionMethod String?
+  submittedTo      String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([proposalId, versionNumber])
+  @@index([proposalId])
+  @@index([status])
+}
+
+enum ApprovalPolicyKey {
+  /// Below this gross margin the deal needs the escalated approver.
+  MIN_GROSS_MARGIN_PERCENT
+  /// The floor no selling price may go under without an exception approval.
+  MIN_SELLING_PRICE_MARGIN_PERCENT
+  /// Deal value above which a higher authority is required.
+  APPROVAL_VALUE_LIMIT
+  /// Collection period the company is willing to carry, in days.
+  MAX_PAYMENT_TERM_DAYS
+  /// Discount a salesperson may give before it must be approved.
+  MAX_DISCOUNT_PERCENT
+  /// Bid/No-Bid score bands — previously provisional constants in the code.
+  BID_GO_THRESHOLD
+  BID_CONDITIONAL_THRESHOLD
+}
+
+enum ApprovalProcess {
+  OPPORTUNITY_PRICING
+  DISCOUNT
+  PROPOSAL_SUBMISSION
+  CONTRACT
+}
+
+enum ApprovalType {
+  SINGLE
+  ALL_OF
+  ANY_OF
+}
+
+enum ApprovalConditionField {
+  GROSS_MARGIN_PERCENT
+  OPPORTUNITY_VALUE
+  PAYMENT_TERM_DAYS
+  DISCOUNT_PERCENT
+  COUNTRY_IS_NEW
+  SINGLE_SOURCE_SUPPLIER
+  FOREIGN_CURRENCY
+  SCOPE_NOT_READY
+}
+
+enum ApprovalOperator {
+  LESS_THAN
+  LESS_OR_EQUAL
+  GREATER_THAN
+  GREATER_OR_EQUAL
+  EQUALS
+  IS_TRUE
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  APPROVED_WITH_CONDITIONS
+  REJECTED
+  RETURNED_FOR_REVISION
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  RETURN_FOR_REVISION
+  APPROVE_WITH_CONDITIONS
+}
+
+enum DiscountRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ProposalType {
+  BUDGETARY
+  INITIAL
+  REVISED
+  BAFO
+  FINAL
+  TECHNICAL
+  COMMERCIAL
+  COMBINED
+}
+
+enum ProposalVersionStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SUBMITTED
+  SUPERSEDED
+  WITHDRAWN
 }

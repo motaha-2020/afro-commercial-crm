@@ -23,7 +23,18 @@ export class OpportunityAccessService {
     const filter = await this.scope.buildFilter(user);
     const opp = await this.prisma.opportunity.findFirst({
       where: { id: opportunityId, deletedAt: null, ...filter },
-      select: { id: true, code: true, name: true, stage: true, ownerId: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        stage: true,
+        ownerId: true,
+        // Needed to resolve which approval policy applies: limits are scoped
+        // by country and business unit, per Afro Group's decision.
+        country: true,
+        orgUnitId: true,
+        currency: true,
+      },
     });
     if (!opp) throw new NotFoundException('Opportunity not found');
     return opp;

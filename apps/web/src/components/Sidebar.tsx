@@ -10,6 +10,8 @@ const ITEMS: { key: string; href: string; icon: string }[] = [
   { key: 'leads', href: 'leads', icon: '◇' },
   { key: 'opportunities', href: 'opportunities', icon: '◆' },
   { key: 'suppliers', href: 'partners', icon: '⬡' },
+  { key: 'approvals', href: 'approvals', icon: '✓' },
+  { key: 'settings', href: 'settings', icon: '⚙' },
 ];
 
 export function Sidebar() {

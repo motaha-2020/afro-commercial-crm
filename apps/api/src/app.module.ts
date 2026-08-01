@@ -21,6 +21,7 @@ import { BidsModule } from './bids/bids.module';
 import { CostingModule } from './costing/costing.module';
 import { PartnersModule } from './partners/partners.module';
 import { QuotationsModule } from './quotations/quotations.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
@@ -44,6 +45,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     CostingModule,
     PartnersModule,
     QuotationsModule,
+    ApprovalsModule,
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,

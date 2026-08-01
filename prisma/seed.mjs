@@ -263,6 +263,111 @@ async function main() {
     }
   }
 
+
+  // ---------------------------------------------------------------------------
+  // Release 6 — the approval workflow, as structure without numbers.
+  //
+  // The steps and rules are seeded; the thresholds they read are NOT. Afro
+  // Group's answer to "what are the real approval limits" was that they differ
+  // by project, opportunity and country and belong to the responsible manager,
+  // so seeding a plausible 12% here would put a number nobody agreed to in
+  // front of an approver and let it quietly become policy by default.
+  //
+  // With no limits configured every rule reports as undetermined, which makes
+  // each deal require a human decision and the settings screen show exactly
+  // what still has to be decided. That is the honest starting state.
+  // ---------------------------------------------------------------------------
+  const workflow = await prisma.workflowDefinition.upsert({
+    where: { code: 'WF-PRICING-DEFAULT' },
+    update: {},
+    create: {
+      code: 'WF-PRICING-DEFAULT',
+      name: 'Opportunity pricing approval',
+      businessProcess: 'OPPORTUNITY_PRICING',
+    },
+  });
+
+  const steps = [
+    { sequence: 1, name: 'Sales Director', approverRole: 'SALES_DIRECTOR', slaHours: 24 },
+    { sequence: 2, name: 'Finance', approverRole: 'FINANCE', slaHours: 48 },
+    { sequence: 3, name: 'Chief Executive', approverRole: 'CEO', slaHours: 72 },
+  ];
+  for (const step of steps) {
+    const exists = await prisma.workflowStep.findFirst({
+      where: { workflowId: workflow.id, sequence: step.sequence },
+    });
+    if (!exists) {
+      await prisma.workflowStep.create({ data: { ...step, workflowId: workflow.id } });
+    }
+  }
+
+  // The spec's own worked examples, section 28.
+  const rules = [
+    {
+      conditionField: 'GROSS_MARGIN_PERCENT',
+      operator: 'LESS_THAN',
+      thresholdPolicyKey: 'MIN_GROSS_MARGIN_PERCENT',
+      requiredRole: 'CEO',
+      priority: 100,
+      reason: 'Margin below the approved floor',
+    },
+    {
+      conditionField: 'OPPORTUNITY_VALUE',
+      operator: 'GREATER_THAN',
+      thresholdPolicyKey: 'APPROVAL_VALUE_LIMIT',
+      requiredRole: 'OWNER_BOARD',
+      priority: 90,
+      reason: 'Deal value above the delegated limit',
+    },
+    {
+      conditionField: 'PAYMENT_TERM_DAYS',
+      operator: 'GREATER_THAN',
+      thresholdPolicyKey: 'MAX_PAYMENT_TERM_DAYS',
+      requiredRole: 'FINANCE',
+      priority: 80,
+      reason: 'Collection period longer than company policy',
+    },
+    {
+      conditionField: 'SINGLE_SOURCE_SUPPLIER',
+      operator: 'IS_TRUE',
+      requiredRole: 'PROCUREMENT',
+      priority: 60,
+      reason: 'Dependent on a single supplier',
+    },
+    {
+      conditionField: 'SCOPE_NOT_READY',
+      operator: 'IS_TRUE',
+      requiredRole: 'OPERATIONS',
+      priority: 70,
+      reason: 'Scope still carries a blocking clarification',
+    },
+  ];
+  for (const rule of rules) {
+    const exists = await prisma.approvalRule.findFirst({
+      where: { workflowId: workflow.id, conditionField: rule.conditionField },
+    });
+    if (!exists) {
+      await prisma.approvalRule.create({ data: { ...rule, workflowId: workflow.id } });
+    }
+  }
+
+  // One row per (event, role): the model targets a single role so governance
+  // can add or drop one listener without touching the others.
+  for (const [eventType, roles] of [
+    ['APPROVAL_REQUESTED', ['SALES_DIRECTOR', 'FINANCE', 'CEO']],
+    ['APPROVAL_DECIDED', ['SALES_DIRECTOR']],
+    ['PROPOSAL_SUBMITTED', ['SALES_DIRECTOR', 'CEO']],
+  ]) {
+    for (const roleTarget of roles) {
+      const exists = await prisma.notificationRule.findFirst({
+        where: { eventType, roleTarget },
+      });
+      if (!exists) {
+        await prisma.notificationRule.create({ data: { eventType, roleTarget } });
+      }
+    }
+  }
+
   console.log('Seed complete.');
   console.log(`Users seeded with password: ${SEED_PASSWORD}`);
   console.log('Sign in as ceo@afro.example / am@afro.example / admin@afro.example');

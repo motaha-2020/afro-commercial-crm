@@ -30,10 +30,21 @@ describe('segregation of duties', () => {
   });
 
   it('does not claim to enforce rules whose module has not shipped', () => {
-    // Discounts and approval limits arrive in Release 6; claiming they are
-    // live before then would be a false assurance in an audit.
-    expect(SOD_RULE_BY_CODE.SOD_04.awaitingRelease).toBe(6);
-    expect(SOD_RULE_BY_CODE.SOD_08.awaitingRelease).toBe(6);
+    // Contract deviations arrive in Release 7; claiming the rule is live
+    // before then would be a false assurance in an audit.
+    expect(SOD_RULE_BY_CODE.SOD_06.awaitingRelease).toBe(7);
+  });
+
+  it('enforces the discount and limit rules now that Release 6 supplies them', () => {
+    // SOD_04 is a same-person check: whoever asked for the discount does not
+    // grant it. SOD_08 is an authority split instead — the people who may
+    // change a limit are a different list from those who approve deals against
+    // it, because a per-user check would still let two directors raise each
+    // other's ceilings.
+    expect(SOD_RULE_BY_CODE.SOD_04.awaitingRelease).toBeNull();
+    expect(SOD_RULE_BY_CODE.SOD_08.awaitingRelease).toBeNull();
+    expect(sodRulesFor('DiscountRequest').map((r) => r.code)).toContain('SOD_04');
+    expect(sodRulesFor('ApprovalPolicy').map((r) => r.code)).toContain('SOD_08');
   });
 
   it('binds the supplier rule to the commitment that exists today', () => {

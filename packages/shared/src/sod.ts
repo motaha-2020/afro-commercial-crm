@@ -86,7 +86,7 @@ export const SOD_RULES: readonly SodRule[] = [
     originatingAction: 'DISCOUNT_REQUEST',
     blockedAction: 'DISCOUNT_APPROVE',
     entityTypes: ['DiscountRequest'],
-    awaitingRelease: 6,
+    awaitingRelease: null,
   },
   {
     code: 'SOD_05',
@@ -128,7 +128,11 @@ export const SOD_RULES: readonly SodRule[] = [
     originatingAction: 'APPROVAL_THRESHOLD_CHANGE',
     blockedAction: 'DEAL_APPROVE_UNDER_THRESHOLD',
     entityTypes: ['ApprovalPolicy'],
-    awaitingRelease: 6,
+    // Enforced as an authority split rather than a same-person check: the
+    // people who may change a limit are a different list from the people who
+    // approve deals against it. A per-user check would still let a director
+    // raise their own peer's ceiling and be approved by them in return.
+    awaitingRelease: null,
   },
 ];
 
