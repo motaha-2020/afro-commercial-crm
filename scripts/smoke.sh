@@ -907,6 +907,7 @@ R7_PV=$(curl -s -X POST $API/proposals/$R7_PRP/versions -H "Authorization: Beare
 # The contract, deliberately worse than the offer in three ways.
 R7_CNT=$(curl -s -X POST $API/opportunities/$R7_OPP/contracts -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
   -d '{"proposalVersionId":"'$R7_PV'","contractNumber":"CNT-SMOKE-1","contractValue":900000,
+       "paymentTerms":"30 days net",
        "ldPercent":10,"warrantyMonths":24,"startDate":"2026-09-01T00:00:00.000Z","endDate":"2027-01-01T00:00:00.000Z"}' \
   | JQ "print(json.load(sys.stdin)['id'])")
 check "a contract with no proposal behind it cannot be reviewed" \
@@ -925,7 +926,7 @@ d=json.load(sys.stdin); print([x['riskLevel'] for x in d['deviations'] if x['fie
 check "and a warranty stretched from 12 to 24 months is a deviation too" \
   "$(echo "$REV" | JQ "
 d=json.load(sys.stdin); print([x['impact'] for x in d['deviations'] if x['field']=='WARRANTY'][0])")" "WORSE"
-check "while a term the contract left alone raises nothing" \
+check "while a term the contract carried over unchanged raises nothing" \
   "$(echo "$REV" | JQ "
 d=json.load(sys.stdin); print(any(x['field']=='PAYMENT_TERMS' for x in d['deviations']))")" "False"
 check "a penalty that was never offered is critical too" \
