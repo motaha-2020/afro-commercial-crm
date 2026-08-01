@@ -648,11 +648,12 @@ check "and the CEO may" \
 
 # SOD_08: whoever approves deals against a limit does not move that limit.
 SD=$(login sales.director@afro.example)
+SOD8_BEFORE=$(psql_ "select count(*) from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_08';")
 check "a sales director cannot raise the margin floor they approve deals against" \
   "$(code -X POST $API/approval-policies -H "Authorization: Bearer $SD" -H 'Content-Type: application/json' \
      -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":1}')" "403"
 check "and the blocked attempt is recorded as SOD_08" \
-  "$(psql_ "select count(*) from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_08';")" "1"
+  "$(psql_ "select count(*)-$SOD8_BEFORE from \"AuditLog\" where action='SOD_BLOCKED' and after->>'rule'='SOD_08';")" "1"
 check "a percentage outside 0..100 is refused as a typo, not stored as policy" \
   "$(code -X POST $API/approval-policies -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
      -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":1200}')" "400"
@@ -665,6 +666,8 @@ check "finance or the CEO can set it" \
 d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12"
 
 # The scoping Afro asked for: same limit, different answer per country.
+EGROWS_BEFORE=$(psql_ "select count(*) from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG';")
+EGAUDIT_BEFORE=$(psql_ "select count(*) from \"AuditLog\" where \"entityType\"='ApprovalPolicy' and before->>'value'='18' and after->>'value'='8';")
 curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
   -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":18,"country":"EG","note":"Egypt runs tighter"}'
@@ -683,11 +686,11 @@ curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $C
   -H 'Content-Type: application/json' \
   -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":8,"country":"EG","note":"Lowered for a hard year"}'
 check "a change is a new row; the old value is closed, not erased" \
-  "$(psql_ "select count(*) from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG';")" "2"
+  "$(psql_ "select count(*)-$EGROWS_BEFORE from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG';")" "2"
 check "exactly one of them is currently in force" \
   "$(psql_ "select count(*) from \"ApprovalPolicy\" where key='MIN_GROSS_MARGIN_PERCENT' and country='EG' and \"effectiveTo\" is null;")" "1"
 check "and the change is on the audit trail with both numbers" \
-  "$(psql_ "select count(*) from \"AuditLog\" where \"entityType\"='ApprovalPolicy' and before->>'value'='18' and after->>'value'='8';")" "1"
+  "$(psql_ "select count(*)-$EGAUDIT_BEFORE from \"AuditLog\" where \"entityType\"='ApprovalPolicy' and before->>'value'='18' and after->>'value'='8';")" "1"
 
 # Raising an approval on a real deal.
 APPR_OPP=$(curl -s -X POST $API/opportunities -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
