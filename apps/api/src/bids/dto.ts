@@ -2,12 +2,10 @@ import {
   IsBoolean,
   IsEnum,
   IsISO8601,
-  IsInt,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
   Min,
   MinLength,
@@ -140,12 +138,4 @@ export class RecordDecisionDto {
 export class UpdateWeightsDto {
   @IsObject()
   weights!: Record<string, number>;
-}
-
-export class DeadlineQueryDto {
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(180)
-  days?: number;
 }

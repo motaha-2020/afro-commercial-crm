@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -196,10 +195,4 @@ export class UpdateClarificationDto {
   @IsOptional()
   @IsEnum(ClarificationStatus)
   status?: ClarificationStatus;
-}
-
-export class ScopeQueryDto {
-  @IsOptional()
-  @IsBoolean()
-  includeExcluded?: boolean;
 }

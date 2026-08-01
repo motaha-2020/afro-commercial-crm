@@ -7,6 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { AccountType, CreditStatus, Industry } from '@prisma/client';
 
 export class CreateAccountDto {
@@ -132,12 +133,17 @@ export class ListAccountsQuery {
   @IsEnum(AccountType)
   type?: AccountType;
 
+  // Query strings arrive as text. Without an explicit @Type the validator sees
+  // "100" and rejects it as not an integer — which meant every paginated
+  // request 400'd, unnoticed until a caller finally passed one.
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pageSize?: number;
