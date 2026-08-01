@@ -662,7 +662,7 @@ curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $C
   -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":12,"note":"Group floor, smoke test"}'
 check "finance or the CEO can set it" \
   "$(curl -s "$API/approval-policies" -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12.0"
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12"
 
 # The scoping Afro asked for: same limit, different answer per country.
 curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $CEO" \
@@ -670,10 +670,10 @@ curl -s -o /dev/null -X POST $API/approval-policies -H "Authorization: Bearer $C
   -d '{"key":"MIN_GROSS_MARGIN_PERCENT","value":18,"country":"EG","note":"Egypt runs tighter"}'
 check "a country override wins over the group default" \
   "$(curl -s "$API/approval-policies?country=EG" -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "18.0"
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "18"
 check "while another country still sees the group default" \
   "$(curl -s "$API/approval-policies?country=KE" -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12.0"
+d=json.load(sys.stdin); print([k['value'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "12"
 check "and the narrower scope says so on the screen" \
   "$(curl -s "$API/approval-policies?country=EG" -H "Authorization: Bearer $CEO" | JQ "
 d=json.load(sys.stdin); print([k['scope']['level'] for k in d['keys'] if k['key']=='MIN_GROSS_MARGIN_PERCENT'][0])")" "COUNTRY"
@@ -717,7 +717,7 @@ check "the deal can be checked before anyone is disturbed" \
 check "and it names the rule that fired and the limit it read" \
   "$(echo "$PREVIEW" | JQ "
 d=json.load(sys.stdin); f=[x for x in d['fired'] if x['conditionField']=='GROSS_MARGIN_PERCENT'][0]
-print(str(f['threshold'])+'/'+f['requiredRole'])")" "8.0/CEO"
+print(str(f['threshold'])+'/'+f['requiredRole'])")" "8/CEO"
 
 REQ=$(curl -s -X POST $API/opportunities/$APPR_OPP/approvals -H "Authorization: Bearer $FIN" \
   -H 'Content-Type: application/json' -d '{}')

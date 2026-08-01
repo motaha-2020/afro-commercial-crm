@@ -11,6 +11,7 @@ import {
   isTerminalDecision,
   needsApproval,
   requiredApprovers,
+  rollup,
   type ApprovalConditionField,
   type ApprovalDecision,
   type ApprovalOperator,
@@ -354,12 +355,29 @@ export class ApprovalsService {
 
     const facts: DealFacts = {};
 
-    if (version?.marginPercent !== null && version?.marginPercent !== undefined) {
-      facts.grossMarginPercent = Number(version.marginPercent);
+    // Computed from the live BOQ rather than read off CostingVersion.totalCost
+    // and marginPercent: those are cached at APPROVAL, and pricing approval is
+    // requested before the costing is approved. Reading them would leave the
+    // margin unknown at exactly the moment it decides who has to sign.
+    if (version) {
+      const items = await this.prisma.boqItem.findMany({
+        where: { package: { versionId: version.id, deletedAt: null }, deletedAt: null },
+        include: { breakdown: { where: { deletedAt: null } } },
+      });
+      const totals = rollup(
+        items.map((item) => ({
+          cost: item.breakdown.reduce((s, b) => s + Number(b.totalCost), 0),
+          price: Number(item.sellingTotal ?? 0),
+        })),
+      );
+      if (totals.totalPrice > 0) {
+        facts.grossMarginPercent = totals.marginPercent;
+        facts.opportunityValue = totals.totalPrice;
+      }
     }
-    const value = version?.totalPrice ?? opportunity?.estimatedValue;
-    if (value !== null && value !== undefined) {
-      facts.opportunityValue = Number(value);
+
+    if (facts.opportunityValue === undefined && opportunity?.estimatedValue != null) {
+      facts.opportunityValue = Number(opportunity.estimatedValue);
     }
 
     // A single-source award is a real risk the spec calls out, and the
