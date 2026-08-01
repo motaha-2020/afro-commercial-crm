@@ -67,6 +67,11 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml --
 - **Progressive Data Capture** — الحقول الإلزامية تتراكم مع تقدّم المرحلة، ولا تُطلب كلها عند التسجيل.
 - **Margin ≠ Markup** — الهامش يُحسب على سعر البيع لا على التكلفة.
 
+## أين وصل التنفيذ
+
+**[`PROGRESS.md`](PROGRESS.md)** — ما أُنجز، وما ينقص داخل ما أُنجز، والأسئلة المعلّقة على العميل.
+يُحدَّث بعد كل خطوة تكتمل وتُثبَت على السيرفر.
+
 ## خارطة الإصدارات
 
 | # | Release |
