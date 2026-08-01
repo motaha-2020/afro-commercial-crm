@@ -7,3 +7,4 @@ export * from './bid';
 export * from './scope';
 export * from './costing';
 export * from './partner';
+export * from './quote-to-cost';

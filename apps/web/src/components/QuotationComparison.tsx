@@ -30,6 +30,13 @@ export interface ComparisonRow {
   evaluation: { weightedScore: string | null; technicalScore: number | null } | null;
 }
 
+export interface CostingOutcome {
+  applied: number;
+  superseded: number;
+  retained: number;
+  skipped: { reason: string; count: number }[];
+}
+
 /**
  * The supplier comparison screen the spec asks for.
  *
@@ -54,6 +61,7 @@ export function QuotationComparison({
   const [choosing, setChoosing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [costing, setCosting] = useState<CostingOutcome | null>(null);
 
   const ineligible = new Map(views.ineligible.map((i) => [i.id, i.reason]));
 
@@ -84,6 +92,10 @@ export function QuotationComparison({
       }
       setChoosing(null);
       setRationale('');
+      // What the choice did to the numbers is part of the outcome, not a
+      // detail: a selection whose price never reached the costing leaves the
+      // bid priced on the estimate, and only this tells anyone.
+      setCosting(data.costing ?? null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -96,6 +108,28 @@ export function QuotationComparison({
     <div className="panel">
       <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('comparison')}</h2>
       <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 0 }}>{t('noAutoPick')}</p>
+
+      {costing && (
+        <div className={`readiness ${costing.applied > 0 ? 'ok' : 'not-ok'}`}>
+          <strong>
+            {costing.applied > 0 ? t('costingUpdated') : t('costingNotUpdated')}
+          </strong>
+          <ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>
+            {costing.applied > 0 && (
+              <li>{t('costingApplied', { n: costing.applied })}</li>
+            )}
+            {costing.superseded > 0 && (
+              <li>{t('costingSuperseded', { n: costing.superseded })}</li>
+            )}
+            {costing.retained > 0 && <li>{t('costingRetained', { n: costing.retained })}</li>}
+            {costing.skipped.map((s) => (
+              <li key={s.reason}>
+                {t('costingSkipped', { n: s.count })} — {t(s.reason)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         {headlines.map((h) => (

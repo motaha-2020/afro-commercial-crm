@@ -7,11 +7,18 @@ import {
 import type { Prisma } from '@prisma/client';
 import {
   DEFAULT_QUOTATION_WEIGHTS,
+  SUPERSEDED_BY_QUOTE,
   compareQuotations,
+  costSourceForPartner,
   isQuotationExpired,
+  reachedTheCosting,
+  rollup,
   weightedQuotationScore,
   type ComparableQuotation,
   type PartnerApprovalStatus,
+  type PartnerType,
+  type QuoteApplicationOutcome,
+  type QuoteApplicationSkip,
 } from '@acms/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -591,6 +598,11 @@ export class QuotationsService {
       },
     });
 
+    // The half of this release that makes it worth having: the chosen price
+    // stops being a fact only procurement knows and becomes the number the bid
+    // is actually built on.
+    const costing = await this.applyToCosting(user, id);
+
     await this.notifications.dispatchEvent('QUOTATION_SELECTED', {
       title: `Quotation selected: ${quotation.partner.legalName}`,
       body: departsFromRecommendation
@@ -600,7 +612,202 @@ export class QuotationsService {
       entityId: id,
     });
 
-    return { ...selected, departedFromRecommendation: departsFromRecommendation };
+    // Worth its own notification only when the costing did NOT follow the
+    // decision. Someone has to know the bid is still priced on the estimate.
+    if (!reachedTheCosting(costing)) {
+      const locked = costing.skipped.find((s) => s.reason === 'COSTING_LOCKED');
+      if (locked) {
+        await this.notifications.dispatchEvent('QUOTATION_SELECTED', {
+          title: `Costing not updated: ${quotation.partner.legalName}`,
+          body:
+            'The selection stands, but the costing version is approved and locked. ' +
+            'Create a new version to price the bid on this quotation.',
+          entityType: 'PartnerQuotation',
+          entityId: id,
+        });
+      }
+    }
+
+    return { ...selected, departedFromRecommendation: departsFromRecommendation, costing };
+  }
+
+  /**
+   * Writes a selected quotation's lines into the cost breakdown of the BOQ
+   * items they were quoted against.
+   *
+   * Three things this deliberately does NOT do:
+   *
+   * It does not edit a locked costing version. The spec's rule is absolute —
+   * an approved costing is never modified — and procurement choosing a supplier
+   * is not an exception to it. Those items are skipped and reported, and the
+   * way forward is a new version raised by a person.
+   *
+   * It does not convert currencies. Applying a quote priced in EUR to a costing
+   * kept in USD would mean inventing a rate and burying it inside a cost line
+   * where nobody would ever find it again.
+   *
+   * It does not fail the selection. Choosing a supplier is a procurement act
+   * that stands on its own; if the numbers cannot follow it right now, that is
+   * reported loudly rather than used to reject a decision already taken.
+   */
+  private async applyToCosting(
+    user: AuthenticatedUser,
+    quotationId: string,
+  ): Promise<QuoteApplicationOutcome> {
+    const quotation = await this.prisma.partnerQuotation.findUnique({
+      where: { id: quotationId },
+      include: {
+        partner: { include: { types: { where: { deletedAt: null } } } },
+        items: { where: { deletedAt: null } },
+      },
+    });
+
+    const outcome: QuoteApplicationOutcome = {
+      applied: 0,
+      superseded: 0,
+      retained: 0,
+      skipped: [],
+    };
+    if (!quotation) return outcome;
+
+    const skip = (reason: QuoteApplicationSkip) => {
+      const row = outcome.skipped.find((s) => s.reason === reason);
+      if (row) row.count += 1;
+      else outcome.skipped.push({ reason, count: 1 });
+    };
+
+    const source = costSourceForPartner(
+      quotation.partner.types.map((t) => t.type as PartnerType),
+    );
+
+    for (const item of quotation.items) {
+      if (!item.boqItemId) {
+        skip('NOT_MAPPED_TO_BOQ');
+        continue;
+      }
+
+      const boqItem = await this.prisma.boqItem.findFirst({
+        where: { id: item.boqItemId, deletedAt: null },
+        include: {
+          package: {
+            include: {
+              version: { include: { scenario: true } },
+            },
+          },
+          breakdown: { where: { deletedAt: null } },
+        },
+      });
+      if (!boqItem) {
+        skip('NOT_MAPPED_TO_BOQ');
+        continue;
+      }
+
+      const version = boqItem.package.version;
+      const scenario = version.scenario;
+
+      // A quotation line pointing at another opportunity's BOQ is not a
+      // mapping to honour; it is a mistake to refuse.
+      if (scenario.opportunityId !== quotation.opportunityId) {
+        skip('BOQ_ITEM_FOREIGN');
+        continue;
+      }
+      if (version.lockedAt || version.status === 'APPROVED' || version.status === 'SUPERSEDED') {
+        skip('COSTING_LOCKED');
+        continue;
+      }
+      if (scenario.currency !== quotation.currency) {
+        skip('CURRENCY_MISMATCH');
+        continue;
+      }
+
+      const displaced = boqItem.breakdown.filter((b) =>
+        SUPERSEDED_BY_QUOTE.includes(b.source),
+      );
+      const retained = boqItem.breakdown.length - displaced.length;
+
+      await this.prisma.$transaction(async (tx) => {
+        // Superseded, not deleted: the estimate stays in the row's history and
+        // in the audit log, so "what did we think before the quote came in?"
+        // remains answerable.
+        if (displaced.length) {
+          await tx.costBreakdown.updateMany({
+            where: { id: { in: displaced.map((d) => d.id) } },
+            data: { deletedAt: new Date() },
+          });
+        }
+
+        await tx.costBreakdown.create({
+          data: {
+            boqItemId: boqItem.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitCost: item.unitPrice,
+            totalCost: item.totalPrice,
+            source,
+            sourceReference: `${quotation.code} · ${quotation.partner.legalName}`,
+          },
+        });
+      });
+
+      for (const line of displaced) {
+        await this.audit.record({
+          entityType: 'CostBreakdown',
+          entityId: line.id,
+          action: 'SOFT_DELETE',
+          userId: user.id,
+          before: { source: line.source, totalCost: Number(line.totalCost) },
+          after: { supersededBy: quotation.code, reason: 'SELECTED_QUOTATION' },
+        });
+      }
+
+      await this.recalculateBoqItem(boqItem.id);
+
+      outcome.applied += 1;
+      outcome.superseded += displaced.length;
+      outcome.retained += retained;
+    }
+
+    if (outcome.applied || outcome.superseded) {
+      await this.audit.record({
+        entityType: 'PartnerQuotation',
+        entityId: quotationId,
+        action: 'UPDATE',
+        userId: user.id,
+        after: { costingApplied: outcome as unknown as Prisma.InputJsonObject, source },
+      });
+    }
+
+    return outcome;
+  }
+
+  /**
+   * Re-derives the item's cost from its surviving lines. Deliberately does not
+   * touch the selling price: learning that a supplier is cheaper than assumed
+   * is not a decision to sell for less, and quietly repricing would hand away
+   * the margin the moment procurement did its job well.
+   */
+  private async recalculateBoqItem(boqItemId: string) {
+    const item = await this.prisma.boqItem.findUnique({
+      where: { id: boqItemId },
+      include: { breakdown: { where: { deletedAt: null } } },
+    });
+    if (!item) return;
+
+    const cost = item.breakdown.reduce((sum, b) => sum + Number(b.totalCost), 0);
+    // rollup() rather than the arithmetic inline: margin is over price, never
+    // over cost, and one definition of that is the whole point of keeping it
+    // in @acms/shared.
+    const totals = rollup([{ cost, price: Number(item.sellingTotal ?? 0) }]);
+
+    await this.prisma.boqItem.update({
+      where: { id: boqItemId },
+      data: {
+        internalCost: totals.totalCost,
+        grossProfit: totals.grossProfit,
+        grossMargin: totals.marginPercent,
+      },
+    });
   }
 
   // -------------------------------------------------------------------------

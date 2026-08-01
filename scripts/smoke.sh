@@ -539,7 +539,96 @@ check "SoD rule 3 is now published as enforced" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
 r=[x for x in json.load(sys.stdin)['rules'] if x['code']=='SOD_03'][0]; print(r['enforced'])")" "True"
 
-echo "=== 17. Soft delete only ==="
+echo "=== 17. The selected quotation reaching the costing ==="
+# The half of Release 5 that makes it worth having: a chosen price stops being
+# something only procurement knows and becomes the number the bid is built on.
+CSCN=$(curl -s -X POST $API/opportunities/$NEWOPP/costing -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Supply and install","type":"MIXED_MODEL","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+CVER=$(curl -s -X POST $API/costing/scenarios/$CSCN/versions -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{}' | JQ "print(json.load(sys.stdin)['id'])")
+CPK2=$(curl -s -X POST $API/costing/versions/$CVER/packages -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"name":"Cable supply","type":"MATERIALS"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+BOQ=$(curl -s -X POST $API/costing/packages/$CPK2/items -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"description":"Fibre cable 24F","quantity":1000,"unit":"m"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+# What we guessed before any supplier answered, plus our own crew — two lines
+# that must be treated differently when a quote arrives.
+curl -s -o /dev/null -X POST $API/costing/items/$BOQ/breakdown -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"quantity":1000,"unitCost":12,"source":"MANUAL_ESTIMATE","description":"Cable, estimated"}'
+curl -s -o /dev/null -X POST $API/costing/items/$BOQ/breakdown -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"quantity":10,"unitCost":300,"source":"INTERNAL_RATE","description":"Our supervision"}'
+curl -s -o /dev/null -X PATCH $API/costing/items/$BOQ -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"targetMarginPercent":25}'
+check "the item starts priced on a guess" \
+  "$(psql_ "select \"internalCost\" from \"BoqItem\" where id='$BOQ';")" "15000.00"
+
+PARTNER_D=$(curl -s -X POST $API/partners -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Cable Supply Co","country":"EG","types":["SUPPLIER"]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X PATCH $API/partners/$PARTNER_D/approval -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"approvalStatus":"APPROVED"}'
+QUO_D=$(curl -s -X POST $API/opportunities/$NEWOPP/quotations -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$PARTNER_D'","validUntil":"2027-01-01T00:00:00.000Z","currency":"USD",
+       "items":[{"description":"Fibre cable 24F","quantity":1000,"unitPrice":9,"boqItemId":"'$BOQ'"},
+                {"description":"Freight to site","quantity":1,"unitPrice":400}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/quotations/$QUO_D/evaluation -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' \
+  -d '{"priceScore":5,"technicalScore":5,"deliveryScore":5,"paymentScore":5,"qualityScore":5,"riskScore":5,"recommendation":"Cheapest and best"}'
+
+SEL=$(curl -s -X POST $API/quotations/$QUO_D/select -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{}')
+check "one quoted line reaches the costing" \
+  "$(echo "$SEL" | JQ "print(json.load(sys.stdin)['costing']['applied'])")" "1"
+check "the guess it replaced is superseded, not left to be added twice" \
+  "$(echo "$SEL" | JQ "print(json.load(sys.stdin)['costing']['superseded'])")" "1"
+check "our own crew cost survives — the supplier never quoted for it" \
+  "$(echo "$SEL" | JQ "print(json.load(sys.stdin)['costing']['retained'])")" "1"
+check "the unmapped freight line is reported, not silently dropped" \
+  "$(echo "$SEL" | JQ "
+s=json.load(sys.stdin)['costing']['skipped']; print([x['reason'] for x in s if x['count']==1][0])")" "NOT_MAPPED_TO_BOQ"
+check "the item is now costed at the quote plus our own work, not the sum of both guesses" \
+  "$(psql_ "select \"internalCost\" from \"BoqItem\" where id='$BOQ';")" "12000.00"
+check "and the new line records where the number came from" \
+  "$(psql_ "select source from \"CostBreakdown\" where \"boqItemId\"='$BOQ' and \"deletedAt\" is null and source='VENDOR_QUOTE';")" "VENDOR_QUOTE"
+check "naming the quotation on it, so the price is traceable a year later" \
+  "$(psql_ "select \"sourceReference\" like '%Smoke Cable Supply Co%' from \"CostBreakdown\" where \"boqItemId\"='$BOQ' and source='VENDOR_QUOTE';")" "t"
+check "the superseded estimate is soft-deleted, never erased" \
+  "$(psql_ "select count(*) from \"CostBreakdown\" where \"boqItemId\"='$BOQ' and source='MANUAL_ESTIMATE' and \"deletedAt\" is not null;")" "1"
+check "and its supersession is on the audit trail" \
+  "$(psql_ "select count(*) from \"AuditLog\" where \"entityType\"='CostBreakdown' and after->>'reason'='SELECTED_QUOTATION' and \"entityId\" in (select id from \"CostBreakdown\" where \"boqItemId\"='$BOQ');")" "1"
+check "cost confidence stops being a guess and says so" \
+  "$(curl -s $API/costing/versions/$CVER -H "Authorization: Bearer $CEO" | JQ "
+c=json.load(sys.stdin)['confidence']; print(c['quotedShare']>=70)")" "True"
+check "the selling price is untouched — a cheaper supplier is not a decision to sell for less" \
+  "$(psql_ "select \"sellingTotal\" from \"BoqItem\" where id='$BOQ';")" "20000.00"
+check "so the margin widens instead of the price falling" \
+  "$(psql_ "select \"grossMargin\" from \"BoqItem\" where id='$BOQ';")" "40.00"
+
+# An approved costing is never edited — not even by procurement's decision.
+curl -s -o /dev/null -X POST $API/costing/versions/$CVER/submit -H "Authorization: Bearer $CEO"
+curl -s -o /dev/null -X POST $API/costing/versions/$CVER/approve -H "Authorization: Bearer $FIN"
+QUO_E=$(curl -s -X POST $API/opportunities/$NEWOPP/quotations -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$PARTNER_D'","validUntil":"2027-01-01T00:00:00.000Z","currency":"USD",
+       "items":[{"description":"Fibre cable 24F","quantity":1000,"unitPrice":7,"boqItemId":"'$BOQ'"}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+SEL2=$(curl -s -X POST $API/quotations/$QUO_E/select -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"rationale":"Cheaper reoffer from the same supplier"}')
+check "a locked costing refuses the write and names the reason" \
+  "$(echo "$SEL2" | JQ "
+s=json.load(sys.stdin)['costing']; print(str(s['applied'])+'/'+s['skipped'][0]['reason'])")" "0/COSTING_LOCKED"
+check "but the procurement decision itself still stands" \
+  "$(psql_ "select \"isSelected\" from \"PartnerQuotation\" where id='$QUO_E';")" "t"
+check "and the approved numbers are exactly as they were approved" \
+  "$(psql_ "select \"internalCost\" from \"BoqItem\" where id='$BOQ';")" "12000.00"
+
+echo "=== 18. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -550,7 +639,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 18. Web UI in three locales ==="
+echo "=== 19. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
