@@ -30,20 +30,27 @@ export function Sidebar() {
         </div>
       </div>
       <div className="nav-title">{app('tagline')}</div>
-      {ITEMS.map((item) => {
-        const href = `/${locale}/${item.href}`;
-        const active = pathname === href || pathname.startsWith(`${href}/`);
-        return (
-          <Link
-            key={item.key}
-            href={href}
-            className={`nav-item${active ? ' active' : ''}`}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            {t(item.key)}
-          </Link>
-        );
-      })}
+      {/* A real navigation landmark: screen readers can jump straight to it,
+          and on a phone it becomes the horizontal strip the layout needs. */}
+      <nav aria-label={app('tagline')}>
+        {ITEMS.map((item) => {
+          const href = `/${locale}/${item.href}`;
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={item.key}
+              href={href}
+              className={`nav-item${active ? ' active' : ''}`}
+              aria-current={active ? 'page' : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              {t(item.key)}
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }

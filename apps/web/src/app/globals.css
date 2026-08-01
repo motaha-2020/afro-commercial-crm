@@ -39,7 +39,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar {
   position: fixed;
   top: 0;
-  inset-inline-end: 0;
+  inset-inline-start: 0;
   width: var(--sidebar);
   height: 100vh;
   background: linear-gradient(180deg, #171c31 0%, #24213d 100%);
@@ -58,7 +58,7 @@ a { color: inherit; text-decoration: none; }
 .nav-item.active { background: linear-gradient(90deg, rgba(126,92,230,.30), rgba(126,92,230,.13)); color: white; }
 .nav-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,.08); font-size: 13px; flex: 0 0 auto; }
 
-.main { margin-inline-end: var(--sidebar); min-height: 100vh; }
+.main { margin-inline-start: var(--sidebar); min-height: 100vh; }
 .topbar { height: 68px; position: sticky; top: 0; z-index: 15; background: rgba(244,246,251,.94); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226,232,240,.9); display: flex; align-items: center; gap: 12px; padding: 0 24px; }
 .topbar .spacer { margin-inline-start: auto; }
 .content { padding: 24px; }
@@ -115,8 +115,6 @@ a.btn { text-decoration: none; display: inline-block; }
 .decision-block textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; font: inherit; }
 .decision-current { font-size: 12px; margin-top: 10px; }
 .form-error { color: var(--danger); font-size: 12px; margin: 0; }
-.btn { align-self: flex-start; background: var(--primary); color: white; border: 0; border-radius: 9px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
-.btn:disabled { opacity: .55; cursor: default; }
 
 /* Notification bell. Positioned with logical properties so the panel opens
    inward in both LTR and RTL without a direction-specific rule. */
@@ -146,7 +144,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .cols-3 { grid-template-columns: repeat(3, 1fr); }
 .cols-4 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 1100px) { .cols-4 { grid-template-columns: repeat(2, 1fr); } .cols-3 { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .cols-2, .cols-4 { grid-template-columns: 1fr; } .main { margin-inline-end: 0; } .sidebar { transform: translateX(120%); } }
+@media (max-width: 760px) { .cols-2, .cols-4 { grid-template-columns: 1fr; } }
 
 .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 9px 14px; border-radius: 11px; font-size: 13px; }
 .btn:hover { background: var(--panel-2); }
@@ -199,3 +197,139 @@ table.data tr:hover td { background: var(--panel-2); }
 .login-card h1 { margin: 0 0 4px; font-size: 20px; }
 .login-card p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
 .login-error { background: var(--danger-soft); color: var(--danger); padding: 10px 12px; border-radius: 11px; font-size: 13px; margin-bottom: 14px; }
+
+/* ===========================================================================
+   Refinement pass
+   ---------------------------------------------------------------------------
+   Kept as a layer over the base rules rather than a rewrite: every class here
+   already had markup depending on it, and re-cutting the whole sheet to change
+   spacing would have risked screens nobody was asking about.
+   =========================================================================== */
+
+/* Arabic needs a font that actually has Arabic glyphs; Segoe UI falls back to
+   something with no kerning and the RTL screens look broken next to the Latin
+   ones. */
+body {
+  font-family: 'Segoe UI', 'Noto Sans Arabic', 'Dubai', Tahoma, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+:root[lang='ar'] body,
+[dir='rtl'] body { font-family: 'Dubai', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif; }
+
+/* Every interactive element gets the same visible focus ring. Keyboard users
+   were previously left guessing on buttons and table links. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Shell ---- */
+.sidebar { box-shadow: 0 0 40px rgba(12, 16, 30, .18); }
+.nav-item { transition: background .15s ease, color .15s ease; font-size: 13.5px; }
+.nav-item.active { font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+/* The active marker follows the reading direction rather than always sitting
+   on the left, which in Arabic pointed away from the content. */
+.nav-item.active::before {
+  content: '';
+  width: 3px;
+  height: 18px;
+  border-radius: 3px;
+  background: #a78bfa;
+  margin-inline-start: -12px;
+  margin-inline-end: 9px;
+}
+.topbar { padding: 0 28px; }
+.content { padding: 28px; max-width: 1600px; }
+
+/* ---- Headings and pages ---- */
+.page-head { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.page-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.2px; }
+.page-head p { font-size: 13.5px; }
+
+/* Panels used to set their own heading margins inline, in every component that
+   had one. Defining it once means new screens look like the old ones for free. */
+.panel { padding: 20px 22px; }
+.panel + .panel { margin-top: 16px; }
+.panel > h2:first-child,
+.panel > h3:first-child { margin-top: 0; }
+.panel > h2 { font-size: 15px; font-weight: 650; margin-bottom: 14px; }
+.panel > h3 { font-size: 14px; font-weight: 650; margin-bottom: 12px; }
+.panel > h4 { font-size: 13px; font-weight: 650; margin: 18px 0 8px; }
+
+/* ---- Tables ---- */
+table.data th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+table.data td { vertical-align: top; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data tr:hover td { background: rgba(90, 53, 199, .035); }
+/* A table wider than its panel scrolls inside it rather than pushing the page
+   sideways — the readiness and comparison tables are the wide ones. */
+.panel > table.data { display: block; overflow-x: auto; }
+
+/* ---- Controls ---- */
+.btn {
+  transition: background .15s ease, border-color .15s ease, transform .05s ease;
+  font-weight: 550;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--primary); }
+.btn-ghost:hover { background: var(--primary-soft); }
+
+.field input, .field select, .field textarea,
+.form-grid input, .form-grid select, .form-grid textarea {
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* ---- Status ---- */
+.badge { padding: 4px 10px; letter-spacing: .1px; }
+.badge-ok { background: var(--success-soft); color: var(--success); }
+.readiness { gap: 4px; padding: 12px 14px; border-inline-start: 3px solid transparent; }
+.readiness.ok { border-inline-start-color: var(--success); }
+.readiness.not-ok { border-inline-start-color: var(--warning); }
+.readiness strong { font-size: 13px; }
+.readiness span { font-size: 12px; opacity: .9; }
+
+.kpi { padding: 18px; transition: box-shadow .15s ease; }
+.kpi:hover { box-shadow: 0 14px 34px rgba(26, 33, 54, .1); }
+.kpi .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+.kpi .value { letter-spacing: -.3px; }
+
+/* ---- Narrow screens ----
+   The sidebar becomes a scrollable strip across the top instead of vanishing.
+   Hiding it entirely left no way to navigate at all on a phone. */
+@media (max-width: 760px) {
+  .sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 12px;
+    overflow-x: auto;
+  }
+  .brand { padding-bottom: 12px; margin-bottom: 10px; }
+  .nav-title { display: none; }
+  .sidebar nav { display: flex; gap: 8px; }
+  .nav-item { margin-bottom: 0; white-space: nowrap; }
+  .nav-item.active::before { display: none; }
+  .main { margin-inline-start: 0; }
+  .content, .topbar { padding-inline: 16px; }
+  .page-head { flex-direction: column; }
+}
+
+@media print {
+  .sidebar, .topbar, .btn-row, .btn { display: none; }
+  .main { margin-inline-start: 0; }
+  .panel { box-shadow: none; break-inside: avoid; }
+}
