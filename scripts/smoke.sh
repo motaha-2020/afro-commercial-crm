@@ -960,7 +960,9 @@ curl -s -o /dev/null -X PATCH $API/handovers/$R7_HND -H "Authorization: Bearer $
   -d '{"projectManagerId":"'$(psql_ "select id from \"User\" where email='am@afro.example';")'","plannedStartDate":"2026-09-01T00:00:00.000Z"}'
 # The introduced penalty is still open and critical, and the gate is right to
 # block on it. Resolving it is part of the story, not a workaround.
-R7_PEN=$(psql_ "select id from \"ContractDeviation\" where \"contractId\"='$R7_CNT' and field='PENALTIES' and status='OPEN' limit 1;")
+# deletedAt is null matters: the re-review above superseded the first
+# PENALTIES row, and without the filter this picks the dead one.
+R7_PEN=$(psql_ "select id from \"ContractDeviation\" where \"contractId\"='$R7_CNT' and field='PENALTIES' and status='OPEN' and \"deletedAt\" is null limit 1;")
 check "the gate still refuses while a critical deviation is open" \
   "$(curl -s $API/handovers/$R7_HND -H "Authorization: Bearer $CEO" | JQ "
 d=json.load(sys.stdin); print('DEVIATIONS_RESOLVED' in d['readiness']['missing'])")" "True"
