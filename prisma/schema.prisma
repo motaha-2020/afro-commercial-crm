@@ -262,6 +262,15 @@ model User {
   discountsDecided   DiscountRequest[] @relation("DiscountApprover")
   proposalsAuthored  Proposal[]        @relation("ProposalAuthor")
   proposalsSubmitted ProposalVersion[] @relation("ProposalSubmitter")
+  awardsRecorded      Award[]             @relation("AwardRecorder")
+  contractsAuthored   Contract[]          @relation("ContractAuthor")
+  contractsReviewed   Contract[]          @relation("ContractReviewer")
+  deviationsPrepared  ContractDeviation[] @relation("DeviationPreparer")
+  deviationsApproved  ContractDeviation[] @relation("DeviationApprover")
+  handoversAuthored   ProjectHandover[]   @relation("HandoverAuthor")
+  handoversManaged    ProjectHandover[]   @relation("HandoverProjectManager")
+  handoverItemsOwned  HandoverItem[]      @relation("HandoverItemOwner")
+  handoverSignoffs    HandoverSignoff[]   @relation("HandoverSigner")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -336,6 +345,7 @@ model Account {
 
   contacts             Contact[]
   opportunities        Opportunity[]
+  contracts            Contract[]
   leads                Lead[]
   activities           Activity[]
   relationshipsFrom    AccountRelationship[] @relation("RelFrom")
@@ -536,6 +546,9 @@ model Opportunity {
   approvalRequests  ApprovalRequest[]
   discountRequests  DiscountRequest[]
   proposals         Proposal[]
+  awards            Award[]
+  contracts         Contract[]
+  handovers         ProjectHandover[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -685,6 +698,8 @@ model Document {
   uploadedBy   User   @relation("DocumentUploader", fields: [uploadedById], references: [id])
 
   versions          DocumentVersion[]
+  awards            Award[]
+  handoverItems     HandoverItem[]
   /// Points at the newest version for quick reads. Nullable during creation.
   currentVersionId  String?           @unique
 
@@ -1202,6 +1217,7 @@ model CostingVersion {
 
   packages CostPackage[]
   proposalVersions ProposalVersion[]
+  handoverBaselines ProjectHandover[] @relation("HandoverBaseline")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1996,6 +2012,8 @@ model ProposalVersion {
   submissionMethod String?
   submittedTo      String?
 
+  contracts Contract[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -2094,4 +2112,366 @@ enum ProposalVersionStatus {
   SUBMITTED
   SUPERSEDED
   WITHDRAWN
+}
+
+// ---------------------------------------------------------------------------
+// Release 7 — Award, Contracts and Handover
+//
+// The rule this release exists to protect is stated in one line (stage 10):
+// "لا يجب اعتبار Verbal Award مساويًا لعقد موقع" — a verbal award is not a
+// signed contract. So an award is not a boolean. It is a strength, and the
+// system refuses to let a phone call authorise the same things a signed
+// contract does.
+//
+// The second rule is the handover (stage 11): "لا تبدأ مسؤولية مدير المشروع
+// بمجرد تغيير حالة الفرصة" — a project manager's responsibility does not begin
+// because someone flipped a status. It begins when they say they received the
+// scope, the baseline and the risks. That is why sign-off is rows of named
+// people and dates rather than a column on the opportunity.
+//
+// The spec is blunt about what this prevents: "أن يفوز فريق المبيعات بالمشروع
+// ثم يكتشف مدير المشروع أن السعر أو الجدول غير قابل للتنفيذ."
+//
+// The ERP cost code lives here too. Afro creates a code per opportunity under
+// the project cost centre, and it is created AFTER award — which is exactly
+// this release's moment, so the field belongs on the award rather than waiting
+// for the integration to be built.
+// ---------------------------------------------------------------------------
+
+model Award {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  /// How firm this actually is. The whole point of the enum: a verbal award
+  /// and a signed contract are not the same fact.
+  type AwardType
+
+  awardedAt   DateTime
+  awardedValue Decimal? @db.Decimal(18, 2)
+  currency     String   @default("USD")
+
+  /// The customer's own reference — LOI number, PO number, letter reference.
+  customerReference String?
+  documentId        String?
+  document          Document? @relation(fields: [documentId], references: [id])
+
+  /// The code Afro opens under the project cost centre once the work is
+  /// awarded. Nullable because the ERP integration does not exist yet and the
+  /// code is created by hand until it does — recording it now keeps every
+  /// actual cost traceable back to its opportunity the moment the link lands.
+  erpCostCode   String?
+  erpCostCenter String?
+
+  notes String?
+
+  recordedById String
+  recordedBy   User   @relation("AwardRecorder", fields: [recordedById], references: [id])
+
+  contracts Contract[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([type])
+}
+
+model Contract {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  awardId String?
+  award   Award?  @relation(fields: [awardId], references: [id])
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
+
+  /// The proposal this contract is supposed to embody. Deviations are computed
+  /// against it, so a contract with no proposal behind it cannot be checked.
+  proposalVersionId String?
+  proposalVersion   ProposalVersion? @relation(fields: [proposalVersionId], references: [id])
+
+  contractNumber String?
+  legalEntity    String?
+  type           ContractType @default(LUMP_SUM)
+
+  contractValue Decimal? @db.Decimal(18, 2)
+  currency      String   @default("USD")
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  paymentTerms    String?
+  retentionPercent Decimal? @db.Decimal(6, 2)
+  advancePercent   Decimal? @db.Decimal(6, 2)
+  warrantyMonths   Int?
+  /// Liquidated damages. Kept as its own field because it is one of the terms
+  /// most often changed between proposal and contract.
+  ldPercent        Decimal? @db.Decimal(6, 2)
+  liabilityCap     Decimal? @db.Decimal(18, 2)
+  governingLaw     String?
+
+  status ContractStatus @default(DRAFT)
+
+  /// Set when a person has actually compared the contract to the proposal.
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?     @relation("ContractReviewer", fields: [reviewedById], references: [id])
+
+  signedAt DateTime?
+
+  clauses    ContractClause[]
+  deviations ContractDeviation[]
+  handovers  ProjectHandover[]
+
+  createdById String
+  createdBy   User   @relation("ContractAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([accountId])
+  @@index([status])
+}
+
+model ContractClause {
+  id         String   @id @default(uuid())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+
+  clauseType String
+  clauseText String
+  riskLevel  RiskLevel @default(MEDIUM)
+  owner      String?
+  mitigation String?
+  isApproved Boolean   @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([contractId])
+}
+
+/// What the contract says versus what we offered. The spec asks the system to
+/// "إظهار Contract Deviations" across price, quantities, payment terms,
+/// duration, warranty, penalties, liabilities, taxes and exclusions.
+model ContractDeviation {
+  id         String   @id @default(uuid())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+
+  field         DeviationField
+  /// Free text for a clause that has no structured field.
+  clauseName    String?
+  proposalValue String?
+  contractValue String?
+  impact        String?
+  riskLevel     RiskLevel               @default(MEDIUM)
+  status        DeviationStatus         @default(OPEN)
+
+  /// SOD_06: whoever prepares the deviation is not its final approver.
+  preparedById String
+  preparedBy   User   @relation("DeviationPreparer", fields: [preparedById], references: [id])
+  approvedById String?
+  approvedBy   User?  @relation("DeviationApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  decisionNote String?
+
+  /// True when the system found it by comparing, false when a person added it.
+  isDetected Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([contractId])
+  @@index([status])
+}
+
+model ProjectHandover {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+
+  /// The costing version the project is held to. Without it "did we make the
+  /// margin we priced?" has no baseline to ask against.
+  costBaselineVersionId String?
+  costBaselineVersion   CostingVersion? @relation("HandoverBaseline", fields: [costBaselineVersionId], references: [id])
+
+  projectManagerId String?
+  projectManager   User?   @relation("HandoverProjectManager", fields: [projectManagerId], references: [id])
+
+  plannedStartDate DateTime?
+  handoverDate     DateTime?
+  status           HandoverStatus @default(DRAFT)
+
+  items    HandoverItem[]
+  signoffs HandoverSignoff[]
+
+  createdById String
+  createdBy   User   @relation("HandoverAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([opportunityId])
+  @@index([status])
+}
+
+model HandoverItem {
+  id         String          @id @default(uuid())
+  handoverId String
+  handover   ProjectHandover @relation(fields: [handoverId], references: [id])
+
+  category HandoverCategory
+  name     String
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id])
+
+  responsibleId String?
+  responsible   User?   @relation("HandoverItemOwner", fields: [responsibleId], references: [id])
+
+  isComplete Boolean @default(false)
+  /// A pack item that is genuinely not applicable is different from one nobody
+  /// has done. Marking it so requires saying why.
+  notApplicable       Boolean @default(false)
+  notApplicableReason String?
+  comment             String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([handoverId])
+  @@index([category])
+}
+
+/// One row per party. The spec names Sales, Commercial, Finance, Operations,
+/// Procurement and the Project Manager — and the PM's is the one that matters
+/// most, because their responsibility starts when they accept, not when a
+/// status changes.
+model HandoverSignoff {
+  id         String          @id @default(uuid())
+  handoverId String
+  handover   ProjectHandover @relation(fields: [handoverId], references: [id])
+
+  party HandoverParty
+
+  signedById String?
+  signedBy   User?     @relation("HandoverSigner", fields: [signedById], references: [id])
+  signedAt   DateTime?
+  /// A refusal is as informative as an acceptance, and needs its reason.
+  isAccepted Boolean?
+  comment    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([handoverId, party])
+  @@index([handoverId])
+}
+
+enum AwardType {
+  VERBAL_AWARD
+  LETTER_OF_INTENT
+  PURCHASE_ORDER
+  CONTRACT_RECEIVED
+  CONTRACT_SIGNED
+  NOTICE_TO_PROCEED
+}
+
+enum ContractType {
+  LUMP_SUM
+  UNIT_RATE
+  COST_PLUS
+  FRAMEWORK
+  SUPPLY_ONLY
+  SUPPLY_AND_INSTALL
+  SERVICE
+}
+
+enum ContractStatus {
+  DRAFT
+  UNDER_REVIEW
+  REVIEWED
+  SIGNED
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum DeviationField {
+  PRICE
+  QUANTITIES
+  PAYMENT_TERMS
+  DURATION
+  WARRANTY
+  PENALTIES
+  LIABILITIES
+  TAXES
+  EXCLUSIONS
+  NEW_CLAUSE
+}
+
+enum DeviationStatus {
+  OPEN
+  ACCEPTED
+  REJECTED
+  MITIGATED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HandoverStatus {
+  DRAFT
+  IN_PROGRESS
+  AWAITING_SIGNOFF
+  COMPLETED
+  REJECTED
+}
+
+enum HandoverCategory {
+  CONTRACT
+  BOQ
+  COST_BASELINE
+  SCOPE
+  ASSUMPTIONS
+  EXCLUSIONS
+  RISKS
+  PAYMENT
+  SUPPLIERS
+  SUBCONTRACTORS
+  SCHEDULE
+  CUSTOMER_CONTACTS
+  DRAWINGS
+  PERMITS
+}
+
+enum HandoverParty {
+  SALES
+  COMMERCIAL
+  FINANCE
+  OPERATIONS
+  PROCUREMENT
+  PROJECT_MANAGER
+  LEGAL
 }
