@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -280,4 +281,68 @@ export class CreateResourceDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CreateCostRuleDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsString()
+  category!: string;
+
+  @IsString()
+  method!: string;
+
+  @IsNumber()
+  value!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveTo?: string;
+
+  /** Why this rate. A bare percentage ages badly. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class ApproveCostRuleDto {
+  @IsBoolean()
+  approve!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
+}
+
+export class ListCostRulesQuery {
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string;
 }

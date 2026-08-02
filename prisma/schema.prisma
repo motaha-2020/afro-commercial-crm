@@ -196,6 +196,7 @@ model OrganizationUnit {
   partners      BusinessPartner[]
   approvalPolicies    ApprovalPolicy[]
   workflowDefinitions WorkflowDefinition[]
+  costRules           CostRule[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -271,6 +272,8 @@ model User {
   handoversManaged    ProjectHandover[]   @relation("HandoverProjectManager")
   handoverItemsOwned  HandoverItem[]      @relation("HandoverItemOwner")
   handoverSignoffs    HandoverSignoff[]   @relation("HandoverSigner")
+  costRulesAuthored   CostRule[]          @relation("CostRuleAuthor")
+  costRulesApproved   CostRule[]          @relation("CostRuleApprover")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -2487,4 +2490,71 @@ enum HandoverParty {
   PROCUREMENT
   PROJECT_MANAGER
   LEGAL
+}
+
+/// The spec's Cost Rule table (section 18). Overheads are rules rather than one
+/// percentage because "لا أنصح بوضع نسبة G&A واحدة على كل شيء" — one rate on
+/// everything makes a bid in a cheap country subsidise one in an expensive
+/// country while both look correctly priced.
+model CostRule {
+  id       String            @id @default(uuid())
+  code     String            @unique
+  name     String
+  category CostRuleCategory
+  method   CostRuleMethod
+
+  /// A percentage for the percent methods, an amount for the others.
+  value    Decimal @db.Decimal(18, 4)
+  currency String?
+
+  /// Scope, narrowest wins within a category.
+  country   String?
+  orgUnitId String?
+  orgUnit   OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  /// Section 19's principle, which governs here too: "النظام لا يقرر المعالجة
+  /// المحاسبية وحده، بل يطبق قواعد معتمدة من Finance." A draft rule is a
+  /// proposal and never reaches a bid.
+  approvalStatus CostRuleApprovalStatus @default(DRAFT)
+  approvedById   String?
+  approvedBy     User?                  @relation("CostRuleApprover", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  rejectionReason String?
+
+  note String?
+
+  createdById String
+  createdBy   User   @relation("CostRuleAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([category, country])
+  @@index([approvalStatus])
+  @@index([effectiveFrom])
+}
+
+enum CostRuleCategory {
+  G_AND_A
+  OVERHEAD
+  FINANCING
+  RISK_PROVISION
+  INSURANCE
+}
+
+enum CostRuleMethod {
+  PERCENT_OF_DIRECT_COST
+  PERCENT_OF_REVENUE
+  FIXED_AMOUNT
+  MONTHLY_RATE
+}
+
+enum CostRuleApprovalStatus {
+  DRAFT
+  APPROVED
+  REJECTED
 }

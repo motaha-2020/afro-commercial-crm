@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   NOT_YET_COMPUTABLE,
+  computeIndirectCosts,
   costConfidence,
   warningsForVersion,
   costLineTotal,
@@ -17,6 +18,7 @@ import {
 import type { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CostRulesService } from './cost-rules.service';
 import { OpportunityAccessService } from '../common/opportunity-access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SodService } from '../governance/sod.service';
@@ -42,6 +44,7 @@ export class CostingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly costRules: CostRulesService,
     private readonly access: OpportunityAccessService,
     private readonly notifications: NotificationsService,
     private readonly sod: SodService,
@@ -432,7 +435,16 @@ export class CostingService {
     const version = await this.prisma.costingVersion.findUnique({
       where: { id },
       include: {
-        scenario: { select: { id: true, name: true, currency: true, opportunityId: true } },
+        scenario: {
+          select: {
+            id: true,
+            name: true,
+            currency: true,
+            opportunityId: true,
+            // Country and business unit decide which overhead rules apply.
+            opportunity: { select: { country: true, orgUnitId: true } },
+          },
+        },
         createdBy: { select: { id: true, fullNameEn: true, fullNameAr: true } },
         approvedBy: { select: { id: true, fullNameEn: true, fullNameAr: true } },
         packages: {
@@ -460,6 +472,7 @@ export class CostingService {
     // The spec's Visual Warnings. Computed on read rather than stored: every
     // input moves underneath them — a quotation lapses with the passage of
     // time alone, and a stored flag would still say the price was firm.
+    const opportunityScope = version?.scenario.opportunity ?? null;
     const items = (version?.packages ?? []).flatMap((p) => p.items);
     const quoteExpiry = await this.quotationExpiryByReference(
       items.flatMap((i) => i.breakdown.map((b) => b.sourceReference)),
@@ -483,9 +496,42 @@ export class CostingService {
       })),
     );
 
+    // The overheads the spec's summary bar asks for. Direct cost is what the
+    // breakdown lines add up to; the rules are applied on top and never feed
+    // each other, so the total does not depend on the order they were entered.
+    const indirect = computeIndirectCosts(await this.costRules.allRules(), {
+      directCost: totals.rollup.totalCost,
+      sellingPrice: totals.rollup.totalPrice,
+    }, {
+      country: opportunityScope?.country ?? null,
+      orgUnitId: opportunityScope?.orgUnitId ?? null,
+    });
+
+    const totalCost = Math.round((totals.rollup.totalCost + indirect.total) * 100) / 100;
+    const grossProfit = Math.round((totals.rollup.totalPrice - totalCost) * 100) / 100;
+
     return {
       ...version,
-      totals: totals.rollup,
+      totals: {
+        ...totals.rollup,
+        // Kept apart rather than merged: a reader has to be able to see how
+        // much of the cost is work and how much is the company running.
+        directCost: totals.rollup.totalCost,
+        indirectCost: indirect.total,
+        totalCost,
+        grossProfit,
+        marginPercent:
+          totals.rollup.totalPrice > 0
+            ? Math.round((grossProfit / totals.rollup.totalPrice) * 10000) / 100
+            : 0,
+      },
+      indirect: {
+        applied: indirect.applied,
+        byCategory: indirect.byCategory,
+        // An overhead that quietly failed to apply is a bid cheaper than the
+        // company can deliver for, so the reason is carried to the screen.
+        skipped: indirect.skipped,
+      },
       confidence: totals.confidence,
       packageTotals: totals.byPackage,
       warnings,

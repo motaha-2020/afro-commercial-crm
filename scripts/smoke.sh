@@ -1113,7 +1113,58 @@ check "and the board is told which figures still await the ERP" \
   "$(echo "$DASH" | JQ "
 d=json.load(sys.stdin); print('ACTUAL_MARGIN_VS_BID_MARGIN' in d['pendingErpIntegration'])")" "True"
 
-echo "=== 21. Soft delete only ==="
+echo "=== 21. G&A and overheads as approved rules ==="
+# "لا أنصح بوضع نسبة G&A واحدة على كل شيء" — one rate on everything makes a bid
+# in a cheap country subsidise one in an expensive country while both look
+# correctly priced. So overheads are rules, scoped and Finance-approved.
+
+GNA=$(curl -s -X POST $API/cost-rules -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke G&A","category":"G_AND_A","method":"PERCENT_OF_DIRECT_COST","value":10,"note":"smoke"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+check "a new rule is always a draft, whoever created it" \
+  "$(psql_ "select \"approvalStatus\" from \"CostRule\" where id='$GNA';")" "DRAFT"
+check "a percentage over 100 is refused as a typo, not stored as policy" \
+  "$(code -X POST $API/cost-rules -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"name":"Typo","category":"OVERHEAD","method":"PERCENT_OF_DIRECT_COST","value":1200}')" "400"
+check "an account manager cannot approve a cost rule" \
+  "$(code -X POST $API/cost-rules/$GNA/decision -H "Authorization: Bearer $AM" \
+     -H 'Content-Type: application/json' -d '{"approve":true}')" "403"
+
+# A draft rule must not reach a bid. Measured against a live costing.
+BEFORE_TOTAL=$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+print(json.load(sys.stdin)['totals']['indirectCost'])")
+check "a rule Finance has not approved changes no number" "$BEFORE_TOTAL" "0"
+
+curl -s -o /dev/null -X POST $API/cost-rules/$GNA/decision -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' -d '{"approve":true}'
+check "once finance approves it, the costing carries the overhead" \
+  "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(d['totals']['indirectCost']>0)")" "True"
+check "direct and indirect are reported apart, not merged" \
+  "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+t=json.load(sys.stdin)['totals']; print(round(t['directCost']+t['indirectCost'],2)==round(t['totalCost'],2))")" "True"
+check "and the rule that produced it is named on the costing" \
+  "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(any(a['name']=='Smoke G&A' for a in d['indirect']['applied']))")" "True"
+
+# Two rules in different categories, entered in both orders.
+FIN_RULE=$(curl -s -X POST $API/cost-rules -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke financing","category":"FINANCING","method":"PERCENT_OF_DIRECT_COST","value":5}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X POST $API/cost-rules/$FIN_RULE/decision -H "Authorization: Bearer $FIN" \
+  -H 'Content-Type: application/json' -d '{"approve":true}'
+check "categories accumulate, and each computes off the same base" \
+  "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(all(a['basis']==d['totals']['directCost'] for a in d['indirect']['applied']))")" "True"
+
+check "rejecting a rule needs a reason" \
+  "$(RJ=$(curl -s -X POST $API/cost-rules -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+       -d '{"name":"To reject","category":"INSURANCE","method":"FIXED_AMOUNT","value":100}' \
+       | JQ "print(json.load(sys.stdin)['id'])"); \
+     code -X POST $API/cost-rules/$RJ/decision -H "Authorization: Bearer $FIN" \
+       -H 'Content-Type: application/json' -d '{"approve":false}')" "400"
+
+echo "=== 22. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -1124,7 +1175,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 22. Web UI in three locales ==="
+echo "=== 23. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do

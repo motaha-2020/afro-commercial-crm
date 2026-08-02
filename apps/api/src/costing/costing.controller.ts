@@ -1,9 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CostingService } from './costing.service';
+import { CostRulesService } from './cost-rules.service';
 import { LibraryService } from './library.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
+  ApproveCostRuleDto,
+  CreateCostRuleDto,
+  ListCostRulesQuery,
   CreateBoqItemDto,
   CreateBreakdownDto,
   CreateCostElementDto,
@@ -22,6 +26,7 @@ import {
 export class CostingController {
   constructor(
     private readonly costing: CostingService,
+    private readonly costRules: CostRulesService,
     private readonly library: LibraryService,
   ) {}
 
@@ -190,5 +195,31 @@ export class CostingController {
   @Get('resources/:code/history')
   history(@Param('code') code: string) {
     return this.library.priceHistory(code);
+  }
+
+  // --- cost rules: G&A and overheads ---------------------------------------
+
+  @Get('cost-rules')
+  listCostRules(@CurrentUser() user: AuthenticatedUser, @Query() query: ListCostRulesQuery) {
+    return this.costRules.list(user, query);
+  }
+
+  @Post('cost-rules')
+  createCostRule(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCostRuleDto) {
+    return this.costRules.create(user, dto);
+  }
+
+  @Post('cost-rules/:id/decision')
+  decideCostRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ApproveCostRuleDto,
+  ) {
+    return this.costRules.decide(user, id, dto);
+  }
+
+  @Delete('cost-rules/:id')
+  removeCostRule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.costRules.remove(user, id);
   }
 }
