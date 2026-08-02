@@ -1078,7 +1078,42 @@ check "all eight segregation-of-duties rules are now enforced" \
   "$(curl -s $API/governance/sod-rules -H "Authorization: Bearer $CEO" | JQ "
 rs=json.load(sys.stdin)['rules']; print(sum(1 for r in rs if r['enforced']))")" "8"
 
-echo "=== 20. Soft delete only ==="
+echo "=== 20. Release 12: one definition per metric ==="
+# The spec's section 36: "يجب أن يكون التعريف موحدًا، حتى لا يحسب كل مدير
+# المؤشر بطريقة مختلفة". Every number below comes from one place.
+
+DASH=$(curl -s $API/metrics/dashboard -H "Authorization: Bearer $CEO")
+check "the dashboard carries the definition beside each number" \
+  "$(echo "$DASH" | JQ "
+d=json.load(sys.stdin); print(all(m.get('definition',{}).get('formula') for m in d['metrics']))")" "True"
+check "and answers the KPI gate: which decision, whose definition" \
+  "$(echo "$DASH" | JQ "
+d=json.load(sys.stdin); print(all(m['definition']['decision'] and m['definition']['owner'] for m in d['metrics']))")" "True"
+check "win rate is won over won plus lost, exactly as the spec writes it" \
+  "$(curl -s $API/metrics/WIN_RATE -H "Authorization: Bearer $CEO" | JQ "
+d=json.load(sys.stdin); print(d['definition']['formula'].startswith('Won'))")" "True"
+check "a metric with nothing behind it says so instead of showing zero" \
+  "$(curl -s $API/metrics/SUPPLIER_DEPENDENCY -H "Authorization: Bearer $AM" | JQ "
+d=json.load(sys.stdin); print(str(d['value'])+'/'+str(d.get('unavailableReason')))")" "None/NO_DATA"
+check "every number reports how many records it rests on" \
+  "$(echo "$DASH" | JQ "
+d=json.load(sys.stdin); print(all('basis' in m for m in d['metrics']))")" "True"
+check "the CEO's dashboard covers the level the spec describes" \
+  "$(echo "$DASH" | JQ "
+d=json.load(sys.stdin); codes={m['code'] for m in d['metrics']}
+print('FORECAST_ACCURACY' in codes and 'OPEN_APPROVALS' in codes)")" "True"
+check "and an account manager sees their own level, not the board's" \
+  "$(curl -s $API/metrics/dashboard -H "Authorization: Bearer $AM" | JQ "
+d=json.load(sys.stdin); codes={m['code'] for m in d['metrics']}
+print('CUSTOMER_CONCENTRATION' in codes)")" "False"
+check "metrics obey the same data scope as everything else" \
+  "$(curl -s $API/metrics/dashboard -H "Authorization: Bearer $AM" | JQ "
+a=json.load(sys.stdin)['scope']['opportunities']; print(a>=0)")" "True"
+check "and the board is told which figures still await the ERP" \
+  "$(echo "$DASH" | JQ "
+d=json.load(sys.stdin); print('ACTUAL_MARGIN_VS_BID_MARGIN' in d['pendingErpIntegration'])")" "True"
+
+echo "=== 21. Soft delete only ==="
 curl -s -o /dev/null -X DELETE $API/opportunities/$OPP -H "Authorization: Bearer $CEO"
 curl -s -o /dev/null -X DELETE $API/accounts/$SCOPED -H "Authorization: Bearer $CEO"
 check "deleted record disappears from the API" "$(code $API/opportunities/$OPP -H "Authorization: Bearer $CEO")" "404"
@@ -1089,7 +1124,7 @@ check "the contact goes too, but only softly" \
   "$(curl -s -o /dev/null -X DELETE $API/contacts/$CONTACT2 -H "Authorization: Bearer $CEO"; \
      psql_ "select (\"deletedAt\" is not null) from \"Contact\" where id='$CONTACT2';")" "t"
 
-echo "=== 21. Web UI in three locales ==="
+echo "=== 22. Web UI in three locales ==="
 curl -s -c /tmp/acms_smoke.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do

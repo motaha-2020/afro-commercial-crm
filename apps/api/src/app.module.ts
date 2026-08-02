@@ -23,6 +23,7 @@ import { PartnersModule } from './partners/partners.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { ContractsModule } from './contracts/contracts.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
@@ -48,6 +49,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     QuotationsModule,
     ApprovalsModule,
     ContractsModule,
+    MetricsModule,
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,
