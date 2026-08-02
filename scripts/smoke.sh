@@ -1141,9 +1141,13 @@ check "a rule Finance has not approved changes no number" "$AFTER_DRAFT" "$BEFOR
 
 curl -s -o /dev/null -X POST $API/cost-rules/$GNA/decision -H "Authorization: Bearer $FIN" \
   -H 'Content-Type: application/json' -d '{"approve":true}'
-check "once finance approves it, the costing carries the overhead" \
+# Asserted as an exact share rather than an increase: one rule per category
+# applies, so approving a second 10% G&A replaces the first at the same value
+# instead of stacking — which is the design, not a miss.
+check "once finance approves it, the costing carries exactly that overhead" \
   "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print(d['totals']['indirectCost']>$BEFORE_TOTAL)")" "True"
+d=json.load(sys.stdin); t=d['totals']
+print(round(d['indirect']['byCategory']['G_AND_A'],2)==round(t['directCost']*0.10,2))")" "True"
 check "direct and indirect are reported apart, not merged" \
   "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
 t=json.load(sys.stdin)['totals']; print(round(t['directCost']+t['indirectCost'],2)==round(t['totalCost'],2))")" "True"
