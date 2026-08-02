@@ -520,6 +520,11 @@ export class CostingService {
         indirectCost: indirect.total,
         totalCost,
         grossProfit,
+        /// Margin on direct cost alone — what the item-level pricing works to.
+        /// Kept beside the real one rather than replaced: an estimator prices
+        /// against direct cost, and a reader needs to see both the number they
+        /// priced to and the number the company actually earns.
+        marginPercentDirect: totals.rollup.marginPercent,
         marginPercent:
           totals.rollup.totalPrice > 0
             ? Math.round((grossProfit / totals.rollup.totalPrice) * 10000) / 100

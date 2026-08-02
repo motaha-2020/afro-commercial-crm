@@ -284,10 +284,10 @@ curl -s -o /dev/null -X PATCH $API/costing/items/$ITEM -H "Authorization: Bearer
   -H 'Content-Type: application/json' -d '{"targetMarginPercent":20}'
 check "a 20% target margin prices cost 100 at 125, not 120" \
   "$(curl -s $API/costing/versions/$VER -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print(str(float(d['totals']['totalCost']))+'/'+str(float(d['totals']['totalPrice'])))")" "100.0/125.0"
+d=json.load(sys.stdin); print(str(float(d['totals']['directCost']))+'/'+str(float(d['totals']['totalPrice'])))")" "100.0/125.0"
 check "and reports margin and markup side by side" \
   "$(curl -s $API/costing/versions/$VER -H "Authorization: Bearer $CEO" | JQ "
-t=json.load(sys.stdin)['totals']; print(str(t['marginPercent'])+'/'+str(t['markupPercent']))")" "20/25"
+t=json.load(sys.stdin)['totals']; print(str(t['marginPercentDirect'])+'/'+str(t['markupPercent']))")" "20/25"
 check "waste and productivity reach the line total" \
   "$(curl -s -X POST $API/costing/items/$ITEM/breakdown -H "Authorization: Bearer $CEO" \
      -H 'Content-Type: application/json' \
@@ -1118,6 +1118,8 @@ echo "=== 21. G&A and overheads as approved rules ==="
 # in a cheap country subsidise one in an expensive country while both look
 # correctly priced. So overheads are rules, scoped and Finance-approved.
 
+BEFORE_TOTAL=$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+print(json.load(sys.stdin)['totals']['indirectCost'])")
 GNA=$(curl -s -X POST $API/cost-rules -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
   -d '{"name":"Smoke G&A","category":"G_AND_A","method":"PERCENT_OF_DIRECT_COST","value":10,"note":"smoke"}' \
   | JQ "print(json.load(sys.stdin)['id'])")
@@ -1131,15 +1133,17 @@ check "an account manager cannot approve a cost rule" \
      -H 'Content-Type: application/json' -d '{"approve":true}')" "403"
 
 # A draft rule must not reach a bid. Measured against a live costing.
-BEFORE_TOTAL=$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
+# Measured as a delta: rules approved by earlier runs of this suite still
+# apply, correctly.
+AFTER_DRAFT=$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
 print(json.load(sys.stdin)['totals']['indirectCost'])")
-check "a rule Finance has not approved changes no number" "$BEFORE_TOTAL" "0"
+check "a rule Finance has not approved changes no number" "$AFTER_DRAFT" "$BEFORE_TOTAL"
 
 curl -s -o /dev/null -X POST $API/cost-rules/$GNA/decision -H "Authorization: Bearer $FIN" \
   -H 'Content-Type: application/json' -d '{"approve":true}'
 check "once finance approves it, the costing carries the overhead" \
   "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
-d=json.load(sys.stdin); print(d['totals']['indirectCost']>0)")" "True"
+d=json.load(sys.stdin); print(d['totals']['indirectCost']>$BEFORE_TOTAL)")" "True"
 check "direct and indirect are reported apart, not merged" \
   "$(curl -s $API/costing/versions/$WVER -H "Authorization: Bearer $CEO" | JQ "
 t=json.load(sys.stdin)['totals']; print(round(t['directCost']+t['indirectCost'],2)==round(t['totalCost'],2))")" "True"
