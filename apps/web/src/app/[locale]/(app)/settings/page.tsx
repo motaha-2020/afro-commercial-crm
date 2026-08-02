@@ -5,6 +5,7 @@ import {
   ApprovalPolicySettings,
   type PolicyKeyRow,
 } from '@/components/ApprovalPolicySettings';
+import { CostRuleSettings, type CostRuleRow } from '@/components/CostRuleSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,10 +32,15 @@ export default async function SettingsPage({
   if (country) query.set('country', country);
   if (orgUnitId) query.set('orgUnitId', orgUnitId);
 
-  const policies = await apiFetch<PolicyResponse>(
-    `/approval-policies${query.toString() ? `?${query}` : ''}`,
-    { token },
-  );
+  const [policies, costRules] = await Promise.all([
+    apiFetch<PolicyResponse>(`/approval-policies${query.toString() ? `?${query}` : ''}`, {
+      token,
+    }),
+    apiFetch<{ rules: CostRuleRow[]; canApprove: boolean }>(
+      `/cost-rules${query.toString() ? `?${query}` : ''}`,
+      { token },
+    ).catch(() => ({ rules: [] as CostRuleRow[], canApprove: false })),
+  ]);
 
   return (
     <>
@@ -50,6 +56,8 @@ export default async function SettingsPage({
         canEdit={policies.canEdit}
         scope={policies.scope}
       />
+
+      <CostRuleSettings rules={costRules.rules} canApprove={costRules.canApprove} />
     </>
   );
 }
