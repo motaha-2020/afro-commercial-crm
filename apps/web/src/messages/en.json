@@ -199,7 +199,11 @@
     "archived": "Archived",
     "showArchived": "Include archived",
     "delete": "Delete",
-    "confirmDelete": "Remove this lead? It stays in the audit trail and can be restored by an administrator."
+    "confirmDelete": "Remove this lead? It stays in the audit trail and can be restored by an administrator.",
+    "edit": "Edit",
+    "editTitle": "Edit lead",
+    "save": "Save changes",
+    "cancel": "Cancel"
   },
   "newLead": {
     "title": "New lead",
@@ -524,7 +528,10 @@
   },
   "common": {
     "loading": "Loading…",
-    "language": "Language"
+    "language": "Language",
+    "filter": "Filter",
+    "clear": "Clear",
+    "filtering": "Filtering…"
   },
   "newAccount": {
     "title": "New customer",

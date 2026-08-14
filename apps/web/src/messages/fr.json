@@ -199,7 +199,11 @@
     "archived": "Archivé",
     "showArchived": "Inclure les archivés",
     "delete": "Supprimer",
-    "confirmDelete": "Supprimer ce prospect ? Il reste dans la piste d'audit et un administrateur peut le restaurer."
+    "confirmDelete": "Supprimer ce prospect ? Il reste dans la piste d'audit et un administrateur peut le restaurer.",
+    "edit": "Modifier",
+    "editTitle": "Modifier le prospect",
+    "save": "Enregistrer",
+    "cancel": "Annuler"
   },
   "newLead": {
     "title": "Nouveau prospect",
@@ -524,7 +528,10 @@
   },
   "common": {
     "loading": "Chargement…",
-    "language": "Langue"
+    "language": "Langue",
+    "filter": "Filtrer",
+    "clear": "Effacer",
+    "filtering": "Filtrage…"
   },
   "newAccount": {
     "title": "Nouveau client",

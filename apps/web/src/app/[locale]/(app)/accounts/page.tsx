@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { ACCOUNT_TYPES, COUNTRIES } from '@acms/shared';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
+import { ListFilters } from '@/components/ListFilters';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,53 +94,38 @@ export default async function AccountsPage({
         </div>
       </div>
 
-      {/* A plain GET form: the filter lives in the URL, so a filtered list can
-          be bookmarked and sent to someone else and still be the same list. */}
-      {/* autoComplete off because the browser restores previously typed values
-          on reload, which would show a filter the URL does not carry — the
-          control would claim a filter the list is not applying. */}
-      <form
-        className="panel list-filters"
-        method="get"
-        action={`/${locale}/accounts`}
-        autoComplete="off"
-      >
-        <input
-          type="search"
-          name="search"
-          defaultValue={filters.search ?? ''}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('search')}
-        />
-        <select name="type" defaultValue={filters.type ?? ''} aria-label={t('type')}>
-          <option value="">{t('allTypes')}</option>
-          {ACCOUNT_TYPES.map((code) => (
-            <option key={code} value={code}>
-              {typeT(code)}
-            </option>
-          ))}
-        </select>
-        <select
-          name="country"
-          defaultValue={filters.country ?? ''}
-          aria-label={t('country')}
-        >
-          <option value="">{t('allCountries')}</option>
-          {COUNTRIES.map((code) => (
-            <option key={code} value={code}>
-              {countryT(code)}
-            </option>
-          ))}
-        </select>
-        <button className="btn" type="submit">
-          {t('apply')}
-        </button>
-        {filtered && (
-          <Link className="btn btn-ghost" href={`/${locale}/accounts`}>
-            {t('clear')}
-          </Link>
-        )}
-      </form>
+      {/* The filter lives in the URL, so a filtered list can be bookmarked and
+          sent to someone else and still be the same list. */}
+      <ListFilters
+        basePath={`/${locale}/accounts`}
+        values={{
+          search: filters.search ?? '',
+          type: filters.type ?? '',
+          country: filters.country ?? '',
+        }}
+        fields={[
+          {
+            kind: 'search',
+            name: 'search',
+            label: t('search'),
+            placeholder: t('searchPlaceholder'),
+          },
+          {
+            kind: 'select',
+            name: 'type',
+            label: t('type'),
+            anyLabel: t('allTypes'),
+            options: ACCOUNT_TYPES.map((code) => ({ value: code, label: typeT(code) })),
+          },
+          {
+            kind: 'select',
+            name: 'country',
+            label: t('country'),
+            anyLabel: t('allCountries'),
+            options: COUNTRIES.map((code) => ({ value: code, label: countryT(code) })),
+          },
+        ]}
+      />
 
       <div className="panel">
         <table className="data">

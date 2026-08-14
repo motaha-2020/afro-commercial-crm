@@ -6,6 +6,8 @@ import { getAccessToken } from '@/lib/session';
 import { money, shortDate } from '@/lib/format';
 import { LeadActions } from '@/components/LeadActions';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
+import { LeadEditForm } from '@/components/LeadEditForm';
+import { buildRefLabels, refLabel, type RefListPayload } from '@/lib/ref-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,15 +57,26 @@ export default async function LeadDetailPage({
   }
 
   // Needed only to name the account at conversion, when the lead never had one.
-  const accounts = await apiFetch<{ items: AccountOption[] }>('/accounts?pageSize=100', {
-    token,
-  });
+  const [accounts, master] = await Promise.all([
+    apiFetch<{ items: AccountOption[] }>('/accounts?pageSize=100', { token }),
+    apiFetch<{
+      leadSources: string[];
+      industries: string[];
+      currencies: string[];
+      lists?: RefListPayload[];
+    }>('/master-data', { token }),
+  ]);
+
+  const labels = buildRefLabels(master.lists, locale);
 
   const facts = [
     { label: t('code'), value: lead.code },
-    { label: t('source'), value: t(lead.source) },
-    { label: t('country'), value: lead.country },
-    { label: t('industry'), value: lead.industry ?? '—' },
+    { label: t('source'), value: refLabel(labels, 'LEAD_SOURCE', lead.source) },
+    { label: t('country'), value: refLabel(labels, 'COUNTRY', lead.country) },
+    {
+      label: t('industry'),
+      value: lead.industry ? refLabel(labels, 'INDUSTRY', lead.industry) : '—',
+    },
     { label: t('value'), value: money(lead.estimatedValue, lead.currency) },
     { label: t('created'), value: shortDate(lead.createdAt) },
   ];
@@ -78,7 +91,12 @@ export default async function LeadDetailPage({
             {locale === 'ar' ? lead.owner.fullNameAr : lead.owner.fullNameEn}
           </p>
         </div>
-        <span className="badge badge-primary">{t(lead.status)}</span>
+        <div className="head-actions">
+          <span className="badge badge-primary">{t(lead.status)}</span>
+          {/* Renders nothing once the lead is closed — the API refuses those
+              edits, and a button that only ever produces a refusal is a trap. */}
+          <LeadEditForm lead={lead} master={master} labels={labels} />
+        </div>
       </div>
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>

@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { buildRefLabels, refLabel, type RefListPayload } from '@/lib/ref-labels';
 import { LeadRowActions } from '@/components/LeadRowActions';
+import { ListFilters } from '@/components/ListFilters';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,63 +111,52 @@ export default async function LeadsPage({
         </div>
       </div>
 
-      {/* autoComplete off because the browser restores previously typed values
-          on reload, which would show a filter the URL does not carry. */}
-      <form
-        className="panel list-filters"
-        method="get"
-        action={`/${locale}/leads`}
-        autoComplete="off"
-      >
-        <input
-          type="search"
-          name="search"
-          defaultValue={filters.search}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('search')}
-        />
-        <select name="status" defaultValue={filters.status} aria-label={t('status')}>
-          <option value="">{t('allStatuses')}</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {t(s)}
-            </option>
-          ))}
-        </select>
-        <select name="source" defaultValue={filters.source} aria-label={t('source')}>
-          <option value="">{t('allSources')}</option>
-          {master.leadSources.map((s) => (
-            <option key={s} value={s}>
-              {refLabel(labels, 'LEAD_SOURCE', s)}
-            </option>
-          ))}
-        </select>
-        <select name="country" defaultValue={filters.country} aria-label={t('country')}>
-          <option value="">{t('allCountries')}</option>
-          {master.countries.map((c) => (
-            <option key={c} value={c}>
-              {refLabel(labels, 'COUNTRY', c)}
-            </option>
-          ))}
-        </select>
-        <label className="check">
-          <input
-            type="checkbox"
-            name="includeArchived"
-            value="true"
-            defaultChecked={filters.includeArchived}
-          />
-          {t('showArchived')}
-        </label>
-        <button type="submit" className="btn btn-primary">
-          {t('apply')}
-        </button>
-        {(filtered || filters.includeArchived) && (
-          <Link className="btn" href={`/${locale}/leads`}>
-            {t('clear')}
-          </Link>
-        )}
-      </form>
+      <ListFilters
+        basePath={`/${locale}/leads`}
+        values={{
+          search: filters.search,
+          status: filters.status,
+          source: filters.source,
+          country: filters.country,
+          includeArchived: filters.includeArchived ? 'true' : '',
+        }}
+        fields={[
+          {
+            kind: 'search',
+            name: 'search',
+            label: t('search'),
+            placeholder: t('searchPlaceholder'),
+          },
+          {
+            kind: 'select',
+            name: 'status',
+            label: t('status'),
+            anyLabel: t('allStatuses'),
+            options: STATUSES.map((s) => ({ value: s, label: t(s) })),
+          },
+          {
+            kind: 'select',
+            name: 'source',
+            label: t('source'),
+            anyLabel: t('allSources'),
+            options: master.leadSources.map((s) => ({
+              value: s,
+              label: refLabel(labels, 'LEAD_SOURCE', s),
+            })),
+          },
+          {
+            kind: 'select',
+            name: 'country',
+            label: t('country'),
+            anyLabel: t('allCountries'),
+            options: master.countries.map((c) => ({
+              value: c,
+              label: refLabel(labels, 'COUNTRY', c),
+            })),
+          },
+          { kind: 'toggle', name: 'includeArchived', label: t('showArchived') },
+        ]}
+      />
 
       <div className="panel">
         <table className="data">
