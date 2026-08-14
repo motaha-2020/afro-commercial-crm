@@ -1,16 +1,16 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 
 export function LogoutButton() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('nav');
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push(`/${locale}/login`);
+    // Hard navigation so the App Router cache from the signed-in session is
+    // discarded — a client push would keep serving cached authed pages.
+    window.location.assign(`/${locale}/login`);
   }
 
   return (

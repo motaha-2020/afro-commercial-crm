@@ -217,6 +217,12 @@ model User {
   locale       String  @default("ar")
   isActive     Boolean @default(true)
 
+  // Admin-created and reset passwords are temporary: the account is forced to
+  // set its own on next login, so a shared temp credential never lingers.
+  mustChangePassword Boolean   @default(false)
+  passwordChangedAt  DateTime?
+  avatarUrl          String?
+
   orgUnitId String
   orgUnit   OrganizationUnit @relation(fields: [orgUnitId], references: [id])
 
@@ -237,6 +243,10 @@ model User {
   uploadedDocuments  Document[]        @relation("DocumentUploader")
   documentVersions   DocumentVersion[]
   notifications      Notification[]
+
+  aiConversations     AiConversation[]
+  aiSuggestionsMade   AiSuggestion[] @relation("AiSuggestionRequester")
+  aiSuggestionsSigned AiSuggestion[] @relation("AiSuggestionApprover")
 
   ownedAssumptions     Assumption[]     @relation("AssumptionOwner")
   raisedClarifications Clarification[]  @relation("ClarificationRaiser")
@@ -2557,4 +2567,104 @@ enum CostRuleApprovalStatus {
   DRAFT
   APPROVED
   REJECTED
+}
+
+// ---------------------------------------------------------------------------
+// AI Enterprise Assistant — shared infrastructure (orchestrator, memory, audit)
+// Specialist agents (sales/financial/document/... intelligence) plug into this
+// layer later; nothing here is agent-specific.
+// ---------------------------------------------------------------------------
+
+/// One assistant session. Holds no business data itself — just threads
+/// AiMessages together so the orchestrator can rebuild short-term context.
+model AiConversation {
+  id     String  @id @default(uuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+  title  String?
+
+  messages    AiMessage[]
+  suggestions AiSuggestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model AiMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id])
+
+  role    AiMessageRole
+  content String
+
+  /// Router bookkeeping — which tier/provider/model answered, if any (empty
+  /// for USER/SYSTEM turns). Kept small; the full request is not stored.
+  task     String?
+  provider String?
+  model    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// A recommendation an agent produced that changes real data. Nothing here
+/// touches the target record until a human (or a policy that allows
+/// auto-execution) approves it — this is the "human in the loop" gate the
+/// orchestrator sits in front of every agent action.
+enum AiSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+}
+
+model AiSuggestion {
+  id String @id @default(uuid())
+
+  conversationId String?
+  conversation   AiConversation? @relation(fields: [conversationId], references: [id])
+
+  /// Which agent produced this and what it targets — e.g. agentKey
+  /// "sales-intelligence", entityType "Opportunity". Both are free-form
+  /// strings so new agents don't need a schema migration to plug in.
+  agentKey   String
+  entityType String
+  entityId   String?
+
+  userId String
+  user   User   @relation("AiSuggestionRequester", fields: [userId], references: [id])
+
+  originalData    Json?
+  recommendation  Json
+  suggestedChange Json?
+  confidenceScore Float
+
+  status AiSuggestionStatus @default(PENDING)
+
+  approverId String?
+  approver   User?     @relation("AiSuggestionApprover", fields: [approverId], references: [id])
+  approvedAt DateTime?
+  rejectionReason String?
+
+  executionStatus String?
+  executedAt      DateTime?
+  executionError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@index([agentKey, entityType])
 }

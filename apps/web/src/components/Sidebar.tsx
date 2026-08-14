@@ -4,17 +4,18 @@ import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const ITEMS: { key: string; href: string; icon: string }[] = [
+const ITEMS: { key: string; href: string; icon: string; adminOnly?: boolean }[] = [
   { key: 'dashboard', href: 'dashboard', icon: '⌂' },
   { key: 'accounts', href: 'accounts', icon: '◫' },
   { key: 'leads', href: 'leads', icon: '◇' },
   { key: 'opportunities', href: 'opportunities', icon: '◆' },
   { key: 'suppliers', href: 'partners', icon: '⬡' },
   { key: 'approvals', href: 'approvals', icon: '✓' },
+  { key: 'users', href: 'users', icon: '◉', adminOnly: true },
   { key: 'settings', href: 'settings', icon: '⚙' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const t = useTranslations('nav');
   const app = useTranslations('app');
   const locale = useLocale();
@@ -33,7 +34,7 @@ export function Sidebar() {
       {/* A real navigation landmark: screen readers can jump straight to it,
           and on a phone it becomes the horizontal strip the layout needs. */}
       <nav aria-label={app('tagline')}>
-        {ITEMS.map((item) => {
+        {ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
           const href = `/${locale}/${item.href}`;
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (

@@ -42,6 +42,10 @@ export default async function AccountDetailPage({
   const t = await getTranslations('accounts');
   const stageT = await getTranslations('stage');
   const healthT = await getTranslations('health');
+  const typeT = await getTranslations('accountType');
+  const countryT = await getTranslations('country');
+  const creditT = await getTranslations('creditStatus');
+  const industryT = await getTranslations('industry');
   const token = await getAccessToken();
 
   let account: Account360;
@@ -65,10 +69,12 @@ export default async function AccountDetailPage({
 
   const facts = [
     { label: t('code'), value: account.code },
-    { label: t('type'), value: account.type },
-    { label: t('country'), value: account.country },
-    { label: t('industry'), value: account.industry ?? '—' },
-    { label: t('creditStatus'), value: account.creditStatus },
+    // Codes are stored as codes and translated at the display layer — the
+    // whole reason the app keeps them apart.
+    { label: t('type'), value: typeT(account.type) },
+    { label: t('country'), value: countryT(account.country) },
+    { label: t('industry'), value: account.industry ? industryT(account.industry) : '—' },
+    { label: t('creditStatus'), value: creditT(account.creditStatus) },
     { label: t('paymentTerms'), value: account.paymentTermDays ? `${account.paymentTermDays} ${t('days')}` : '—' },
   ];
 

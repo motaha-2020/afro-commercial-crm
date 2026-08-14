@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 
 export function LoginForm() {
   const t = useTranslations('login');
   const locale = useLocale();
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +26,11 @@ export function LoginForm() {
         setLoading(false);
         return;
       }
-      router.push(`/${locale}/dashboard`);
+      // Full document navigation, not router.push: a client-side push would
+      // serve the dashboard from the App Router cache populated under the
+      // previous session, showing the old user until a manual refresh. A hard
+      // load guarantees every server component re-reads the new session cookie.
+      window.location.assign(`/${locale}/dashboard`);
     } catch {
       setError(t('invalid'));
       setLoading(false);

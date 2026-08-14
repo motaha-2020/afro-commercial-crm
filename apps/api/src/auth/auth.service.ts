@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -129,6 +130,108 @@ export class AuthService {
       },
       context,
     );
+  }
+
+  /** The signed-in user's own full record — name, contact details, org unit and
+   *  roles — for the profile screen. Never exposes the password hash. */
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        fullNameAr: true,
+        fullNameEn: true,
+        jobTitle: true,
+        phone: true,
+        locale: true,
+        avatarUrl: true,
+        mustChangePassword: true,
+        lastLoginAt: true,
+        orgUnit: { select: { id: true, code: true, nameAr: true, nameEn: true } },
+        roles: { select: { role: true, scope: true } },
+      },
+    });
+    if (!user) throw new UnauthorizedException('Invalid session');
+    return user;
+  }
+
+  /** A user editing their own profile — name, job title, phone, locale, avatar.
+   *  Deliberately cannot touch roles, org unit or active status: those are an
+   *  administrator's decision, not something a user grants themselves. */
+  async updateProfile(
+    userId: string,
+    dto: {
+      fullNameAr?: string;
+      fullNameEn?: string;
+      jobTitle?: string;
+      phone?: string;
+      locale?: string;
+      avatarUrl?: string;
+    },
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        fullNameAr: dto.fullNameAr,
+        fullNameEn: dto.fullNameEn,
+        jobTitle: dto.jobTitle,
+        phone: dto.phone,
+        locale: dto.locale,
+        avatarUrl: dto.avatarUrl,
+      },
+    });
+    await this.audit.record({
+      entityType: 'User',
+      entityId: userId,
+      action: 'UPDATE',
+      userId,
+      after: { profileUpdated: true },
+    });
+    return this.getProfile(userId);
+  }
+
+  /**
+   * A user changing their own password. Verifies the current one, clears the
+   * force-change flag, and revokes every other session so a temporary password
+   * that may have been shared stops working the moment the real one is set.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: true }> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    const valid = await argon2
+      .verify(user.passwordHash, currentPassword)
+      .catch(() => false);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('New password must differ from the current one');
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
+    });
+
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    await this.audit.record({
+      entityType: 'User',
+      entityId: userId,
+      action: 'UPDATE',
+      userId,
+      after: { passwordChanged: true },
+    });
+
+    return { success: true };
   }
 
   async logout(refreshToken: string): Promise<void> {

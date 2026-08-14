@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
@@ -18,6 +18,49 @@ class LoginDto {
 class RefreshDto {
   @IsString()
   refreshToken!: string;
+}
+
+class ChangePasswordDto {
+  @IsString()
+  currentPassword!: string;
+
+  @IsString()
+  @MinLength(10)
+  newPassword!: string;
+}
+
+class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  fullNameAr?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  fullNameEn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  jobTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  locale?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500000)
+  avatarUrl?: string;
 }
 
 @Controller('auth')
@@ -52,5 +95,26 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser) {
     return user;
+  }
+
+  @Get('profile')
+  profile(@CurrentUser() user: AuthenticatedUser) {
+    return this.auth.getProfile(user.id);
+  }
+
+  @Patch('profile')
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.auth.updateProfile(user.id, dto);
+  }
+
+  @Post('change-password')
+  changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

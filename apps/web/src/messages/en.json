@@ -15,7 +15,8 @@
     "contracts": "Contracts & Handover",
     "admin": "Settings & Governance",
     "logout": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "users": "Users"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -65,7 +66,17 @@
     "health": "Health",
     "value": "Value",
     "empty": "No accounts yet",
-    "newAccount": "New customer"
+    "newAccount": "New customer",
+    "search": "Search",
+    "searchPlaceholder": "Name, trade name or code",
+    "allTypes": "All types",
+    "allCountries": "All countries",
+    "apply": "Filter",
+    "clear": "Clear",
+    "noMatch": "No customer matches this filter",
+    "showing": "Showing {from}–{to} of {total}",
+    "previous": "Previous",
+    "next": "Next"
   },
   "contacts": {
     "title": "Contacts",
@@ -392,6 +403,38 @@
     "GREEN": "Healthy",
     "AMBER": "Needs Attention",
     "RED": "At Risk"
+  },
+  "accountType": {
+    "OPERATOR": "Operator",
+    "CONTRACTOR": "Contractor",
+    "GOVERNMENT": "Government",
+    "ENTERPRISE": "Enterprise",
+    "DEVELOPER": "Developer",
+    "VENDOR": "Vendor"
+  },
+  "creditStatus": {
+    "GOOD": "Good standing",
+    "WATCH": "Watch",
+    "HOLD": "On hold",
+    "BLOCKED": "Blocked"
+  },
+  "country": {
+    "EG": "Egypt",
+    "MG": "Madagascar",
+    "KM": "Comoros",
+    "KE": "Kenya"
+  },
+  "industry": {
+    "FTTH": "FTTH — fibre to the home",
+    "FTTS": "FTTS — fibre to the site",
+    "WIRELESS": "Wireless networks",
+    "FIXED": "Fixed networks",
+    "SUBMARINE": "Submarine cable",
+    "MEP": "MEP — mechanical, electrical, plumbing",
+    "ELV": "ELV — extra low voltage",
+    "CORE_NETWORK": "Core network",
+    "IT": "IT",
+    "SUPPLY": "Supply"
   },
   "opportunityDetail": {
     "scope": "Scope",
@@ -1099,5 +1142,66 @@
     "PERCENT_OF_REVENUE": "% of revenue",
     "FIXED_AMOUNT": "Fixed amount",
     "MONTHLY_RATE": "Monthly rate × duration"
+  },
+  "users": {
+    "title": "Users & Permissions",
+    "subtitle": "Create accounts and grant roles and visibility scopes — every action is written to the audit trail.",
+    "forbidden": "This screen is available to the system administrator only.",
+    "back": "Back to dashboard",
+    "createTitle": "Create a new user",
+    "listTitle": "Users",
+    "email": "Email",
+    "orgUnit": "Organization unit",
+    "nameAr": "Name (Arabic)",
+    "nameEn": "Name (English)",
+    "jobTitle": "Job title",
+    "phone": "Phone",
+    "roles": "Roles",
+    "addRole": "Add role",
+    "removeRole": "Remove role",
+    "create": "Create account",
+    "creating": "Creating…",
+    "name": "Name",
+    "statusCol": "Status",
+    "actions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive",
+    "mustChange": "Must change password",
+    "manageRoles": "Manage roles",
+    "resetPw": "Reset password",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "grant": "Grant",
+    "revoke": "Revoke",
+    "tempTitle": "Temporary password",
+    "tempHint": "Copy it now and send it to the user — it will not be shown again. They will be asked to change it at first login.",
+    "copy": "Copy",
+    "dismiss": "Dismiss"
+  },
+  "profile": {
+    "title": "My Profile",
+    "subtitle": "Your details, photo and password.",
+    "accountTitle": "Account",
+    "detailsTitle": "Personal details",
+    "passwordTitle": "Password",
+    "changePhoto": "Change photo",
+    "photoHint": "A small square image (auto-resized).",
+    "avatarSaved": "Photo saved",
+    "nameAr": "Name (Arabic)",
+    "nameEn": "Name (English)",
+    "jobTitle": "Job title",
+    "phone": "Phone",
+    "saveInfo": "Save details",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "changePassword": "Change password",
+    "pwChanged": "Password changed",
+    "mismatch": "Passwords do not match",
+    "tooShort": "Password must be at least 10 characters",
+    "mustChangeTitle": "Password change required",
+    "mustChangeHint": "Your account uses a temporary password — change it now in the section below."
   }
 }

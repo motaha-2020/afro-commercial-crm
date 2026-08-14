@@ -25,13 +25,16 @@ export default async function AppLayout({
   );
 
   const primaryRole = user.roles[0]?.role ?? 'USER';
+  const isAdmin = user.roles.some((r) => r.role === 'SYSTEM_ADMIN');
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar isAdmin={isAdmin} />
       <div className="main">
         <div className="topbar">
-          <strong>{user.email}</strong>
+          <a href={`/${locale}/profile`} style={{ fontWeight: 700, color: 'inherit', textDecoration: 'none' }}>
+            {user.email}
+          </a>
           <span className="badge badge-primary">{primaryRole}</span>
           <div className="spacer" />
           <NotificationBell items={notifications} />

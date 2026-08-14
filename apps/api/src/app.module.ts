@@ -27,10 +27,13 @@ import { MetricsModule } from './metrics/metrics.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
+import { UsersModule } from './users/users.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AiModule,
     PrismaModule,
     AuditModule,
     GovernanceModule,
@@ -53,6 +56,7 @@ import { MasterDataModule } from './master-data/master-data.module';
     DocumentsModule,
     NotificationsModule,
     MasterDataModule,
+    UsersModule,
   ],
   providers: [
     // Authentication is on by default across every route; endpoints opt out

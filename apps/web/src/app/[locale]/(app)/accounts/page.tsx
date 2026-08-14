@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
+import { ACCOUNT_TYPES, COUNTRIES } from '@acms/shared';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 
@@ -17,19 +18,65 @@ interface AccountRow {
   _count: { contacts: number; opportunities: number };
 }
 
+/**
+ * Credit standing that stops work belongs in the list, not only in the file:
+ * the point of showing it is to be seen before someone opens an opportunity
+ * on a customer we are not collecting from.
+ */
+function creditClass(status: string) {
+  if (status === 'BLOCKED') return 'badge-danger';
+  if (status === 'HOLD' || status === 'WATCH') return 'badge-warning';
+  return 'badge-success';
+}
+
 export default async function AccountsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{
+    search?: string;
+    type?: string;
+    country?: string;
+    page?: string;
+  }>;
 }) {
   const { locale } = await params;
+  const filters = await searchParams;
   const t = await getTranslations('accounts');
+  const typeT = await getTranslations('accountType');
+  const countryT = await getTranslations('country');
+  const creditT = await getTranslations('creditStatus');
   const token = await getAccessToken();
 
-  const { items, total } = await apiFetch<{ items: AccountRow[]; total: number }>(
-    '/accounts',
-    { token },
-  );
+  // Filtering happens in the API, which already scopes and paginates. Doing it
+  // here would mean fetching the whole book to hide most of it.
+  const query = new URLSearchParams();
+  if (filters.search) query.set('search', filters.search);
+  if (filters.type) query.set('type', filters.type);
+  if (filters.country) query.set('country', filters.country);
+  const page = Math.max(1, Number(filters.page ?? 1) || 1);
+  if (page > 1) query.set('page', String(page));
+
+  const { items, total, pageSize } = await apiFetch<{
+    items: AccountRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(`/accounts${query.toString() ? `?${query}` : ''}`, { token });
+
+  const filtered = Boolean(filters.search || filters.type || filters.country);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const hasPrevious = page > 1;
+  const hasNext = to < total;
+
+  const pageHref = (target: number) => {
+    const next = new URLSearchParams(query);
+    if (target > 1) next.set('page', String(target));
+    else next.delete('page');
+    return `/${locale}/accounts${next.toString() ? `?${next}` : ''}`;
+  };
 
   return (
     <>
@@ -46,6 +93,46 @@ export default async function AccountsPage({
         </div>
       </div>
 
+      {/* A plain GET form: the filter lives in the URL, so a filtered list can
+          be bookmarked and sent to someone else and still be the same list. */}
+      <form className="panel list-filters" method="get" action={`/${locale}/accounts`}>
+        <input
+          type="search"
+          name="search"
+          defaultValue={filters.search ?? ''}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('search')}
+        />
+        <select name="type" defaultValue={filters.type ?? ''} aria-label={t('type')}>
+          <option value="">{t('allTypes')}</option>
+          {ACCOUNT_TYPES.map((code) => (
+            <option key={code} value={code}>
+              {typeT(code)}
+            </option>
+          ))}
+        </select>
+        <select
+          name="country"
+          defaultValue={filters.country ?? ''}
+          aria-label={t('country')}
+        >
+          <option value="">{t('allCountries')}</option>
+          {COUNTRIES.map((code) => (
+            <option key={code} value={code}>
+              {countryT(code)}
+            </option>
+          ))}
+        </select>
+        <button className="btn" type="submit">
+          {t('apply')}
+        </button>
+        {filtered && (
+          <Link className="btn btn-ghost" href={`/${locale}/accounts`}>
+            {t('clear')}
+          </Link>
+        )}
+      </form>
+
       <div className="panel">
         <table className="data">
           <thead>
@@ -55,6 +142,8 @@ export default async function AccountsPage({
               <th>{t('type')}</th>
               <th>{t('country')}</th>
               <th>{t('owner')}</th>
+              <th>{t('creditStatus')}</th>
+              <th>{t('contacts')}</th>
               <th>{t('opportunities')}</th>
             </tr>
           </thead>
@@ -67,21 +156,47 @@ export default async function AccountsPage({
                     {a.legalName}
                   </Link>
                 </td>
-                <td>{a.type}</td>
-                <td>{a.country}</td>
+                <td>{typeT(a.type)}</td>
+                <td>{countryT(a.country)}</td>
                 <td>{locale === 'ar' ? a.owner.fullNameAr : a.owner.fullNameEn}</td>
+                <td>
+                  <span className={`badge ${creditClass(a.creditStatus)}`}>
+                    {creditT(a.creditStatus)}
+                  </span>
+                </td>
+                <td>{a._count.contacts}</td>
                 <td>{a._count.opportunities}</td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ color: 'var(--muted)' }}>
-                  {t('empty')}
+                <td colSpan={8} style={{ color: 'var(--muted)' }}>
+                  {/* An empty book and a filter that matched nothing are
+                      different facts, and only one of them is a problem. */}
+                  {filtered ? t('noMatch') : t('empty')}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {total > 0 && (
+          <div className="list-pager">
+            <span className="muted">{t('showing', { from, to, total })}</span>
+            <div className="head-actions">
+              {hasPrevious && (
+                <Link className="btn btn-ghost" href={pageHref(page - 1)}>
+                  {t('previous')}
+                </Link>
+              )}
+              {hasNext && (
+                <Link className="btn btn-ghost" href={pageHref(page + 1)}>
+                  {t('next')}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

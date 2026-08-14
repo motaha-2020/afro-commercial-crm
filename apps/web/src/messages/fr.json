@@ -15,7 +15,8 @@
     "contracts": "Contrats et transfert",
     "admin": "Paramètres et gouvernance",
     "logout": "Se déconnecter",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "users": "Utilisateurs"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -65,7 +66,17 @@
     "health": "Santé",
     "value": "Valeur",
     "empty": "Aucun compte pour l'instant",
-    "newAccount": "Nouveau client"
+    "newAccount": "Nouveau client",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom, nom commercial ou code",
+    "allTypes": "Tous les types",
+    "allCountries": "Tous les pays",
+    "apply": "Filtrer",
+    "clear": "Effacer",
+    "noMatch": "Aucun client ne correspond à ce filtre",
+    "showing": "Affichage {from}–{to} sur {total}",
+    "previous": "Précédent",
+    "next": "Suivant"
   },
   "contacts": {
     "title": "Contacts",
@@ -392,6 +403,38 @@
     "GREEN": "Saine",
     "AMBER": "À surveiller",
     "RED": "À risque"
+  },
+  "accountType": {
+    "OPERATOR": "Opérateur",
+    "CONTRACTOR": "Entrepreneur",
+    "GOVERNMENT": "Administration publique",
+    "ENTERPRISE": "Entreprise",
+    "DEVELOPER": "Promoteur immobilier",
+    "VENDOR": "Fournisseur"
+  },
+  "creditStatus": {
+    "GOOD": "En règle",
+    "WATCH": "À surveiller",
+    "HOLD": "Suspendu",
+    "BLOCKED": "Bloqué"
+  },
+  "country": {
+    "EG": "Égypte",
+    "MG": "Madagascar",
+    "KM": "Comores",
+    "KE": "Kenya"
+  },
+  "industry": {
+    "FTTH": "FTTH — fibre jusqu'au domicile",
+    "FTTS": "FTTS — fibre jusqu'au site",
+    "WIRELESS": "Réseaux sans fil",
+    "FIXED": "Réseaux fixes",
+    "SUBMARINE": "Câble sous-marin",
+    "MEP": "MEP — mécanique, électricité, plomberie",
+    "ELV": "ELV — courants faibles",
+    "CORE_NETWORK": "Réseau cœur",
+    "IT": "Informatique",
+    "SUPPLY": "Fournitures"
   },
   "opportunityDetail": {
     "scope": "Périmètre",
@@ -1099,5 +1142,66 @@
     "PERCENT_OF_REVENUE": "% du chiffre d'affaires",
     "FIXED_AMOUNT": "Montant fixe",
     "MONTHLY_RATE": "Taux mensuel × durée"
+  },
+  "users": {
+    "title": "Utilisateurs et autorisations",
+    "subtitle": "Créez des comptes et accordez rôles et périmètres de visibilité — chaque action est journalisée.",
+    "forbidden": "Cet écran est réservé à l’administrateur système.",
+    "back": "Retour au tableau de bord",
+    "createTitle": "Créer un utilisateur",
+    "listTitle": "Utilisateurs",
+    "email": "E-mail",
+    "orgUnit": "Unité organisationnelle",
+    "nameAr": "Nom (arabe)",
+    "nameEn": "Nom (anglais)",
+    "jobTitle": "Fonction",
+    "phone": "Téléphone",
+    "roles": "Rôles",
+    "addRole": "Ajouter un rôle",
+    "removeRole": "Retirer le rôle",
+    "create": "Créer le compte",
+    "creating": "Création…",
+    "name": "Nom",
+    "statusCol": "Statut",
+    "actions": "Actions",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "mustChange": "Doit changer le mot de passe",
+    "manageRoles": "Gérer les rôles",
+    "resetPw": "Réinitialiser le mot de passe",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "grant": "Accorder",
+    "revoke": "Révoquer",
+    "tempTitle": "Mot de passe temporaire",
+    "tempHint": "Copiez-le maintenant et transmettez-le à l’utilisateur — il ne sera plus affiché. Il devra le changer à la première connexion.",
+    "copy": "Copier",
+    "dismiss": "Fermer"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "subtitle": "Vos informations, photo et mot de passe.",
+    "accountTitle": "Compte",
+    "detailsTitle": "Informations personnelles",
+    "passwordTitle": "Mot de passe",
+    "changePhoto": "Changer la photo",
+    "photoHint": "Une petite image carrée (redimensionnée automatiquement).",
+    "avatarSaved": "Photo enregistrée",
+    "nameAr": "Nom (arabe)",
+    "nameEn": "Nom (anglais)",
+    "jobTitle": "Fonction",
+    "phone": "Téléphone",
+    "saveInfo": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "changePassword": "Changer le mot de passe",
+    "pwChanged": "Mot de passe changé",
+    "mismatch": "Les mots de passe ne correspondent pas",
+    "tooShort": "Le mot de passe doit comporter au moins 10 caractères",
+    "mustChangeTitle": "Changement de mot de passe requis",
+    "mustChangeHint": "Votre compte utilise un mot de passe temporaire — changez-le maintenant ci-dessous."
   }
 }

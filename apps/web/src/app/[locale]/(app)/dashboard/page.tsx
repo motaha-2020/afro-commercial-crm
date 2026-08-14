@@ -88,7 +88,7 @@ export default async function DashboardPage() {
           the whole picture rather than left to assume it is. */}
       {dashboard && dashboard.pendingErpIntegration.length > 0 && (
         <p className="muted" style={{ marginBottom: 16 }}>
-          {t('awaitingErp')}:{' '}
+          {mt('awaitingErp')}:{' '}
           {dashboard.pendingErpIntegration.map((c) => mt(c)).join(' • ')}
         </p>
       )}
