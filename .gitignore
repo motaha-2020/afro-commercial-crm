@@ -22,3 +22,9 @@ Thumbs.db
 *.docx
 *.pdf
 ~$*
+
+# The staging copy of the whole project lives here for convenience. It is not
+# a second source of truth and must never be committed — two copies of the same
+# tree in one repository leaves nobody sure which one is real.
+acms-agent/
+ACMS · AI Agent.json
