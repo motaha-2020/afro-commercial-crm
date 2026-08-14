@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -9,7 +10,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsRefCode } from '../master-data/is-ref-code.validator';
 import { LeadStatus } from '@prisma/client';
 import { CURRENCIES, type Currency } from '@acms/shared';
@@ -167,6 +168,16 @@ export class ListLeadsQuery {
   @IsOptional()
   @IsString()
   accountId?: string;
+
+  /**
+   * Archived leads are out of the working list by default. Asking for them is
+   * deliberate — a list that quietly includes them is the reason people stop
+   * trusting the count in the corner.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeArchived?: boolean;
 
   @IsOptional()
   @Type(() => Number)

@@ -52,6 +52,7 @@ export class LeadsService {
       ...(query.source ? { source: query.source } : {}),
       ...(query.country ? { country: query.country } : {}),
       ...(query.accountId ? { accountId: query.accountId } : {}),
+      ...(query.includeArchived ? {} : { archivedAt: null }),
       ...(query.search
         ? {
             OR: [
@@ -317,6 +318,35 @@ export class LeadsService {
     });
 
     return { lead: updatedLead, opportunity };
+  }
+
+  /**
+   * Archiving is reversible and states nothing about the commercial outcome —
+   * that is what disqualification is for, and it demands a written reason.
+   * Kept apart so "tidy my list" never has to be filed as "we walked away".
+   */
+  async setArchived(user: AuthenticatedUser, id: string, archived: boolean) {
+    const existing = await this.findOne(user, id);
+
+    // Already in the asked-for state: return it rather than writing a second
+    // audit entry that claims a change nobody made.
+    if (!!existing.archivedAt === archived) return existing;
+
+    const updated = await this.prisma.lead.update({
+      where: { id },
+      data: { archivedAt: archived ? new Date() : null },
+    });
+
+    await this.audit.record({
+      entityType: 'Lead',
+      entityId: id,
+      action: 'UPDATE',
+      userId: user.id,
+      before: { archivedAt: existing.archivedAt?.toISOString() ?? null },
+      after: { archivedAt: updated.archivedAt?.toISOString() ?? null },
+    });
+
+    return updated;
   }
 
   async remove(user: AuthenticatedUser, id: string) {

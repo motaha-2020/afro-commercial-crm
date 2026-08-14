@@ -17,7 +17,9 @@
     "logout": "تسجيل الخروج",
     "settings": "الإعدادات",
     "users": "المستخدمون",
-    "refLists": "القوائم والقيم"
+    "refLists": "القوائم والقيم",
+    "collapseNav": "طيّ القائمة",
+    "expandNav": "إظهار القائمة"
   },
   "login": {
     "subtitle": "سجّل الدخول للوصول إلى النظام",
@@ -180,7 +182,24 @@
     "EXISTING_CLIENT": "عميل حالي",
     "MARKETING": "تسويق",
     "PARTNER": "شريك",
-    "OTHER": "أخرى"
+    "OTHER": "أخرى",
+    "search": "بحث",
+    "searchPlaceholder": "اسم العميل المحتمل أو الكود",
+    "allStatuses": "كل الحالات",
+    "allSources": "كل المصادر",
+    "allCountries": "كل الدول",
+    "apply": "تصفية",
+    "clear": "مسح",
+    "noMatch": "لا يوجد عميل محتمل يطابق هذه التصفية",
+    "showing": "عرض {from}–{to} من {total}",
+    "previous": "السابق",
+    "next": "التالي",
+    "archive": "أرشفة",
+    "unarchive": "استعادة",
+    "archived": "مؤرشف",
+    "showArchived": "إظهار المؤرشف",
+    "delete": "حذف",
+    "confirmDelete": "حذف هذا العميل المحتمل؟ يبقى في سجل التدقيق ويمكن لمسؤول النظام استعادته."
   },
   "newLead": {
     "title": "عميل محتمل جديد",

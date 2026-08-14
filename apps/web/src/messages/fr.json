@@ -17,7 +17,9 @@
     "logout": "Se déconnecter",
     "settings": "Paramètres",
     "users": "Utilisateurs",
-    "refLists": "Listes et valeurs"
+    "refLists": "Listes et valeurs",
+    "collapseNav": "Replier la navigation",
+    "expandNav": "Déplier la navigation"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -180,7 +182,24 @@
     "EXISTING_CLIENT": "Client existant",
     "MARKETING": "Marketing",
     "PARTNER": "Partenaire",
-    "OTHER": "Autre"
+    "OTHER": "Autre",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom du prospect ou code",
+    "allStatuses": "Tous les statuts",
+    "allSources": "Toutes les sources",
+    "allCountries": "Tous les pays",
+    "apply": "Filtrer",
+    "clear": "Effacer",
+    "noMatch": "Aucun prospect ne correspond à ce filtre",
+    "showing": "Affichage {from}–{to} sur {total}",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "archive": "Archiver",
+    "unarchive": "Restaurer",
+    "archived": "Archivé",
+    "showArchived": "Inclure les archivés",
+    "delete": "Supprimer",
+    "confirmDelete": "Supprimer ce prospect ? Il reste dans la piste d'audit et un administrateur peut le restaurer."
   },
   "newLead": {
     "title": "Nouveau prospect",

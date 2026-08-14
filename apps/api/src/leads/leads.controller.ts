@@ -65,6 +65,17 @@ export class LeadsController {
     return this.leads.convert(user, id, dto);
   }
 
+  /** Out of the working list, and back again. Neither is a verdict. */
+  @Patch(':id/archive')
+  archive(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.leads.setArchived(user, id, true);
+  }
+
+  @Patch(':id/unarchive')
+  unarchive(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.leads.setArchived(user, id, false);
+  }
+
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.leads.remove(user, id);

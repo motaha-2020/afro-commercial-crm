@@ -407,6 +407,14 @@ model Lead {
   description String?
   source      String
   status      LeadStatus @default(NEW)
+
+  /// Separate from status on purpose. Status answers what happened
+  /// commercially — disqualifying a lead states a decision and requires a
+  /// written reason. Archiving answers only whether it belongs in today's
+  /// working list. Merging them would force a decision nobody made in order to
+  /// tidy a screen, and the reason field would fill with "housekeeping".
+  archivedAt  DateTime?
+
   country     String
   industry    String?
 
@@ -441,6 +449,7 @@ model Lead {
   @@index([orgUnitId])
   @@index([accountId])
   @@index([status])
+  @@index([archivedAt])
 }
 
 // ---------------------------------------------------------------------------

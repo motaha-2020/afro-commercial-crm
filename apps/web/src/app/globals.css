@@ -340,3 +340,70 @@ table.data tr:hover td { background: rgba(90, 53, 199, .035); }
   .main { margin-inline-start: 0; }
   .panel { box-shadow: none; break-inside: avoid; }
 }
+
+/* ---------------------------------------------------------------------------
+   Collapsible navigation
+   The icons stay visible when folded — a strip of icons is still navigation,
+   whereas hiding it entirely would leave no way back except the toggle.
+   --------------------------------------------------------------------------- */
+:root { --sidebar-collapsed: 72px; }
+
+.sidebar { transition: width .18s ease; }
+.sidebar.collapsed { width: var(--sidebar-collapsed); padding-inline: 10px; }
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-title,
+.sidebar.collapsed .brand > div:last-child { display: none; }
+.sidebar.collapsed .brand { justify-content: center; padding-inline: 0; }
+.sidebar.collapsed .nav-item { justify-content: center; padding-inline: 0; }
+
+/* Sibling selector: .main follows .sidebar in the document, so the content
+   reclaims the space without the layout having to know the state. */
+.sidebar.collapsed ~ .main { margin-inline-start: var(--sidebar-collapsed); }
+.main { transition: margin-inline-start .18s ease; }
+
+.sidebar-toggle {
+  position: absolute;
+  top: 14px;
+  inset-inline-end: 10px;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  color: white; cursor: pointer; font-size: 12px; line-height: 1;
+}
+.sidebar-toggle:hover { background: rgba(255,255,255,.14); }
+.sidebar.collapsed .sidebar-toggle { inset-inline-end: 50%; transform: translateX(50%); }
+
+/* On a phone the sidebar is already a horizontal strip; folding it there would
+   fight the layout rather than help it. */
+@media (max-width: 900px) {
+  .sidebar.collapsed { width: auto; padding-inline: 16px; }
+  .sidebar.collapsed ~ .main { margin-inline-start: 0; }
+  .sidebar-toggle { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   List footers, inline checkboxes, and the reference-list editor
+   --------------------------------------------------------------------------- */
+.list-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding-top: 12px; margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.check input { width: auto; margin: 0; }
+
+.ref-list-nav { display: flex; flex-direction: column; gap: 4px; }
+.ref-list-tab {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 9px 11px; border-radius: 9px;
+  border: 1px solid transparent; background: transparent;
+  text-align: start; cursor: pointer; font: inherit; color: inherit;
+}
+.ref-list-tab:hover { background: var(--surface-2, rgba(0,0,0,.04)); }
+.ref-list-tab.active { border-color: var(--primary); background: var(--surface-2, rgba(0,0,0,.04)); font-weight: 600; }
+.ref-list-tab > span:first-child { flex: 1; }
+
+.ref-label-input { width: 100%; min-width: 110px; padding: 5px 7px; font-size: 13px; }
+.ref-add { border-top: 1px solid var(--border); margin-top: 10px; }

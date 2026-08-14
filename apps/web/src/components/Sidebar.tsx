@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -16,14 +17,44 @@ const ITEMS: { key: string; href: string; icon: string; adminOnly?: boolean }[] 
   { key: 'settings', href: 'settings', icon: '⚙' },
 ];
 
+const STORAGE_KEY = 'acms.sidebar.collapsed';
+
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const t = useTranslations('nav');
   const app = useTranslations('app');
   const locale = useLocale();
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Read after mount, not during render: the server has no localStorage, and
+  // rendering one state then correcting it would flash the wrong sidebar on
+  // every page load.
+  useEffect(() => {
+    setCollapsed(localStorage.getItem(STORAGE_KEY) === 'true');
+  }, []);
+
+  function toggle() {
+    setCollapsed((was) => {
+      const next = !was;
+      // Remembered, because someone who folds the navigation away wants it
+      // folded away — not until the next page load.
+      localStorage.setItem(STORAGE_KEY, String(next));
+      return next;
+    });
+  }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? t('expandNav') : t('collapseNav')}
+        title={collapsed ? t('expandNav') : t('collapseNav')}
+      >
+        {collapsed ? '»' : '«'}
+      </button>
       <div className="brand">
         <div className="brand-mark">A</div>
         <div>
@@ -44,11 +75,15 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
               href={href}
               className={`nav-item${active ? ' active' : ''}`}
               aria-current={active ? 'page' : undefined}
+              // Collapsed, the label is hidden and the icon is decorative, so
+              // the link would otherwise have no accessible name at all.
+              title={t(item.key)}
+              aria-label={t(item.key)}
             >
               <span className="nav-icon" aria-hidden="true">
                 {item.icon}
               </span>
-              {t(item.key)}
+              <span className="nav-label">{t(item.key)}</span>
             </Link>
           );
         })}

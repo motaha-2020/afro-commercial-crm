@@ -17,7 +17,9 @@
     "logout": "Sign out",
     "settings": "Settings",
     "users": "Users",
-    "refLists": "Lists & values"
+    "refLists": "Lists & values",
+    "collapseNav": "Collapse the navigation",
+    "expandNav": "Expand the navigation"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -180,7 +182,24 @@
     "EXISTING_CLIENT": "Existing client",
     "MARKETING": "Marketing",
     "PARTNER": "Partner",
-    "OTHER": "Other"
+    "OTHER": "Other",
+    "search": "Search",
+    "searchPlaceholder": "Lead name or code",
+    "allStatuses": "All statuses",
+    "allSources": "All sources",
+    "allCountries": "All countries",
+    "apply": "Filter",
+    "clear": "Clear",
+    "noMatch": "No lead matches this filter",
+    "showing": "Showing {from}–{to} of {total}",
+    "previous": "Previous",
+    "next": "Next",
+    "archive": "Archive",
+    "unarchive": "Restore",
+    "archived": "Archived",
+    "showArchived": "Include archived",
+    "delete": "Delete",
+    "confirmDelete": "Remove this lead? It stays in the audit trail and can be restored by an administrator."
   },
   "newLead": {
     "title": "New lead",
