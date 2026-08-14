@@ -12,7 +12,8 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PartnerApprovalStatus, PartnerType } from '@prisma/client';
+import { IsRefCode } from '../master-data/is-ref-code.validator';
+import { PartnerApprovalStatus } from '@prisma/client';
 import { PARTNER_RATING_MAX, PARTNER_RATING_MIN } from '@acms/shared';
 
 export class CreatePartnerDto {
@@ -64,8 +65,8 @@ export class CreatePartnerDto {
    * installing it — so several types may be granted at creation.
    */
   @IsOptional()
-  @IsEnum(PartnerType, { each: true })
-  types?: PartnerType[];
+  @IsRefCode('PARTNER_TYPE', true)
+  types?: string[];
 
   @IsOptional()
   @IsString()
@@ -178,8 +179,8 @@ export class BlacklistPartnerDto {
 }
 
 export class AddPartnerTypeDto {
-  @IsEnum(PartnerType)
-  type!: PartnerType;
+  @IsRefCode('PARTNER_TYPE')
+  type!: string;
 
   @IsOptional()
   @IsString()
@@ -192,8 +193,8 @@ export class ListPartnersQuery {
   search?: string;
 
   @IsOptional()
-  @IsEnum(PartnerType)
-  type?: PartnerType;
+  @IsRefCode('PARTNER_TYPE')
+  type?: string;
 
   @IsOptional()
   @IsEnum(PartnerApprovalStatus)

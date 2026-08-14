@@ -16,7 +16,8 @@
     "admin": "Settings & Governance",
     "logout": "Sign out",
     "settings": "Settings",
-    "users": "Users"
+    "users": "Users",
+    "refLists": "Lists & values"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1203,5 +1204,32 @@
     "tooShort": "Password must be at least 10 characters",
     "mustChangeTitle": "Password change required",
     "mustChangeHint": "Your account uses a temporary password — change it now in the section below."
+  },
+  "refLists": {
+    "title": "Lists & values",
+    "subtitle": "The dropdown values every screen offers, and who may change them",
+    "lists": "Lists",
+    "pickList": "Pick a list",
+    "code": "Code",
+    "labelEn": "English",
+    "labelAr": "Arabic",
+    "labelFr": "French",
+    "state": "State",
+    "active": "Active",
+    "inactive": "Off",
+    "deactivate": "Switch off",
+    "reactivate": "Switch on",
+    "addValue": "Add a value",
+    "add": "Add",
+    "saving": "Saving…",
+    "failed": "Could not save",
+    "noItems": "This list is empty",
+    "locked": "Fixed",
+    "lockedTitle": "This list does not accept new values",
+    "lockedGeneric": "Code decides what these values mean",
+    "codePlaceholder": "CODE_LIKE_THIS",
+    "allThreeRequired": "All three labels are required — a value with one label leaves the other two languages reading a bare code.",
+    "forbidden": "This screen is for administrators.",
+    "back": "Back to the dashboard"
   }
 }

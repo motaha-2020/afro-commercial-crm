@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+# Never commit source media / client documents
+*.mp4
+*.docx
+*.pdf
+~$*
+
+# service token, never committed
+n8n/.svc-token

@@ -9,8 +9,9 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { IsRefCode } from '../master-data/is-ref-code.validator';
 import { Transform, Type } from 'class-transformer';
-import { ActivityType } from '@prisma/client';
+
 
 /**
  * `Boolean("false")` is true, so a query flag cannot be coerced with @Type —
@@ -22,8 +23,8 @@ const queryFlag = () =>
   );
 
 export class CreateActivityDto {
-  @IsEnum(ActivityType)
-  type!: ActivityType;
+  @IsRefCode('ACTIVITY_TYPE')
+  type!: string;
 
   @IsString()
   @MinLength(2)
@@ -67,8 +68,8 @@ export class CreateActivityDto {
 
 export class UpdateActivityDto {
   @IsOptional()
-  @IsEnum(ActivityType)
-  type?: ActivityType;
+  @IsRefCode('ACTIVITY_TYPE')
+  type?: string;
 
   @IsOptional()
   @IsString()
@@ -103,8 +104,8 @@ export class ListActivitiesQuery {
   leadId?: string;
 
   @IsOptional()
-  @IsEnum(ActivityType)
-  type?: ActivityType;
+  @IsRefCode('ACTIVITY_TYPE')
+  type?: string;
 
   /** Open items only — anything not yet completed. */
   @IsOptional()

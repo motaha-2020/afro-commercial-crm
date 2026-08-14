@@ -16,7 +16,8 @@
     "admin": "Paramètres et gouvernance",
     "logout": "Se déconnecter",
     "settings": "Paramètres",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "refLists": "Listes et valeurs"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -1203,5 +1204,32 @@
     "tooShort": "Le mot de passe doit comporter au moins 10 caractères",
     "mustChangeTitle": "Changement de mot de passe requis",
     "mustChangeHint": "Votre compte utilise un mot de passe temporaire — changez-le maintenant ci-dessous."
+  },
+  "refLists": {
+    "title": "Listes et valeurs",
+    "subtitle": "Les valeurs proposées par les listes déroulantes, et qui peut les modifier",
+    "lists": "Listes",
+    "pickList": "Choisissez une liste",
+    "code": "Code",
+    "labelEn": "Anglais",
+    "labelAr": "Arabe",
+    "labelFr": "Français",
+    "state": "État",
+    "active": "Active",
+    "inactive": "Désactivée",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "addValue": "Ajouter une valeur",
+    "add": "Ajouter",
+    "saving": "Enregistrement…",
+    "failed": "Enregistrement impossible",
+    "noItems": "Cette liste est vide",
+    "locked": "Fixe",
+    "lockedTitle": "Cette liste n'accepte pas de nouvelles valeurs",
+    "lockedGeneric": "Le code détermine le sens de ces valeurs",
+    "codePlaceholder": "CODE_COMME_CECI",
+    "allThreeRequired": "Les trois libellés sont obligatoires — une valeur avec un seul libellé laisse les deux autres langues devant un code brut.",
+    "forbidden": "Cet écran est réservé aux administrateurs.",
+    "back": "Retour au tableau de bord"
   }
 }

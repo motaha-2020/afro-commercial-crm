@@ -98,43 +98,11 @@ enum ExitReason {
   DISQUALIFIED
 }
 
-enum AccountType {
-  OPERATOR
-  CONTRACTOR
-  GOVERNMENT
-  ENTERPRISE
-  DEVELOPER
-  VENDOR
-}
-
 enum CreditStatus {
   GOOD
   WATCH
   HOLD
   BLOCKED
-}
-
-enum Industry {
-  FTTH
-  FTTS
-  WIRELESS
-  FIXED
-  SUBMARINE
-  MEP
-  ELV
-  CORE_NETWORK
-  IT
-  SUPPLY
-}
-
-enum LeadSource {
-  TENDER_PORTAL
-  DIRECT_INVITATION
-  REFERRAL
-  EXISTING_CLIENT
-  MARKETING
-  PARTNER
-  OTHER
 }
 
 enum LeadStatus {
@@ -143,15 +111,6 @@ enum LeadStatus {
   QUALIFIED
   CONVERTED
   DISQUALIFIED
-}
-
-enum ActivityType {
-  CALL
-  MEETING
-  EMAIL
-  SITE_VISIT
-  NOTE
-  TASK
 }
 
 enum AuditAction {
@@ -339,8 +298,8 @@ model Account {
   parent   Account?  @relation("AccountTree", fields: [parentId], references: [id])
   children Account[] @relation("AccountTree")
 
-  type         AccountType
-  industry     Industry?
+  type         String
+  industry     String?
   country      String
   city         String?
   address      String?
@@ -446,10 +405,10 @@ model Lead {
   code        String     @unique
   name        String
   description String?
-  source      LeadSource
+  source      String
   status      LeadStatus @default(NEW)
   country     String
-  industry    Industry?
+  industry    String?
 
   estimatedValue Decimal? @db.Decimal(18, 2)
   currency       String   @default("USD")
@@ -516,9 +475,9 @@ model Opportunity {
   exitNotes     String?
   exitedAt      DateTime?
 
-  source   LeadSource?
+  source   String?
   country  String
-  industry Industry?
+  industry String?
   currency String      @default("USD")
 
   estimatedValue Decimal? @db.Decimal(18, 2)
@@ -621,7 +580,7 @@ model OpportunityTeam {
 
 model Activity {
   id      String       @id @default(uuid())
-  type    ActivityType
+  type    String
   subject String
   body    String?
 
@@ -1453,15 +1412,6 @@ model NotificationRule {
 // with one performance history, not two half-records.
 // ---------------------------------------------------------------------------
 
-enum PartnerType {
-  SUPPLIER
-  SUBCONTRACTOR
-  CONSULTANT
-  LOCAL_PARTNER
-  LOGISTICS_PROVIDER
-  EQUIPMENT_RENTAL
-}
-
 enum PartnerApprovalStatus {
   PROSPECT
   UNDER_QUALIFICATION
@@ -1558,7 +1508,7 @@ model PartnerTypeAssignment {
   id        String          @id @default(uuid())
   partnerId String
   partner   BusinessPartner @relation(fields: [partnerId], references: [id])
-  type      PartnerType
+  type      String
   notes     String?
 
   createdAt DateTime  @default(now())
@@ -2667,4 +2617,69 @@ model AiSuggestion {
   @@index([status])
   @@index([userId])
   @@index([agentKey, entityType])
+}
+
+// ---------------------------------------------------------------------------
+// Reference lists — the dropdown values an administrator controls
+//
+// The spec keeps controlled vocabularies in one place so a value means the same
+// thing on every screen. That part does not change; what changes is who may
+// edit them. Values that are only labels move out of the code and into these
+// two tables, so adding an industry no longer needs a developer.
+//
+// Values the code branches on stay declared in code and are marked isSystem
+// here: renaming and reordering them is safe, removing them is not — a stage
+// nothing knows how to price is worse than a missing stage.
+// ---------------------------------------------------------------------------
+
+model RefList {
+  key String @id
+
+  labelEn String
+  labelAr String
+  labelFr String
+
+  /// False for lists whose values carry behaviour: an administrator may retitle
+  /// and reorder them, but a new value would arrive with no code behind it.
+  allowsNewItems Boolean @default(true)
+
+  /// Why this list refuses new values, shown on the screen rather than left for
+  /// the administrator to discover by finding the button disabled.
+  lockedReason String?
+
+  items RefListItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RefListItem {
+  id      String  @id @default(uuid())
+  listKey String
+  list    RefList @relation(fields: [listKey], references: [key])
+
+  /// Stable across renames — stored on business records and never rewritten,
+  /// so retitling "FTTH" leaves every account that referenced it intact.
+  code String
+
+  labelEn String
+  labelAr String
+  labelFr String
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  /// Shipped with the product. Deactivating one is allowed and hides it from
+  /// new records; removing one is not, because code may still name it.
+  isSystem Boolean @default(false)
+
+  /// Soft delete only, as everywhere else: a record created last year still has
+  /// to render the value it was given.
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listKey, code])
+  @@index([listKey, isActive, sortOrder])
 }

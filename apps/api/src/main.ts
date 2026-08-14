@@ -5,6 +5,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/structured-logger';
+import { IsRefCodeConstraint } from './master-data/is-ref-code.validator';
+import { RefListsService } from './master-data/ref-lists.service';
 
 async function bootstrap() {
   // Buffered so startup messages are emitted through our logger too, not the
@@ -18,6 +20,11 @@ async function bootstrap() {
     origin: process.env.WEB_ORIGIN?.split(',') ?? ['http://localhost:3000'],
     credentials: true,
   });
+
+  // Reference-code validation asks the database which values are currently
+  // active, so the constraint needs the service. class-validator builds its own
+  // validators, so it is handed over once here rather than injected.
+  IsRefCodeConstraint.use(app.get(RefListsService));
 
   app.useGlobalPipes(
     new ValidationPipe({

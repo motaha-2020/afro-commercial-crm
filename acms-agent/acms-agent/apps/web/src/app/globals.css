@@ -1,0 +1,335 @@
+:root {
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+  --text: #182033;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --primary: #5a35c7;
+  --primary-2: #7957e8;
+  --primary-soft: #eee9ff;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --info: #0369a1;
+  --info-soft: #e0f2fe;
+  --shadow: 0 10px 30px rgba(26, 33, 54, 0.08);
+  --radius: 16px;
+  --sidebar: 260px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- Layout shell ---- */
+.app { min-height: 100vh; }
+.sidebar {
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  width: var(--sidebar);
+  height: 100vh;
+  background: linear-gradient(180deg, #171c31 0%, #24213d 100%);
+  color: white;
+  padding: 20px 16px;
+  z-index: 20;
+  overflow-y: auto;
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 6px 8px 22px; border-bottom: 1px solid rgba(255,255,255,.09); margin-bottom: 16px; }
+.brand-mark { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; background: linear-gradient(135deg, #a78bfa, #5b36c8); font-weight: 900; }
+.brand strong { display: block; font-size: 15px; }
+.brand span { display: block; color: #b9bfd3; font-size: 11px; margin-top: 3px; }
+.nav-title { color: #8992aa; font-size: 10px; letter-spacing: .7px; padding: 12px 12px 7px; text-transform: uppercase; }
+.nav-item { width: 100%; border: 0; color: #dce0ed; background: transparent; padding: 11px 12px; border-radius: 12px; display: flex; align-items: center; gap: 11px; margin-bottom: 4px; text-align: start; }
+.nav-item:hover { background: rgba(255,255,255,.07); color: white; }
+.nav-item.active { background: linear-gradient(90deg, rgba(126,92,230,.30), rgba(126,92,230,.13)); color: white; }
+.nav-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,.08); font-size: 13px; flex: 0 0 auto; }
+
+.main { margin-inline-start: var(--sidebar); min-height: 100vh; }
+.topbar { height: 68px; position: sticky; top: 0; z-index: 15; background: rgba(244,246,251,.94); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226,232,240,.9); display: flex; align-items: center; gap: 12px; padding: 0 24px; }
+.topbar .spacer { margin-inline-start: auto; }
+.content { padding: 24px; }
+
+/* ---- Create forms ---- */
+.head-actions { display: flex; align-items: center; gap: 10px; }
+a.btn { text-decoration: none; display: inline-block; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.form-grid .field.wide, .form-grid .form-actions { grid-column: 1 / -1; }
+.form-grid input, .form-grid select, .form-grid textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font: inherit; background: var(--panel); }
+.form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+.form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 14px; }
+@media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* ---- Release 3: scope, bids, Bid/No-Bid score ---- */
+.muted { color: var(--muted); font-size: 12px; }
+.reading-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.readiness { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; font-size: 12px; }
+.readiness.ok { background: var(--success-soft); color: var(--success); }
+.readiness.not-ok { background: var(--warning-soft); color: var(--warning); }
+
+.scope-package { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.scope-package-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.scope-tree { list-style: none; margin: 0; padding-inline-start: 14px; }
+.scope-tree.nested { border-inline-start: 1px dashed var(--border); margin-top: 4px; }
+.scope-tree li { padding: 4px 0; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scope-item-name { font-weight: 500; }
+.scope-qty { color: var(--muted); font-size: 12px; }
+.scope-excl { color: var(--danger); font-size: 11px; }
+.badge.resp-CUSTOMER { background: var(--warning-soft); color: var(--warning); }
+.badge.resp-THIRD_PARTY { background: var(--panel-2); color: var(--muted); }
+.badge.impact-BLOCKING, .badge.impact-HIGH { background: #fee2e2; color: var(--danger); }
+.badge-ok { background: var(--success-soft); color: var(--success); }
+.badge-warn { background: var(--warning-soft); color: var(--warning); }
+
+.score-panel { display: flex; flex-direction: column; gap: 12px; }
+.score-head { display: flex; align-items: center; gap: 16px; }
+.score-dial { display: flex; align-items: baseline; gap: 4px; background: var(--primary-soft); color: var(--primary); border-radius: 12px; padding: 10px 16px; }
+.score-dial strong { font-size: 26px; }
+.score-dial span { font-size: 12px; }
+.score-saved, .score-suggested { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.score-empty { font-size: 13px; color: var(--muted); margin: 0; }
+.score-table select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; }
+.badge.decision-BID { background: var(--success-soft); color: var(--success); }
+.badge.decision-NO_BID { background: #fee2e2; color: var(--danger); }
+.badge.decision-BID_WITH_CONDITIONS, .badge.decision-HOLD { background: var(--warning-soft); color: var(--warning); }
+
+.decision-block { border-top: 1px solid var(--border); padding-top: 12px; }
+.decision-block h4 { margin: 0 0 8px; font-size: 13px; }
+.decision-row { display: flex; gap: 8px; align-items: center; }
+.decision-row select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; flex: 1; }
+.decision-warn { font-size: 12px; color: var(--warning); margin: 10px 0 6px; }
+.decision-block textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; font: inherit; }
+.decision-current { font-size: 12px; margin-top: 10px; }
+.form-error { color: var(--danger); font-size: 12px; margin: 0; }
+
+/* Notification bell. Positioned with logical properties so the panel opens
+   inward in both LTR and RTL without a direction-specific rule. */
+.bell-wrap { position: relative; }
+.bell { position: relative; border: 1px solid var(--border); background: var(--panel); border-radius: 10px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 15px; cursor: pointer; }
+.bell:hover { border-color: var(--primary); }
+.bell-count { position: absolute; top: -6px; inset-inline-end: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e5484d; color: white; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+.bell-panel { position: absolute; top: 42px; inset-inline-end: 0; width: 320px; max-height: 380px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); z-index: 30; }
+.bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.bell-head button { border: 0; background: transparent; color: var(--primary); font-size: 12px; cursor: pointer; }
+.bell-empty { margin: 0; padding: 18px 14px; color: var(--muted); font-size: 13px; }
+.bell-item { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: start; border: 0; border-bottom: 1px solid var(--border); background: transparent; padding: 11px 14px; cursor: pointer; }
+.bell-item:hover { background: rgba(126,92,230,.06); }
+.bell-item.unread { border-inline-start: 3px solid var(--primary); }
+.bell-item strong { font-size: 13px; }
+.bell-item span { font-size: 12px; color: var(--muted); }
+.bell-item time { font-size: 10px; color: var(--muted); }
+
+/* ---- Reusable ---- */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.page-head h1 { margin: 0 0 4px; font-size: 22px; }
+.page-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+.grid { display: grid; gap: 16px; }
+.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .cols-4 { grid-template-columns: repeat(2, 1fr); } .cols-3 { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .cols-2, .cols-4 { grid-template-columns: 1fr; } }
+
+.btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 9px 14px; border-radius: 11px; font-size: 13px; }
+.btn:hover { background: var(--panel-2); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-2); }
+.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 8px; }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.field { display: block; margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); }
+
+.kpi { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+.kpi .label { color: var(--muted); font-size: 12px; }
+.kpi .value { font-size: 24px; font-weight: 800; margin-top: 6px; }
+.kpi .trend { font-size: 12px; margin-top: 4px; }
+.up { color: var(--success); }
+.down { color: var(--danger); }
+
+table.data { width: 100%; border-collapse: collapse; }
+table.data th, table.data td { text-align: start; padding: 11px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+table.data th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+table.data tr:hover td { background: var(--panel-2); }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-primary { background: var(--primary-soft); color: var(--primary); }
+.badge-success { background: var(--success-soft); color: var(--success); }
+.badge-warning { background: var(--warning-soft); color: var(--warning); }
+.badge-danger { background: var(--danger-soft); color: var(--danger); }
+.badge-info { background: var(--info-soft); color: var(--info); }
+
+.health-GREEN { background: var(--success-soft); color: var(--success); }
+.health-AMBER { background: var(--warning-soft); color: var(--warning); }
+.health-RED { background: var(--danger-soft); color: var(--danger); }
+
+/* ---- Kanban ---- */
+.kanban { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+.kanban-col { flex: 0 0 260px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+.kanban-col h3 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+.kanban-col .count { font-size: 11px; color: var(--muted); }
+.opp-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 10px; box-shadow: 0 4px 12px rgba(26,33,54,.04); }
+.opp-card .name { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.opp-card .meta { color: var(--muted); font-size: 11px; }
+.opp-card .value { font-weight: 800; font-size: 14px; margin-top: 8px; }
+
+/* ---- Login ---- */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #1b1636, #2a2350); padding: 24px; }
+.login-card { width: 100%; max-width: 380px; background: var(--panel); border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.35); padding: 28px; }
+.login-card h1 { margin: 0 0 4px; font-size: 20px; }
+.login-card p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+.login-error { background: var(--danger-soft); color: var(--danger); padding: 10px 12px; border-radius: 11px; font-size: 13px; margin-bottom: 14px; }
+
+/* ===========================================================================
+   Refinement pass
+   ---------------------------------------------------------------------------
+   Kept as a layer over the base rules rather than a rewrite: every class here
+   already had markup depending on it, and re-cutting the whole sheet to change
+   spacing would have risked screens nobody was asking about.
+   =========================================================================== */
+
+/* Arabic needs a font that actually has Arabic glyphs; Segoe UI falls back to
+   something with no kerning and the RTL screens look broken next to the Latin
+   ones. */
+body {
+  font-family: 'Segoe UI', 'Noto Sans Arabic', 'Dubai', Tahoma, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+:root[lang='ar'] body,
+[dir='rtl'] body { font-family: 'Dubai', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif; }
+
+/* Every interactive element gets the same visible focus ring. Keyboard users
+   were previously left guessing on buttons and table links. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Shell ---- */
+.sidebar { box-shadow: 0 0 40px rgba(12, 16, 30, .18); }
+.nav-item { transition: background .15s ease, color .15s ease; font-size: 13.5px; }
+.nav-item.active { font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+/* The active marker follows the reading direction rather than always sitting
+   on the left, which in Arabic pointed away from the content. */
+.nav-item.active::before {
+  content: '';
+  width: 3px;
+  height: 18px;
+  border-radius: 3px;
+  background: #a78bfa;
+  margin-inline-start: -12px;
+  margin-inline-end: 9px;
+}
+.topbar { padding: 0 28px; }
+.content { padding: 28px; max-width: 1600px; }
+
+/* ---- Headings and pages ---- */
+.page-head { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.page-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.2px; }
+.page-head p { font-size: 13.5px; }
+
+/* Panels used to set their own heading margins inline, in every component that
+   had one. Defining it once means new screens look like the old ones for free. */
+.panel { padding: 20px 22px; }
+.panel + .panel { margin-top: 16px; }
+.panel > h2:first-child,
+.panel > h3:first-child { margin-top: 0; }
+.panel > h2 { font-size: 15px; font-weight: 650; margin-bottom: 14px; }
+.panel > h3 { font-size: 14px; font-weight: 650; margin-bottom: 12px; }
+.panel > h4 { font-size: 13px; font-weight: 650; margin: 18px 0 8px; }
+
+/* ---- Tables ---- */
+table.data th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+table.data td { vertical-align: top; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data tr:hover td { background: rgba(90, 53, 199, .035); }
+/* A table wider than its panel scrolls inside it rather than pushing the page
+   sideways — the readiness and comparison tables are the wide ones. */
+.panel > table.data { display: block; overflow-x: auto; }
+
+/* ---- Controls ---- */
+.btn {
+  transition: background .15s ease, border-color .15s ease, transform .05s ease;
+  font-weight: 550;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--primary); }
+.btn-ghost:hover { background: var(--primary-soft); }
+
+.field input, .field select, .field textarea,
+.form-grid input, .form-grid select, .form-grid textarea {
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* ---- Status ---- */
+.badge { padding: 4px 10px; letter-spacing: .1px; }
+.badge-ok { background: var(--success-soft); color: var(--success); }
+.readiness { gap: 4px; padding: 12px 14px; border-inline-start: 3px solid transparent; }
+.readiness.ok { border-inline-start-color: var(--success); }
+.readiness.not-ok { border-inline-start-color: var(--warning); }
+.readiness strong { font-size: 13px; }
+.readiness span { font-size: 12px; opacity: .9; }
+
+.kpi { padding: 18px; transition: box-shadow .15s ease; }
+.kpi:hover { box-shadow: 0 14px 34px rgba(26, 33, 54, .1); }
+.kpi .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+.kpi .value { letter-spacing: -.3px; }
+
+/* ---- Narrow screens ----
+   The sidebar becomes a scrollable strip across the top instead of vanishing.
+   Hiding it entirely left no way to navigate at all on a phone. */
+@media (max-width: 760px) {
+  .sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 12px;
+    overflow-x: auto;
+  }
+  .brand { padding-bottom: 12px; margin-bottom: 10px; }
+  .nav-title { display: none; }
+  .sidebar nav { display: flex; gap: 8px; }
+  .nav-item { margin-bottom: 0; white-space: nowrap; }
+  .nav-item.active::before { display: none; }
+  .main { margin-inline-start: 0; }
+  .content, .topbar { padding-inline: 16px; }
+  .page-head { flex-direction: column; }
+}
+
+@media print {
+  .sidebar, .topbar, .btn-row, .btn { display: none; }
+  .main { margin-inline-start: 0; }
+  .panel { box-shadow: none; break-inside: avoid; }
+}

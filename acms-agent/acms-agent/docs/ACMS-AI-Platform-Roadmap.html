@@ -1,0 +1,440 @@
+<title>ACMS AI Platform — خارطة الطريق</title>
+
+<style>
+  :root {
+    --paper:   #FAF8F4;
+    --surface: #FFFFFF;
+    --sunk:    #F2EEE6;
+    --ink:     #1B1E22;
+    --ink-2:   #3A4048;
+    --muted:   #6E7176;
+    --rule:    #E2DED6;
+
+    --ai:    #0072B2;
+    --det:   #D55E00;
+    --rag:   #009E73;
+    --human: #CC79A7;
+    --acms:  #2C3440;
+
+    --ai-w:    #E7F1F8;
+    --det-w:   #FBEDE3;
+    --rag-w:   #E4F4EF;
+    --human-w: #F8EDF3;
+    --acms-w:  #ECEEF1;
+
+    --sans: "Segoe UI", "Noto Naskh Arabic", Tahoma, sans-serif;
+    --kufi: "Noto Kufi Arabic", "Segoe UI Semibold", "Segoe UI", Tahoma, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131518; --surface: #1B1E23; --sunk: #23272D;
+      --ink: #E9E6E1; --ink-2: #C3C7CD; --muted: #969BA2; --rule: #2E333A;
+      --acms: #AEB6C2;
+      --ai-w: #12242F; --det-w: #2C1C10; --rag-w: #0F2620; --human-w: #2A1A22; --acms-w: #22262C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131518; --surface: #1B1E23; --sunk: #23272D;
+    --ink: #E9E6E1; --ink-2: #C3C7CD; --muted: #969BA2; --rule: #2E333A;
+    --acms: #AEB6C2;
+    --ai-w: #12242F; --det-w: #2C1C10; --rag-w: #0F2620; --human-w: #2A1A22; --acms-w: #22262C;
+  }
+
+  body {
+    background: var(--paper); color: var(--ink); font-family: var(--sans);
+    font-size: 15px; line-height: 1.65; direction: rtl; margin: 0; padding: 0 18px 80px;
+  }
+  .shell { max-width: 1120px; margin: 0 auto; }
+
+  header.mast {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 48px 0 22px; border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--det);
+  }
+  h1 {
+    font-family: var(--kufi); font-weight: 700; font-size: clamp(27px, 4vw, 40px);
+    margin: 0; letter-spacing: -.01em; text-wrap: balance;
+  }
+  .standfirst { color: var(--muted); font-size: 16.5px; margin: 0; max-width: 66ch; }
+
+  .thesis {
+    border: 1px solid var(--det); background: var(--det-w);
+    padding: 15px 18px; margin-top: 22px;
+  }
+  .thesis p { margin: 0; font-size: 15px; }
+  .thesis b { font-family: var(--kufi); }
+
+  h2 {
+    font-family: var(--kufi); font-size: 21px; margin: 44px 0 6px;
+    display: flex; align-items: baseline; gap: 11px;
+  }
+  h2::before { content: ""; width: 20px; height: 3px; background: var(--det); flex: none; transform: translateY(-6px); }
+  .lead { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 82ch; }
+  .m { font-family: var(--mono); font-size: .9em; }
+
+  figure { margin: 22px 0 8px; }
+  .canvas { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); padding: 16px 12px; }
+  .canvas svg { display: block; min-width: 700px; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 13px; color: var(--muted); margin-top: 10px;
+    padding-right: 13px; border-right: 2px solid var(--rule); max-width: 74ch;
+  }
+  .dg .box  { fill: var(--surface); stroke: var(--rule); stroke-width: 1.5; }
+  .dg .b-id { fill: var(--human-w); stroke: var(--human); stroke-width: 2; }
+  .dg .b-det{ fill: var(--det-w);   stroke: var(--det);  stroke-width: 1.6; }
+  .dg .b-ai { fill: var(--ai-w);    stroke: var(--ai);   stroke-width: 1.6; }
+  .dg .b-rag{ fill: var(--rag-w);   stroke: var(--rag);  stroke-width: 1.6; }
+  .dg .lbl  { fill: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .dg .sub  { fill: var(--muted); font-family: var(--sans); font-size: 10.5px; direction: rtl; }
+  .dg .wv   { fill: var(--muted); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+  .dg .edge { stroke: var(--muted); stroke-width: 1.6; fill: none; marker-end: url(#rh); }
+  .dg .edgeD{ stroke: var(--rag); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; marker-end: url(#rhg); }
+  .dg .elbl { fill: var(--muted); font-family: var(--sans); font-size: 10.5px; direction: rtl; }
+  .dg .ah   { fill: var(--muted); }
+  .dg .ahg  { fill: var(--rag); }
+
+  .wave { border: 1px solid var(--rule); background: var(--surface); margin-top: 18px; }
+  .wave > .wh {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 13px 18px; background: var(--sunk); border-bottom: 1px solid var(--rule);
+  }
+  .wh .num {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    color: var(--det);
+  }
+  .wh h3 { margin: 0; font-family: var(--kufi); font-size: 17px; }
+  .wh .goal { font-size: 13px; color: var(--muted); margin-inline-start: auto; }
+  .wave .wb { padding: 4px 0 0; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th, td { text-align: right; padding: 10px 16px; border-bottom: 1px solid var(--rule); font-size: 13px; vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.item { font-family: var(--mono); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .sz {
+    display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border: 1px solid currentColor; white-space: nowrap;
+  }
+  .sz.xs { color: var(--rag); }
+  .sz.s  { color: var(--rag); }
+  .sz.m  { color: var(--det); }
+  .sz.l  { color: var(--human); }
+
+  .gate {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 11px 18px; background: var(--ai-w); border-top: 1px solid var(--rule);
+    font-size: 12.5px;
+  }
+  .gate b { font-family: var(--kufi); color: var(--ai); }
+
+  .callout {
+    border: 1px solid var(--rule); border-inline-start: 4px solid var(--human);
+    background: var(--surface); padding: 16px 18px; margin: 20px 0;
+  }
+  .callout h4 { margin: 0 0 8px; font-family: var(--kufi); font-size: 16px; }
+  .callout p { margin: 0 0 9px; font-size: 14px; }
+  .callout p:last-child { margin: 0; }
+
+  ul.tight { margin: 0 0 12px; padding-inline-start: 21px; }
+  ul.tight li { margin-bottom: 5px; font-size: 14px; }
+
+  .decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 14px; }
+  .dec { border: 1px solid var(--rule); background: var(--surface); padding: 14px 16px; border-top: 3px solid var(--det); }
+  .dec h4 { margin: 0 0 6px; font-family: var(--kufi); font-size: 15px; }
+  .dec p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+  footer {
+    margin-top: 42px; padding-top: 16px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.9;
+  }
+</style>
+
+<div class="shell">
+
+  <header class="mast">
+    <div class="eyebrow">ACMS AI Intelligence Platform · Roadmap</div>
+    <h1>خارطة الطريق — من وكيل إلى منصة</h1>
+    <p class="standfirst">
+      ترتيب المقترحات الاثني عشر في أربع موجات، بحسب <b>ما يفتح الطريق لغيره</b> لا بحسب
+      ما يبدو مثيرًا. مع حجم كل بند، وما يتعطّل إن تأجّل، وكيف يُتحقَّق منه قبل الإنتاج.
+    </p>
+  </header>
+
+  <div class="thesis">
+    <p>
+      <b>الترتيب في جملة واحدة:</b> الهوية أولًا لأن بدونها كل ضمان أمني ادّعاء،
+      ثم القياس لأن بدونه كل قرار تكلفة تخمين، ثم الأدلة والحماية لأنهما يجعلان الإجابة قابلة للتدقيق،
+      ثم الاقتصاد، وأخيرًا القدرة الجديدة. <b>RAG آخرًا لا لأنه أقل قيمة، بل لأنه أكبر بند
+      ولا يتعطّل شيء بانتظاره.</b>
+    </p>
+  </div>
+
+  <h2>ما الذي يفتح الطريق لماذا</h2>
+  <p class="lead">
+    هذه هي الصورة التي تحدّد الترتيب. السهم يعني «لا يكتمل إلا بعده»، والسهم المتقطّع يعني «يغذّيه».
+  </p>
+
+  <figure>
+    <div class="canvas">
+      <svg class="dg" viewBox="0 0 960 390" role="img"
+           aria-label="مخطط اعتمادية: هوية المستخدم تفتح الطريق لطبقة الحماية، والمراقبة تفتح الطريق لقرار منصة النموذج والتخزين الدلالي، والمخرجات المهيكلة تفتح الطريق لطبقة الأدلة ثم الحماية، وRAG يغذّي طبقة الأدلة.">
+        <defs>
+          <marker id="rh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="ah" d="M 0 1 L 10 5 L 0 9 z" />
+          </marker>
+          <marker id="rhg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="ahg" d="M 0 1 L 10 5 L 0 9 z" />
+          </marker>
+        </defs>
+
+        <text class="wv" x="830" y="22" text-anchor="middle">الموجة 0 · الأساس</text>
+        <text class="wv" x="590" y="22" text-anchor="middle">الموجة 1 · الثقة</text>
+        <text class="wv" x="350" y="22" text-anchor="middle">الموجة 2 · الاقتصاد</text>
+        <text class="wv" x="130" y="22" text-anchor="middle">الموجة 3 · القدرة</text>
+
+        <!-- wave 0 -->
+        <rect class="b-id" x="730" y="60" width="200" height="56" rx="6" />
+        <text class="lbl" x="830" y="84" text-anchor="middle">Real User Identity</text>
+        <text class="sub" x="830" y="102" text-anchor="middle">هوية المستخدم الحقيقية</text>
+
+        <rect class="b-det" x="730" y="150" width="200" height="56" rx="6" />
+        <text class="lbl" x="830" y="174" text-anchor="middle">Observability</text>
+        <text class="sub" x="830" y="192" text-anchor="middle">توكن · تكلفة · كمون</text>
+
+        <rect class="box" x="730" y="240" width="200" height="56" rx="6" />
+        <text class="lbl" x="830" y="264" text-anchor="middle">Bind :3025 → 127.0.0.1</text>
+        <text class="sub" x="830" y="282" text-anchor="middle">إغلاق منفذ مكشوف</text>
+
+        <!-- wave 1 -->
+        <rect class="b-ai" x="490" y="60" width="200" height="56" rx="6" />
+        <text class="lbl" x="590" y="84" text-anchor="middle">Structured Outputs</text>
+        <text class="sub" x="590" y="102" text-anchor="middle">مخرجات مهيكلة</text>
+
+        <rect class="b-det" x="490" y="150" width="200" height="56" rx="6" />
+        <text class="lbl" x="590" y="174" text-anchor="middle">Unified Evidence</text>
+        <text class="sub" x="590" y="192" text-anchor="middle">طبقة الأدلة الموحّدة</text>
+
+        <rect class="b-det" x="490" y="240" width="200" height="56" rx="6" />
+        <text class="lbl" x="590" y="264" text-anchor="middle">AI Guardrails</text>
+        <text class="sub" x="590" y="282" text-anchor="middle">طبقة الحماية</text>
+
+        <!-- wave 2 -->
+        <rect class="b-ai" x="250" y="60" width="200" height="56" rx="6" />
+        <text class="lbl" x="350" y="84" text-anchor="middle">Model Router · task</text>
+        <text class="sub" x="350" y="102" text-anchor="middle">توجيه حسب المهمة</text>
+
+        <rect class="b-ai" x="250" y="150" width="200" height="56" rx="6" />
+        <text class="lbl" x="350" y="174" text-anchor="middle">Model Platform</text>
+        <text class="sub" x="350" y="192" text-anchor="middle">قرار Groq / OpenAI</text>
+
+        <rect class="b-ai" x="250" y="240" width="200" height="56" rx="6" />
+        <text class="lbl" x="350" y="264" text-anchor="middle">Semantic Cache</text>
+        <text class="sub" x="350" y="282" text-anchor="middle">تخزين دلالي</text>
+
+        <!-- wave 3 -->
+        <rect class="b-rag" x="30" y="240" width="200" height="56" rx="6" />
+        <text class="lbl" x="130" y="264" text-anchor="middle">RAG Knowledge Layer</text>
+        <text class="sub" x="130" y="282" text-anchor="middle">المعرفة المؤسسية</text>
+
+        <!-- gates -->
+        <path class="edge" d="M 730 88 L 712 88 L 712 268 L 694 268" />
+        <text class="elbl" x="706" y="182" text-anchor="end">يفتح</text>
+
+        <path class="edge" d="M 730 178 L 720 178 L 720 223 L 350 223 L 350 210" />
+        <text class="elbl" x="540" y="218" text-anchor="middle">يبرّر القرار بالأرقام</text>
+
+        <path class="edge" d="M 590 116 L 590 146" />
+        <path class="edge" d="M 590 206 L 590 236" />
+
+        <path class="edgeD" d="M 130 296 L 130 340 L 470 340 L 470 190 L 486 190" />
+        <text class="elbl" x="300" y="335" text-anchor="middle">يغذّي الأدلة بالمصادر والمراجع</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>الشكل</b> — البند الوحيد في الموجة ٠ الذي لا يفتح شيئًا هو إغلاق المنفذ، وهو موجود هناك
+      لأنه يكلّف سطرًا واحدًا. أما <span class="m">Real User Identity</span> فهو الوحيد الذي يجعل
+      «فحص الصلاحيات» في طبقة الحماية شيئًا حقيقيًا بدل شرط يقارن حساب الخدمة بنفسه.
+    </figcaption>
+  </figure>
+
+  <h2>الموجات</h2>
+  <p class="lead">
+    الحجم تقديري ونسبي، مسنود بما استغرقته أعمال مشابهة في هذه الدورة:
+    <span class="sz s">S</span> بحجم طبقة السياق، <span class="sz m">M</span> بحجم طبقة الإسقاط
+    <span class="m">/q/*</span>، <span class="sz l">L</span> أكبر من أي بند نُفِّذ حتى الآن.
+  </p>
+
+  <div class="wave">
+    <div class="wh"><span class="num">WAVE 0</span><h3>الأساس — بدونه الباقي ادّعاء</h3>
+      <span class="goal">الهدف: أن يصير الأمن والقياس حقيقيَّين</span></div>
+    <div class="wb">
+      <table>
+        <thead><tr><th>البند</th><th>الحجم</th><th>لماذا الآن</th><th>يفتح الطريق لـ</th><th>لو تأجّل</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="item">Real User Identity</td><td><span class="sz l">L</span></td>
+            <td>كل المستخدمين يدخلون بحساب خدمة واحد، فالصلاحيات صلاحياته لا صلاحيات الشخص</td>
+            <td>طبقة الحماية · نسب الأدلة للمستخدم · الاختباران ‎19‎ و‎21‎</td>
+            <td>يبقى «Permission Check» شرطًا يقارن الحساب بنفسه، وتبقى الحوكمة غير قابلة للتدقيق</td>
+          </tr>
+          <tr>
+            <td class="item">Observability</td><td><span class="sz m">M</span></td>
+            <td>بيانات التنفيذ في n8n تحمل معظم ما يلزم؛ الناقص استخراجها وعرضها</td>
+            <td>قرار منصة النموذج · التخزين الدلالي · أي ادّعاء تحسين</td>
+            <td>كل قرار تكلفة يبقى تخمينًا — وهذه الدورة نفسها اصطدمت بسقف يومي لم يكن أحد يقيسه</td>
+          </tr>
+          <tr>
+            <td class="item">Bind :3025</td><td><span class="sz xs">XS</span></td>
+            <td>الخدمة تستمع على ‎0.0.0.0‎ بلا مصادقة</td>
+            <td>—</td>
+            <td>من على الشبكة الداخلية يمكن استدعاء <span class="m">/propose</span> مباشرة</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="gate"><b>بوابة الخروج:</b>
+      <span>الـ‎25‎ اختبارًا تمرّ، ويصير ‎19‎ و‎21‎ قابلَين للتشغيل لأول مرة بدل <span class="m">N/A</span>.</span></div>
+  </div>
+
+  <div class="wave">
+    <div class="wh"><span class="num">WAVE 1</span><h3>الثقة — أن تكون الإجابة قابلة للتدقيق</h3>
+      <span class="goal">الهدف: لا ادّعاء بلا دليل، ولا مخرج بلا فحص</span></div>
+    <div class="wb">
+      <table>
+        <thead><tr><th>البند</th><th>الحجم</th><th>لماذا الآن</th><th>يفتح الطريق لـ</th><th>لو تأجّل</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="item">Structured Outputs</td><td><span class="sz m">M</span></td>
+            <td>مؤجَّل من المرحلة ٦ بسبب تعذّر الاختبار وقتها؛ الأدلة لا تُجمَّع من نثر حر</td>
+            <td>طبقة الأدلة الموحّدة</td>
+            <td>تبقى عقدة التسليم تحمل كودًا دفاعيًا يحاول تخمين شكل ردّ المتخصص</td>
+          </tr>
+          <tr>
+            <td class="item">Unified Evidence</td><td><span class="sz m">M</span></td>
+            <td>الانضباط موجود اليوم في التعليمات لا في طبقة تفرضه</td>
+            <td>طبقة الحماية (فحص «ادّعاء بلا دليل»)</td>
+            <td>يظل الالتزام بالأدلة رهنًا بطاعة النموذج للتعليمة</td>
+          </tr>
+          <tr>
+            <td class="item">AI Guardrails</td><td><span class="sz m">M</span></td>
+            <td>لا فحص حقن أوامر ولا تسريب بيانات اليوم إطلاقًا</td>
+            <td>—</td>
+            <td>أقرب ثغرة عملية: مستند مرفوع يحمل تعليمات موجَّهة للنموذج</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="gate"><b>بوابة الخروج:</b>
+      <span>اختبار حقن أوامر عبر مستند مرفوع يُحجَب، وكل إجابة تحليلية تحمل مصادرها.</span></div>
+  </div>
+
+  <div class="wave">
+    <div class="wh"><span class="num">WAVE 2</span><h3>الاقتصاد — الكلفة والكمون</h3>
+      <span class="goal">الهدف: قرارات مسنودة بأرقام الموجة ٠</span></div>
+    <div class="wb">
+      <table>
+        <thead><tr><th>البند</th><th>الحجم</th><th>لماذا الآن</th><th>يفتح الطريق لـ</th><th>لو تأجّل</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="item">Model Router · task</td><td><span class="sz s">S</span></td>
+            <td>التوجيه قائم؛ التغيير في معيار الاختيار لا في البنية</td>
+            <td>خفض كلفة المهام البسيطة</td>
+            <td>تبقى المهام البسيطة تدفع ثمن نموذج ثقيل</td>
+          </tr>
+          <tr>
+            <td class="item">Model Platform</td><td><span class="sz m">M</span></td>
+            <td>السقف اليومي ‎200,000‎ توكن عطّل العمل فعليًا في هذه الدورة</td>
+            <td>إزالة السقف اليومي كقيد تشغيلي</td>
+            <td>يوم عمل مكثّف أو تحليل عدة مستندات يوقف المنصة</td>
+          </tr>
+          <tr>
+            <td class="item">Semantic Cache</td><td><span class="sz m">M</span></td>
+            <td>يحتاج أرقام الموجة ٠ ليُعرف هل نسبة الإصابة تستحق</td>
+            <td>—</td>
+            <td>لا شيء يتعطّل — وهذا سبب تأخيره</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="gate"><b>بوابة الخروج:</b>
+      <span>تكلفة وكمون الجولة القياسية قبل/بعد، والـ‎25‎ اختبارًا بلا ارتداد.
+      وللتخزين الدلالي تحديدًا: <b>TTL وتحقّق إلزاميان، ولا تخزين لبيانات حسّاسة أو سريعة التغيّر</b>.</span></div>
+  </div>
+
+  <div class="wave">
+    <div class="wh"><span class="num">WAVE 3</span><h3>القدرة الجديدة — المعرفة المؤسسية</h3>
+      <span class="goal">الهدف: الإجابة عمّا ليس في قاعدة البيانات</span></div>
+    <div class="wb">
+      <table>
+        <thead><tr><th>البند</th><th>الحجم</th><th>لماذا أخيرًا</th><th>يغذّي</th><th>الحدّ الصارم</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="item">RAG Knowledge Layer</td><td><span class="sz l">L</span></td>
+            <td>أكبر بند منفرد، ولا يتعطّل شيء بانتظاره — بخلاف كل ما سبقه</td>
+            <td>طبقة الأدلة: مقاطع ومراجع ومعرّفات وثائق ودرجة استرجاع</td>
+            <td>لا يُستخدم بديلًا عن ACMS في الفرص أو الحسابات أو الأنشطة أو التكلفة أو الحالة التشغيلية</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="gate"><b>بوابة الخروج:</b>
+      <span>اختبار «سؤال معرفي» يعيد مرجعًا لوثيقة حقيقية، واختبار مضاد يثبت أن سؤالًا تشغيليًا
+      ما زال يُجاب من ACMS لا من الوثائق.</span></div>
+  </div>
+
+  <h2>خارج الترتيب — بنود لا يحكمها الجهد</h2>
+  <div class="callout">
+    <h4>إكمال محرك القواعد محكوم بالبيانات لا بالكود</h4>
+    <p>
+      سبعة من حسابات المحرك التسعة موسومة «جديد»، والسبب ليس أن الكود ناقص:
+      <span class="m">marginPercent</span> و<span class="m">estimatedCost</span> فارغان في الفرص
+      الستّ عشرة كلها، وفرصة واحدة فقط تحمل سيناريو تكلفة. كتابة الحساب تستغرق ساعة؛
+      وجود بيانات يحسبها عليها قرار تشغيلي.
+    </p>
+    <p>
+      وكذلك العتبات — <span class="m">minimum_margin</span> ونظائرها — قرار عمل لا قرار هندسي.
+      تثبيت رقم من عندنا هو «اختراع Benchmark»، وهو ممنوع بقاعدتكم أنتم.
+    </p>
+  </div>
+  <div class="callout">
+    <h4>حلقة التحسين تعمل مع كل موجة لا بعدها</h4>
+    <p>
+      <span class="m">Feedback Loop</span> ليست مرحلة مستقلة: كل موجة تمرّ عبر الاختبارات المرجعية،
+      وكل ملاحظة بشرية تدخل من هناك. الأداة قائمة اليوم —
+      <span class="m">regress.py</span> — والمرجع الرقمي مُلتقَط بالفعل في
+      <span class="m">baseline-p5.json</span>.
+    </p>
+  </div>
+
+  <h2>ثلاثة قرارات لا يملكها المهندس</h2>
+  <div class="decisions">
+    <div class="dec">
+      <h4>منصة النموذج</h4>
+      <p>الانتقال إلى OpenAI يحلّ السقف اليومي ويغيّر بند التكلفة، لكنه يخرج بيانات المحادثة
+        خارج البنية الحالية. قرار حوكمة وتكلفة قبل أن يكون قرارًا تقنيًا.</p>
+    </div>
+    <div class="dec">
+      <h4>هوية المستخدم</h4>
+      <p>تتطلب تسجيل دخول حقيقيًا في واجهة المحادثة. يمسّ تجربة الاستخدام، ولذلك يحتاج قرارًا
+        من صاحب المنتج لا من المطوّر.</p>
+    </div>
+    <div class="dec">
+      <h4>نطاق RAG</h4>
+      <p>أي وثائق تدخل الفهرس، ومَن يراها. عقود وكراسات شروط تحمل بنودًا سرّية،
+        وفهرستها بلا ضوابط وصول تنقل السرّية إلى طبقة جديدة.</p>
+    </div>
+  </div>
+
+  <footer>
+    ACMS AI Intelligence Platform — خارطة الطريق · ١٤ أغسطس ٢٠٢٦.<br>
+    الأحجام نسبية ومسنودة بأعمال هذه الدورة؛ والاعتماديات مشتقّة من قيود مقيسة لا مفترضة —
+    السقف اليومي، والهوية المشتركة، وغياب بيانات التكلفة.
+  </footer>
+
+</div>

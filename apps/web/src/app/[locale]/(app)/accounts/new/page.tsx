@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { NewAccountForm } from '@/components/NewAccountForm';
+import { buildRefLabels, type RefListPayload } from '@/lib/ref-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,12 @@ export default async function NewAccountPage({
     accountTypes: string[];
     industries: string[];
     countries: string[];
+    lists?: RefListPayload[];
   }>('/master-data', { token });
+
+  // Labels travel with the values, so a value an administrator added minutes
+  // ago reads as words here without anyone editing a translation file.
+  const labels = buildRefLabels(master.lists, locale);
 
   return (
     <>
@@ -30,7 +36,7 @@ export default async function NewAccountPage({
         </div>
       </div>
 
-      <NewAccountForm master={master} locale={locale} />
+      <NewAccountForm master={master} labels={labels} locale={locale} />
 
       <p style={{ marginTop: 16 }}>
         <Link href={`/${locale}/accounts`}>← {t('back')}</Link>

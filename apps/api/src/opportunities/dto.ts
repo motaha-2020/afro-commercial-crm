@@ -10,15 +10,8 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import {
-  ForecastCategory,
-  HealthState,
-  Industry,
-  LeadSource,
-  OpportunityStage,
-  OpportunityStatus,
-  ExitReason,
-} from '@prisma/client';
+import { IsRefCode } from '../master-data/is-ref-code.validator';
+import { ForecastCategory, HealthState, OpportunityStage, OpportunityStatus, ExitReason } from '@prisma/client';
 
 export class CreateOpportunityDto {
   @IsString()
@@ -35,12 +28,12 @@ export class CreateOpportunityDto {
   country!: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsOptional()
-  @IsEnum(LeadSource)
-  source?: LeadSource;
+  @IsRefCode('LEAD_SOURCE')
+  source?: string;
 
   @IsOptional()
   @IsString()
@@ -78,12 +71,12 @@ export class UpdateOpportunityDto {
   // OPPORTUNITY_QUALIFICATION, and all three are optional at creation — without
   // an update path an opportunity registered in a hurry could never advance.
   @IsOptional()
-  @IsEnum(LeadSource)
-  source?: LeadSource;
+  @IsRefCode('LEAD_SOURCE')
+  source?: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsOptional()
   @IsString()

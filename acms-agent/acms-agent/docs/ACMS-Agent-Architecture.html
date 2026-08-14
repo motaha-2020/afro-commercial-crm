@@ -1,0 +1,540 @@
+<title>مخطط ACMS · AI Agent — بعد المراحل ٢–٩</title>
+
+<style>
+  :root {
+    --paper:   #FAF8F4;
+    --surface: #FFFFFF;
+    --sunk:    #F2EEE6;
+    --ink:     #1B1E22;
+    --muted:   #6E7176;
+    --rule:    #E2DED6;
+    --accent:  #0E6B64;
+    --signal:  #A9700F;
+    --signal-wash: #FBF2DF;
+    --danger:  #A33A2A;
+    --danger-wash: #FBEDEA;
+    --ok-wash: #E9F3F1;
+
+    --sans: "Segoe UI", "Noto Naskh Arabic", "Tahoma", sans-serif;
+    --kufi: "Noto Kufi Arabic", "Segoe UI Semibold", "Segoe UI", Tahoma, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #141619;
+      --surface: #1C1F24;
+      --sunk:    #22262C;
+      --ink:     #E8E5DF;
+      --muted:   #979CA3;
+      --rule:    #2E333A;
+      --accent:  #4CB5AC;
+      --signal:  #D99B3F;
+      --signal-wash: #2A2318;
+      --danger:  #E0705C;
+      --danger-wash: #2C1D1A;
+      --ok-wash: #172624;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:   #141619;
+    --surface: #1C1F24;
+    --sunk:    #22262C;
+    --ink:     #E8E5DF;
+    --muted:   #979CA3;
+    --rule:    #2E333A;
+    --accent:  #4CB5AC;
+    --signal:  #D99B3F;
+    --signal-wash: #2A2318;
+    --danger:  #E0705C;
+    --danger-wash: #2C1D1A;
+    --ok-wash: #172624;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.75;
+    direction: rtl;
+    margin: 0;
+    padding: 0 20px 96px;
+  }
+  .shell { max-width: 1000px; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+
+  /* ---------- masthead ---------- */
+  header.mast {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 56px 0 24px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    font-family: var(--kufi); font-weight: 700; font-size: clamp(30px, 5vw, 44px);
+    line-height: 1.25; margin: 0; text-wrap: balance; letter-spacing: -.01em;
+  }
+  .standfirst { color: var(--muted); font-size: 17px; margin: 0; max-width: 60ch; }
+
+  .meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+    margin: 28px 0 0;
+  }
+  .meta div { background: var(--surface); padding: 12px 14px; }
+  .meta dt {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 3px;
+  }
+  .meta dd {
+    margin: 0; font-family: var(--mono); font-size: 14.5px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta dd.live { color: var(--accent); }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 52px; }
+  h2 {
+    font-family: var(--kufi); font-size: 23px; font-weight: 700; margin: 0 0 6px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  h2::before {
+    content: ""; width: 22px; height: 3px; background: var(--signal);
+    flex: none; transform: translateY(-6px);
+  }
+  h3 { font-family: var(--kufi); font-size: 16.5px; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  .lead { color: var(--muted); margin-bottom: 22px; }
+
+  code, .m { font-family: var(--mono); font-size: .89em; }
+  code {
+    background: var(--sunk); padding: 1px 5px; border-radius: 3px;
+    direction: ltr; display: inline-block;
+  }
+
+  /* ---------- figures ---------- */
+  figure { margin: 26px 0 8px; }
+  .canvas {
+    overflow-x: auto; background: var(--surface);
+    border: 1px solid var(--rule); padding: 18px 14px;
+  }
+  .canvas svg { display: block; min-width: 720px; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 13.5px; color: var(--muted); margin-top: 10px;
+    padding-right: 14px; border-right: 2px solid var(--rule); max-width: 70ch;
+  }
+
+  .dg .box   { fill: var(--surface); stroke: var(--rule); stroke-width: 1.6; }
+  .dg .lane  { fill: var(--sunk); stroke: none; }
+  .dg .accentbox { fill: var(--ok-wash); stroke: var(--accent); stroke-width: 1.6; }
+  .dg .sigbox    { fill: var(--signal-wash); stroke: var(--signal); stroke-width: 1.6; }
+  .dg .lbl   { fill: var(--ink); font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+  .dg .sub   { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .dg .subar { fill: var(--muted); font-family: var(--sans); font-size: 11px; direction: rtl; }
+  .dg .elblar  { fill: var(--muted); font-family: var(--sans); font-size: 11.5px; direction: rtl; }
+  .dg .elblarS { fill: var(--signal); font-family: var(--sans); font-size: 11.5px; font-weight: 600; direction: rtl; }
+  .dg .ar    { fill: var(--ink); font-family: var(--sans); font-size: 12.5px; direction: rtl; }
+  .dg .arm   { fill: var(--muted); font-family: var(--sans); font-size: 12px; direction: rtl; }
+  .dg .edge  { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#ah); }
+  .dg .edgeS { stroke: var(--signal); stroke-width: 1.8; fill: none; marker-end: url(#ahs); }
+  .dg .life  { stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 3 5; }
+  .dg .elbl  { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+  .dg .elblS { fill: var(--signal); font-family: var(--mono); font-size: 10.5px; font-weight: 600; }
+  .dg .tick  { fill: var(--signal); }
+  .dg .ah    { fill: var(--muted); }
+  .dg .ahs   { fill: var(--signal); }
+
+  /* ---------- table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); margin: 22px 0 6px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; background: var(--surface); }
+  th, td { text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; background: var(--sunk); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.name { font-family: var(--mono); font-size: 13px; font-weight: 600; white-space: nowrap; }
+  td.tools { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.9; }
+  td.tools b { color: var(--signal); font-weight: 700; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tr.write td.name { color: var(--signal); }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: .06em; padding: 2px 8px; border: 1px solid currentColor; white-space: nowrap;
+  }
+  .pill.read  { color: var(--accent); }
+  .pill.write { color: var(--signal); }
+
+  /* ---------- change / limits ---------- */
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 22px 0; }
+  .card { border: 1px solid var(--rule); background: var(--surface); padding: 18px 20px; }
+  .card.was { border-inline-start: 3px solid var(--danger); }
+  .card.now { border-inline-start: 3px solid var(--accent); }
+  .card h4 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    margin: 0 0 10px; color: var(--muted);
+  }
+  .card p { margin: 0 0 10px; font-size: 14.5px; }
+  .card p:last-child { margin-bottom: 0; }
+  .quote {
+    font-family: var(--sans); font-size: 14px; background: var(--sunk);
+    padding: 10px 12px; border-radius: 2px; color: var(--ink);
+  }
+
+  .note {
+    border: 1px solid var(--danger); background: var(--danger-wash);
+    padding: 18px 20px; margin: 22px 0;
+  }
+  .note h4 { margin: 0 0 8px; font-family: var(--kufi); font-size: 16px; color: var(--danger); }
+  .note pre {
+    margin: 12px 0 0; padding: 12px 14px; background: var(--surface); border: 1px solid var(--rule);
+    overflow-x: auto; direction: ltr; text-align: left;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  }
+
+  ul.tight { margin: 0 0 14px; padding-inline-start: 22px; }
+  ul.tight li { margin-bottom: 6px; }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 2;
+  }
+  a { color: var(--accent); }
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+</style>
+
+<div class="shell">
+
+  <header class="mast">
+    <div class="eyebrow">n8n · acmsOrch01 · مخطط معماري · بعد المراحل ٢–٩</div>
+    <h1>ACMS · AI Agent — بنية المنسّق ومسار التأكيد</h1>
+    <p class="standfirst">
+      مُحدَّث من نسخة الـ workflow الحيّة بعد سبع مراحل تحسين. عدد العقد لم يتغيّر — ‎45‎ كما كان —
+      لكن ثلاثة أشياء تغيّرت في العمق: من أين تأتي بيانات القراءة، وكم طريقًا يخرج من بوابة الموافقة،
+      وأين تعيش ذاكرة الجلسة.
+    </p>
+
+    <dl class="meta">
+      <div><dt>Workflow</dt><dd>acmsOrch01</dd></div>
+      <div><dt>العقد</dt><dd>45</dd></div>
+      <div><dt>الوكلاء</dt><dd>8</dd></div>
+      <div><dt>الأدوات</dt><dd>16</dd></div>
+      <div><dt>مسارات البوابة</dt><dd class="live">3</dd></div>
+      <div><dt>ذاكرة</dt><dd>3 جولات</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>ما الذي تغيّر عن النسخة السابقة</h2>
+    <div class="prose">
+      <p class="lead">
+        المخطط القديم كان صحيحًا ليومه. هذه هي الفروق التي تجعله لم يعد كذلك.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>قبل</th><th>الآن</th></tr></thead>
+        <tbody>
+          <tr><td>القراءات الثقيلة</td>
+              <td>ثلاث أدوات تضرب ACMS مباشرة وتعيد السجل كاملًا</td>
+              <td class="mono">‎:3025/q/*‎ — حقول مختارة، حدّ سجلات، سقف ‎6000‎ حرف، و<span class="m">facts</span> محسوبة</td></tr>
+          <tr><td>مخارج البوابة</td>
+              <td><span class="m">if</span> بمخرجين: تنفيذ / محادثة</td>
+              <td><span class="m">switch</span> بثلاثة: تنفيذ / <b>ردّ فوري بلا نموذج</b> / محادثة</td></tr>
+          <tr><td>«الفرصة الجارية»</td>
+              <td>سطر مطبوع في نص الإجابة، يُرجى أن يبقى في الذاكرة</td>
+              <td class="mono">‎:3025/context/{session}‎ — حقل مخزَّن يُقرأ كل جولة</td></tr>
+          <tr><td>فشل أداة</td><td>يُجهض التنفيذ</td>
+              <td>يصل الوكيل كنص خطأ فيقوله (<span class="m">onError</span> على ‎16/16‎)</td></tr>
+          <tr><td>إعادة المحاولة</td><td class="n">5</td><td class="n">2 — ثم لا تكرار لطلب مرفوض</td></tr>
+          <tr><td>احتياطي Ollama</td><td>معطَّل بالكامل</td>
+              <td>للمستندات فقط — قِيس في المحادثة فكلّف ‎77–306‎ ثانية</td></tr>
+          <tr><td>الذاكرة</td><td class="n">5 جولات حرفية</td><td class="n">3 + سياق مخزَّن</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>دورة حياة الرسالة</h2>
+    <div class="prose">
+      <p>
+        النقطة التي تستحق الانتباه ما زالت أن <span class="m">Approval Gate</span> تعمل <em>أولًا</em>
+        على كل رسالة، قبل أن يرى الوكيل شيئًا. لكن عملها اتّسع: صارت تقرّر أيضًا هل تحتاج الرسالة
+        نموذجًا أصلًا، وتحدّ طولها، وتقرأ ما تعرفه الجلسة بالفعل.
+      </p>
+    </div>
+
+    <figure>
+      <div class="canvas">
+        <svg class="dg" viewBox="0 0 960 720" role="img"
+             aria-label="مخطط تدفق: الرسالة تمر على تسجيل الدخول ثم بوابة الموافقة، التي تتفرع إلى ثلاثة مسارات — تنفيذ اقتراح مؤكد، أو رد فوري بلا نموذج، أو مسار المحادثة عبر المنسق أو وكيل المستندات.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="ah" d="M 0 1 L 10 5 L 0 9 z" />
+            </marker>
+            <marker id="ahs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="ahs" d="M 0 1 L 10 5 L 0 9 z" />
+            </marker>
+          </defs>
+
+          <rect class="box" x="360" y="26" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="47" text-anchor="middle">When chat message received</text>
+          <text class="sub" x="470" y="62" text-anchor="middle">chatTrigger · files allowed</text>
+          <path class="edge" d="M 470 72 L 470 106" />
+
+          <rect class="box" x="360" y="110" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="131" text-anchor="middle">ACMS Login</text>
+          <text class="sub" x="470" y="146" text-anchor="middle">POST :4010/api/auth/login</text>
+          <path class="edge" d="M 470 156 L 470 190" />
+
+          <rect class="sigbox" x="340" y="194" width="260" height="74" rx="6" />
+          <text class="lbl" x="470" y="215" text-anchor="middle">Approval Gate</text>
+          <text class="subar" x="470" y="232" text-anchor="middle">رقم تأكيد · حدّ 8000 حرف · نيّة مهيكلة</text>
+          <text class="subar" x="470" y="248" text-anchor="middle">سياق الجلسة · ردّ فوري للمجاملات</text>
+          <text class="sub" x="470" y="262" text-anchor="middle">code · GET /context</text>
+          <path class="tick" d="M 590 199 l 6 6 -6 6 -6 -6 z" />
+          <path class="edge" d="M 470 268 L 470 302" />
+
+          <rect class="box" x="360" y="306" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="327" text-anchor="middle">Confirmed? · switch</text>
+          <text class="sub" x="470" y="342" text-anchor="middle">execute / reply / chat</text>
+
+          <!-- 0: execute -->
+          <path class="edgeS" d="M 415 352 L 415 364 L 150 364 L 150 386" />
+          <text class="elblS" x="270" y="358" text-anchor="middle">0 · claimed ✓</text>
+          <rect class="sigbox" x="40" y="390" width="220" height="46" rx="6" />
+          <text class="lbl" x="150" y="411" text-anchor="middle">Execute Action</text>
+          <text class="subar" x="150" y="426" text-anchor="middle">method + url من المخزَّن</text>
+          <path class="edge" d="M 150 436 L 150 470" />
+          <rect class="box" x="40" y="474" width="220" height="46" rx="6" />
+          <text class="lbl" x="150" y="495" text-anchor="middle">Execution Result</text>
+          <text class="sub" x="150" y="510" text-anchor="middle">PUT /context</text>
+          <path class="tick" d="M 250 479 l 6 6 -6 6 -6 -6 z" />
+
+          <!-- 1: reply, no model at all -->
+          <path class="edgeS" d="M 470 352 L 470 382 L 330 382 L 330 665 L 356 665" />
+          <text class="elblarS" x="398" y="376" text-anchor="middle">1 · ردّ بلا نموذج</text>
+
+          <!-- 2: chat -->
+          <path class="edge" d="M 525 352 L 525 364 L 790 364 L 790 386" />
+          <text class="elbl" x="670" y="358" text-anchor="middle">2 · chat</text>
+          <rect class="box" x="680" y="390" width="220" height="46" rx="6" />
+          <text class="lbl" x="790" y="411" text-anchor="middle">Has Attachment?</text>
+          <text class="sub" x="790" y="426" text-anchor="middle">if · files[0]</text>
+
+          <path class="edge" d="M 845 436 L 845 470" />
+          <text class="elbl" x="856" y="456" text-anchor="start">file</text>
+          <rect class="box" x="655" y="474" width="270" height="58" rx="6" />
+          <text class="lbl" x="790" y="496" text-anchor="middle">Route By Type → Extract ×4</text>
+          <text class="sub" x="790" y="512" text-anchor="middle">PDF · Sheet · CSV · Text</text>
+          <text class="sub" x="790" y="525" text-anchor="middle">→ Prepare Document</text>
+          <path class="edge" d="M 790 532 L 790 554" />
+          <rect class="accentbox" x="680" y="558" width="220" height="46" rx="6" />
+          <text class="lbl" x="790" y="579" text-anchor="middle">Document Agent</text>
+          <text class="sub" x="790" y="594" text-anchor="middle">Groq 120b + Ollama fallback</text>
+
+          <path class="edge" d="M 735 436 L 735 455 L 470 455 L 470 470" />
+          <text class="elbl" x="602" y="449" text-anchor="middle">no file</text>
+          <rect class="accentbox" x="360" y="474" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="495" text-anchor="middle">ACMS Orchestrator</text>
+          <text class="subar" x="470" y="510" text-anchor="middle">gpt-oss-20b · 6 وكلاء · ذاكرة 3</text>
+
+          <path class="edge" d="M 470 520 L 470 638" />
+          <path class="edge" d="M 790 604 L 790 665 L 584 665" />
+          <rect class="sigbox" x="360" y="642" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="663" text-anchor="middle">Capture Proposal</text>
+          <text class="subar" x="470" y="678" text-anchor="middle">رقم التأكيد · ترجمة الأخطاء</text>
+          <path class="tick" d="M 570 647 l 6 6 -6 6 -6 -6 z" />
+
+          <path class="tick" d="M 936 26 l 6 6 -6 6 -6 -6 z" />
+          <text class="arm" x="924" y="37" text-anchor="end">يتحدث مع خدمة الحالة :3025</text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>الشكل ١</b> — المسار الذهبي هو كل ما يمسّ الحالة. المخرج ‎1‎ هو الجديد: تحية أو «شكرًا»
+        تُجاب من البوابة نفسها في ‎~750‎ ميلي‌ثانية دون أي نداء نموذج — قِيس وحصة Groq منتهية، ونجح.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>الخدمة التي صارت تحمل الحالة كلها</h2>
+    <div class="prose">
+      <p class="lead">
+        السبب واحد يتكرر: عقدة <span class="m">httpRequestTool</span> تسلّم ردّها للنموذج مباشرة،
+        وبيانات n8n الثابتة لا تعيش بين تنفيذ وآخر. فكل ما يحتاج <em>تشكيلًا قبل النموذج</em> أو
+        <em>بقاءً بعد الجولة</em> انتقل إلى خدمة واحدة على المنفذ ‎3025‎.
+      </p>
+    </div>
+
+    <figure>
+      <div class="canvas">
+        <svg class="dg" viewBox="0 0 940 320" role="img"
+             aria-label="مخطط: خدمة acms-reports على المنفذ 3025 تحمل أربع مسؤوليات — إسقاط القراءات، الاقتراحات المعلقة، سياق الجلسة، وتوليد التقارير — وكلها تنادي واجهة ACMS بتوكن المستخدم نفسه.">
+          <rect class="box" x="360" y="24" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="45" text-anchor="middle">n8n · acmsOrch01</text>
+          <text class="sub" x="470" y="60" text-anchor="middle">Bearer من ACMS Login</text>
+
+          <rect class="sigbox" x="150" y="120" width="640" height="86" rx="6" />
+          <text class="lbl" x="470" y="142" text-anchor="middle">acms-reports · :3025</text>
+
+          <rect class="box" x="168" y="152" width="146" height="44" rx="5" />
+          <text class="lbl" x="241" y="170" text-anchor="middle">/q/*</text>
+          <text class="subar" x="241" y="186" text-anchor="middle">إسقاط + حساب</text>
+
+          <rect class="box" x="326" y="152" width="146" height="44" rx="5" />
+          <text class="lbl" x="399" y="170" text-anchor="middle">/pending/*</text>
+          <text class="subar" x="399" y="186" text-anchor="middle">اقتراح + رقم</text>
+
+          <rect class="box" x="484" y="152" width="146" height="44" rx="5" />
+          <text class="lbl" x="557" y="170" text-anchor="middle">/context/*</text>
+          <text class="subar" x="557" y="186" text-anchor="middle">سياق الجلسة</text>
+
+          <rect class="box" x="642" y="152" width="130" height="44" rx="5" />
+          <text class="lbl" x="707" y="170" text-anchor="middle">/generate</text>
+          <text class="subar" x="707" y="186" text-anchor="middle">PDF · PPTX</text>
+
+          <path class="edge" d="M 470 70 L 470 116" />
+          <text class="elbl" x="482" y="98" text-anchor="start">Authorization يُمرَّر كما هو</text>
+
+          <rect class="box" x="360" y="252" width="220" height="46" rx="6" />
+          <text class="lbl" x="470" y="273" text-anchor="middle">ACMS API · :4010</text>
+          <text class="subar" x="470" y="288" text-anchor="middle">نفس الصلاحيات — لا اعتماد خاص</text>
+          <path class="edge" d="M 241 196 L 241 232 L 470 232 L 470 248" />
+          <path class="edge" d="M 707 196 L 707 232 L 470 232" />
+          <path class="edge" d="M 399 206 L 399 232" />
+        </svg>
+      </div>
+      <figcaption>
+        <b>الشكل ٢</b> — الخدمة وسيط لا بديل: تنادي نفس واجهة ACMS <b>بتوكن المتصل نفسه</b>،
+        فتوكن خاطئ يظلّ يرجع ‎401‎. تملك القائمة البيضاء وتحسب الأرقام، ولا تملك صلاحية خاصة بها.
+      </figcaption>
+    </figure>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>المسار</th><th>ما يحلّه</th><th>لماذا هنا لا في n8n</th></tr></thead>
+        <tbody>
+          <tr><td class="name">/q/*</td>
+              <td>حقول مختارة، فلاتر، حدّ ‎20‎ سجلًا، سقف ‎6000‎ حرف، و<span class="m">facts</span> محسوبة</td>
+              <td>لا توجد نقطة اعتراض بين الأداة والنموذج داخل n8n</td></tr>
+          <tr><td class="name">/pending/*</td>
+              <td>الاقتراح ورقمه، ويُستهلك مرة واحدة بحذف ذرّي</td>
+              <td>الكتابة في static data لم تكن تصمد بين تنفيذين</td></tr>
+          <tr><td class="name">/context/*</td>
+              <td>الفرصة/الحساب الجاري، ست ساعات، دمج لا استبدال</td>
+              <td>نفس السبب — ولأن النثر ليس مكانًا لحفظ معرّف</td></tr>
+          <tr><td class="name">/generate · /files</td>
+              <td>تقارير PDF/PPTX بأرقام محسوبة في Python</td>
+              <td>الحساب لا يُترك للنموذج</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>سلسلة التأكيد — بلا تغيير</h2>
+    <div class="prose">
+      <p class="lead">
+        هذه هي الخاصية الأمنية التي قامت عليها كل مرحلة تالية دون أن تمسّها: الاقتراح يُسجَّل،
+        ويُعرض بجسمه الحقيقي، ولا يُنفَّذ إلا برقم يكتبه المستخدم، ويُستهلك مرة واحدة.
+      </p>
+      <ul class="tight">
+        <li><b>القائمة البيضاء</b> — خمسة أفعال فقط، و<span class="m">method</span> والمسار من جدول
+            ثابت لا من مخرجات النموذج.</li>
+        <li><b>تحقّق حتمي</b> قبل إصدار الرقم: الحقول الإلزامية، صيغة الـUUID، فحص التكرار.</li>
+        <li><b>الاستهلاك مرة واحدة</b> — <span class="m">/claim</span> يتحقق ويحذف في خطوة واحدة،
+            فلا رقم يُعاد ولا تأكيدان يفوزان.</li>
+        <li><b>عشر دقائق</b> ثم يسقط الاقتراح، وأي اقتراح جديد يلغي سابقه.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>الوكلاء وأدواتهم</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>الوكيل</th><th>الصلاحية</th><th>الأدوات</th><th>الثابت</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">sales_intelligence</td><td><span class="pill read">قراءة</span></td>
+            <td class="tools"><b>acms_list_opportunities</b> · <b>acms_list_accounts</b> · <b>acms_list_activities</b> · acms_find_opportunity · acms_get_opportunity · acms_bid_deadlines</td>
+            <td class="n">347</td>
+          </tr>
+          <tr>
+            <td class="name">financial_intelligence</td><td><span class="pill read">قراءة</span></td>
+            <td class="tools">acms_find_opportunity · acms_opportunity_costing · acms_quotation_comparison</td>
+            <td class="n">356</td>
+          </tr>
+          <tr>
+            <td class="name">executive_reporting</td><td><span class="pill read">قراءة</span></td>
+            <td class="tools"><b>acms_list_opportunities</b> · acms_find_opportunity · acms_dashboard_metrics · acms_metric_explain</td>
+            <td class="n">351</td>
+          </tr>
+          <tr>
+            <td class="name">compliance_and_approval</td><td><span class="pill read">عرض فقط</span></td>
+            <td class="tools">acms_approvals_queue · acms_audit_trail · acms_sod_rules · acms_master_data</td>
+            <td class="n">225</td>
+          </tr>
+          <tr class="write">
+            <td class="name">action_agent</td><td><span class="pill write">اقتراح</span></td>
+            <td class="tools">acms_find_opportunity · <b>acms_list_accounts</b> · acms_approvals_queue · <b>acms_propose_action</b></td>
+            <td class="n">1475</td>
+          </tr>
+          <tr>
+            <td class="name">report_agent</td><td><span class="pill read">قراءة</span></td>
+            <td class="tools">acms_find_opportunity · acms_generate_report</td>
+            <td class="n">411</td>
+          </tr>
+          <tr>
+            <td class="name">Document Agent</td><td><span class="pill read">قراءة</span></td>
+            <td class="tools">acms_find_opportunity · <b>acms_list_accounts</b> · acms_master_data</td>
+            <td class="n">448</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>
+      <b>الغامق</b> = يمرّ عبر <span class="m">:3025</span> بدل ACMS مباشرة. عمود «الثابت» بالتوكن:
+      نظام التعليمات + أوصاف الأدوات، والقواعد صارت تُركَّب لكل وكيل — لهذا الالتزام ‎225‎ والتقارير ‎411‎.
+      و<span class="m">action_agent</span> هو الوحيد الذي يحمل
+      <span class="m">acms_propose_action</span>، وكل «وافق/اعتمد/ارفض» يُوجَّه إليه هو.
+    </figcaption>
+  </section>
+
+  <section>
+    <h2>حدود معروفة</h2>
+    <div class="note">
+      <h4>ثلاثة أشياء لا يخفيها هذا المخطط</h4>
+      <p style="margin:0 0 10px;">
+        <b>هوية واحدة.</b> كل مستخدمي المحادثة يدخلون بحساب الخدمة
+        <span class="m">ai.agent@afro.example</span>. الصلاحيات صلاحياته لا صلاحيات الشخص، ولهذا
+        اختبارا «بيانات غير مصرَّح بها» و«صلاحية مرفوضة» غير قابلين للتشغيل أصلًا.
+      </p>
+      <p style="margin:0 0 10px;">
+        <b>سقفان لا سقف واحد.</b> Groq المجاني يحدّ ‎8000‎ توكن/دقيقة <em>و</em>‎200,000‎/يوم.
+        هندسة السياق عالجت الأول؛ الثاني لا تعالجه هندسة.
+      </p>
+      <p style="margin:0;">
+        <b>‎:3025‎ تستمع على ‎0.0.0.0‎ بلا مصادقة.</b> الأثر محدود — التنفيذ ما زال يتطلب رقمًا يكتبه
+        المستخدم في جلسته — لكن الصحيح ربطها على ‎127.0.0.1‎.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    مقروء من الـ workflow الحيّ <span class="m">acmsOrch01</span> على
+    <span class="m">afro-ubuntu · 100.122.6.64</span> · ‎45‎ عقدة · n8n 2.27.4 —
+    ١٤ أغسطس ٢٠٢٦.<br>
+    الأرقام من <span class="m">workflow_entity</span> و<span class="m">acms-reports/service.py</span>
+    وقياسات المراحل ٢–٩، لا من وثائق سابقة.
+  </footer>
+
+</div>

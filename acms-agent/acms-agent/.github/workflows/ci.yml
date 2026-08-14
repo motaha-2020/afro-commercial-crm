@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      # `prisma validate` resolves the datasource before it parses anything, so
+      # it fails outright without this. Nothing here connects to a database —
+      # the tests are unit tests — so a placeholder is honest and sufficient.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Cheap checks first: a broken schema or a lint error should not wait
+      # behind a three-workspace build to be reported.
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      # Guards the migration trap that once shipped a broken deployment: a
+      # generated migration.sql began with Prisma's stdout warning, Postgres
+      # rejected the whole file, and four tables silently never existed.
+      - name: Migrations must start with SQL, never a Prisma warning
+        run: |
+          fail=0
+          for f in prisma/migrations/*/migration.sql; do
+            first=$(grep -m1 -v '^[[:space:]]*$' "$f" || true)
+            case "$first" in
+              --*|ALTER*|CREATE*|DROP*|INSERT*|UPDATE*|BEGIN*|SET*) ;;
+              *) echo "::error file=$f::first line is not SQL: $first"; fail=1 ;;
+            esac
+          done
+          exit $fail
+
+      - run: npx prisma generate
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm test

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { refLabel, type RefLabels } from '@/lib/ref-labels';
 
 interface MasterData {
   accountTypes: string[];
@@ -17,9 +18,11 @@ interface MasterData {
  */
 export function NewAccountForm({
   master,
+  labels,
   locale,
 }: {
   master: MasterData;
+  labels: RefLabels;
   locale: string;
 }) {
   const t = useTranslations('newAccount');
@@ -105,7 +108,7 @@ export function NewAccountForm({
         <select id="type" value={form.type} onChange={(e) => set('type', e.target.value)}>
           {master.accountTypes.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {refLabel(labels, 'ACCOUNT_TYPE', c)}
             </option>
           ))}
         </select>
@@ -116,7 +119,7 @@ export function NewAccountForm({
         <select id="country" value={form.country} onChange={(e) => set('country', e.target.value)}>
           {master.countries.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {refLabel(labels, 'COUNTRY', c)}
             </option>
           ))}
         </select>
@@ -128,7 +131,7 @@ export function NewAccountForm({
           <option value="">—</option>
           {master.industries.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {refLabel(labels, 'INDUSTRY', c)}
             </option>
           ))}
         </select>

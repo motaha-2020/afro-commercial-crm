@@ -1,0 +1,2597 @@
+{
+  "name": "ACMS · AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "أهلًا 👋 أنا **ACMS Agent** — منسّق منظومة أفرو التجارية.\n\nورايا أربع وكلاء متخصصين: المبيعات، المالي، التقارير التنفيذية، والالتزام والموافقات.\n\nجرّب:\n• اعرض الفرص المفتوحة ومراحلها\n• إيه مؤشرات الأداء دلوقتي؟ ويعني إيه Weighted Pipeline؟\n• فيه مناقصات قافلة خلال 60 يوم؟\n• إيه اللي مستني موافقة؟\n\n• ارفع كراسة شروط أو BOQ وأنا ألخّصها لك\n\nملاحظة: أي تغيير في النظام يحتاج تأكيدك برقم قبل أن ينفَّذ.",
+        "options": {
+          "allowFileUploads": true,
+          "allowedFilesMimeTypes": "application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,text/csv,text/plain"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -2400,
+        0
+      ],
+      "id": "orch-trigger",
+      "name": "When chat message received",
+      "webhookId": "acms-orchestrator-01"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst chat = $('When chat message received').first().json;\nconst sessionId = String(chat.sessionId || 'default');\nconst message = String(chat.chatInput || '').trim();\nconst SVC = { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' };\nconst BASE = 'http://100.122.6.64:3025/identity/';\n\n// `/login CODE` is handled here rather than in the gate so the very turn that\n// binds is already answered as the right person.\nlet justBound = null;\nconst m = message.match(/^\\/login\\s+([A-Za-z0-9]{6})\\s*$/);\nif (m) {\n  try {\n    const res = await this.helpers.httpRequest({\n      method: 'POST', url: BASE.replace(/\\/$/, '') + '/bind', headers: SVC,\n      body: { code: m[1].toUpperCase(), sessionId }, json: true,\n    });\n    justBound = res && res.ok ? { email: res.email, roles: res.roles } : { error: (res || {}).error };\n  } catch (e) {\n    justBound = { error: 'تعذّر ربط الجلسة' };\n  }\n}\n\nlet who = { identified: false, accessToken: null, mode: 'optional' };\ntry {\n  who = await this.helpers.httpRequest({\n    method: 'GET', url: BASE + encodeURIComponent(sessionId), headers: SVC, json: true,\n  });\n} catch (e) { /* identity service down — handled below */ }\n\nif (!who.accessToken) {\n  // Nothing to act with. Say so rather than failing obscurely three nodes later.\n  return [{ json: {\n    accessToken: null, identified: false, mode: who.mode || 'required',\n    loginRequired: true,\n    output: (justBound && justBound.error ? '⚠️ ' + justBound.error + '\\n\\n' : '')\n      + 'سجّل الدخول أولًا: افتح ' + 'http://100.122.6.64:3025/login'\n      + ' بحسابك، ثم اكتب هنا الرمز الظاهر (مثال: /login A6C3EN).',\n  } }];\n}\n\nreturn [{ json: {\n  accessToken: who.accessToken,\n  identified: !!who.identified,\n  email: who.email || null,\n  roles: who.roles || null,\n  mode: who.mode,\n  justBound,\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        0
+      ],
+      "id": "acms-login",
+      "name": "ACMS Login",
+      "notes": "يحل هوية صاحب الجلسة ويعيد توكنه — لا يسجّل دخول حساب خدمة."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Approval Gate').first().json.businessContext }}{{ $('Approval Gate').first().json.routingHint }}{{ $('Approval Gate').first().json.userMessage }}",
+        "options": {
+          "systemMessage": "أنت منسّق \"ACMS Agent\" لمنظومة أفرو التجارية. أنت لا تملك بيانات — توجّه فقط.\n\nالوكلاء:\n- sales_intelligence: الفرص، الحسابات، الأنشطة، مواعيد المناقصات.\n- financial_intelligence: التكلفة، التسعير، الهوامش، عروض الموردين.\n- executive_reporting: المؤشرات وملخصات الإدارة وشرح المؤشرات.\n- compliance_and_approval: **عرض** ما ينتظر موافقة، والتدقيق والحوكمة والقيم المرجعية. قراءة فقط — لا يبتّ في شيء.\n- action_agent: أي طلب تغيير (مرحلة، حالة، تحديث بيانات، نشاط، إنشاء حساب أو جهة اتصال أو فرصة). **وكل بتّ في موافقة أو خصم — «وافق»، «اعتمد»، «ارفض» — يذهب إليه هو لا إلى compliance_and_approval.** يجهّز اقتراحًا فقط ولا ينفّذ.\n- report_agent: توليد ملف تقرير جاهز — ملخّص تنفيذي أو ورقة تكلفة، بصيغة PDF أو PowerPoint، ويُعيد رابط التحميل.\n- acms_knowledge_search: أداة بحث في وثائق الشركة المكتوبة — السياسات وإجراءات التشغيل والقوالب والأدلة. ليست وكيلًا.\n\nقواعد:\n- **حدّ فاصل لا يُتجاوز:** ACMS مصدر بيانات النظام، والوثائق مصدر المعرفة المكتوبة. أي سؤال عن فرصة أو حساب أو نشاط أو تكلفة أو هامش أو مؤشر أو حالة سجل يُجاب من وكلاء ACMS **وحدهم**، ولو وجدت الرقم في وثيقة فالوثيقة قديمة والنظام هو الصحيح. وأي سؤال عن سياسة أو إجراء أو تعريف مكتوب يُجاب من acms_knowledge_search.\n- عند الاستشهاد بوثيقة اذكر عنوانها.\n- ممنوع الرد على أي سؤال عن النظام قبل استدعاء وكيل فعليًا. الرد من عندك خطأ فادح.\n- ممنوع ادّعاء أنك سألت وكيلًا أو أن إجراءً نُفِّذ. انقل رد الوكيل حرفيًا.\n- \"لا توجد بيانات\" لا تُقال إلا إذا قالها وكيل.\n- عند التردد استدعِ الأقرب بدل الامتناع. ممنوع اختراع رقم أو اسم.\n- احكم على **آخر** ردّ من الوكيل وحده. إن كان الأخير حقل error أو رسالة فشل فالوكيل لم يعمل: انقل الفشل صراحة واذكر أنه لم يحدث أي تغيير، وممنوع منعًا باتًا صياغته كأنه نجح أو «قيد التنفيذ» أو «بانتظار التأكيد». وإن نجح بعد محاولة فاشلة فاعتمد الناجحة ولا تذكر الفاشلة أصلًا.\n- ردّ الوكيل يصل ككائن فيه answer وقد يحوي risks وrecommendations وlimitations. **اعرض answer كما هو** ولا تعرض الكائن نفسه ولا أسماء الحقول.\n- ألحِق بعده — عند وجودها — المخاطر ثم التوصيات ثم الحدود، كنقاط قصيرة. وإن كانت limitations غير فارغة فاذكرها ولا تُسقطها.\n- رد بلغة السؤال وبإيجاز، وبجدول لأي قائمة أطول من صفين."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1008,
+        0
+      ],
+      "id": "orch-agent",
+      "name": "ACMS Orchestrator",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst login = $input.first().json;\nconst chat = $('When chat message received').first().json;\nconst sessionId = String(chat.sessionId || 'default');\nconst message = String(chat.chatInput || '');\n\n// Identity resolves before anything else can matter: with no token there is\n// nothing to read ACMS with, and a turn that just bound one should say who it\n// now belongs to. Both answer from here, so neither costs a model call.\nif (login.loginRequired) {\n  return [{ json: { route: 'reply', action: null, sessionId,\n                    userMessage: message, messageTruncated: false,\n                    intent: { intent: 'login_required', agent: null,\n                              confidence: 1, action_required: false, entities: {} },\n                    businessContext: '', routingHint: '',\n                    accessToken: null, output: login.output,\n                    hasFile: false, fileName: null, fileExt: null, binaryKey: null } }];\n}\nif (login.justBound && !login.justBound.error) {\n  const roles = (login.justBound.roles || [])\n    .map(function (r) { return r.role + (r.scope ? '/' + r.scope : ''); }).join('، ');\n  return [{ json: { route: 'reply', action: null, sessionId,\n                    userMessage: message, messageTruncated: false,\n                    intent: { intent: 'login_ok', agent: null, confidence: 1,\n                              action_required: false, entities: {} },\n                    businessContext: '', routingHint: '',\n                    accessToken: login.accessToken,\n                    output: '✅ تم ربط الجلسة بحسابك: **' + login.justBound.email + '**'\n                      + (roles ? '\\n\\nالصلاحيات: ' + roles : '')\n                      + '\\n\\nمن الآن ما تراه وما تنفّذه بصلاحياتك أنت، ويُسجَّل باسمك في التدقيق.',\n                    hasFile: false, fileName: null, fileExt: null, binaryKey: null } }];\n}\n\n// The pending proposal lives in the report service, not in n8n's workflow\n// static data: writes to static data did not survive between executions here,\n// so a confirmed action found nothing to run and silently did nothing.\n// `/claim` checks the code and removes the proposal in one locked step, so a\n// code cannot be replayed and two confirmations cannot both win.\nlet route = 'chat';\nlet action = null;\n\nconst codes = message.match(/\\d{4}/g) || [];\nfor (const code of codes) {\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://100.122.6.64:3025/pending/' + encodeURIComponent(sessionId) + '/claim',\n    headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n    body: { code },\n    json: true,\n  });\n  if (res && res.claimed) {\n    route = 'execute';\n    action = res.proposal;\n    break;\n  }\n}\n\n// The uploaded file rides on the trigger item, not on the login response, so\n// carry the binary forward or the extract nodes downstream have nothing to read.\nconst trigger = $('When chat message received').first();\nconst files = (trigger.json && trigger.json.files) || [];\nconst file = files[0] || null;\n\n// Whatever the session already established — which opportunity, which account.\n// Read every turn, so a follow-up (\"حدّث احتمالها 60\") carries the id with it\n// instead of hoping it is still legible somewhere in the transcript.\nlet businessContext = '';\ntry {\n  const c = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'http://100.122.6.64:3025/context/' + encodeURIComponent(sessionId),\n    headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n    json: true,\n  });\n  const x = (c && c.context) || null;\n  if (x && x.opportunityId) {\n    businessContext = '[السياق الجاري — الفرصة '\n      + (x.opportunityCode || '')\n      + (x.opportunityName ? ' «' + x.opportunityName + '»' : '')\n      + '، opportunityId: ' + x.opportunityId\n      + '. استخدمه مباشرة لأي متابعة على نفس الفرصة، ولا تبحث عنها من جديد.]\\n';\n  }\n} catch (e) { /* no context service, no context line — the turn still works */ }\n\n// Screen what is about to enter a prompt. A tender PDF is the realistic\n// carrier for an instruction aimed at the model rather than at a reader.\nlet guardIn = null;\ntry {\n  guardIn = await this.helpers.httpRequest({\n    method: 'POST', url: 'http://100.122.6.64:3025/guard/input',\n    headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n    body: { text: message }, json: true,\n  });\n} catch (e) { /* guard down — the turn proceeds, and telemetry shows the gap */ }\nif (guardIn && guardIn.verdict === 'block') {\n  return [{ json: { route: 'reply', action: null, sessionId,\n                    userMessage: message, messageTruncated: false,\n                    intent: { intent: 'blocked_input', agent: null, confidence: 1,\n                              action_required: false, entities: {} },\n                    businessContext: '', routingHint: '',\n                    accessToken: login.accessToken,\n                    output: '⛔ الطلب يحتوي على تعليمات موجَّهة للنظام نفسه '\n                          + '(' + (guardIn.findings || []).join('، ') + ') ولم يُنفَّذ. '\n                          + 'أعد صياغته كسؤال عن البيانات.',\n                    hasFile: false, fileName: null, fileExt: null, binaryKey: null } }];\n}\n\n// ---------------------------------------------------------------- intent\n//\n// Deterministic first, model second. Two things are worth deciding in code:\n//\n// 1. Whether the message needs the system at all. \"شكرًا\" does not, and running\n//    an orchestrator plus a specialist over it costs a full round trip and real\n//    tokens against a budget that has a daily ceiling. This branch answers with\n//    zero model calls.\n// 2. Which specialist the question belongs to. Measured before writing this:\n//    32 of 38 real questions already dispatched exactly one agent, so routing\n//    was not the problem the audit guessed it was — the hint is therefore a\n//    hint, passed only when a rule is confident, and never a bypass. The\n//    orchestrator still decides.\n//\n// Everything the rules cannot settle falls through untouched, which is what\n// keeps this safe to add.\nconst norm = message\n  .replace(/[ً-ْـ]/g, '')     // harakat and tatweel\n  .replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')\n  .replace(/[^\\p{L}\\p{N}\\s]/gu, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .toLowerCase();\n\nconst SMALL_TALK = [\n  'السلام عليكم', 'وعليكم السلام', 'سلام', 'اهلا', 'اهلا وسهلا', 'هاي', 'مرحبا',\n  'صباح الخير', 'مساء الخير', 'ازيك', 'عامل ايه',\n  'شكرا', 'شكرا جزيلا', 'متشكر', 'تسلم', 'تمام', 'ماشي', 'اوك', 'اوكي',\n  'حلو', 'جميل', 'ممتاز', 'مع السلامه', 'باي',\n  'hi', 'hello', 'hey', 'thanks', 'thank you', 'thx', 'ok', 'okay', 'bye',\n];\nconst CAPABILITY = [\n  'مين انت', 'انت مين', 'تقدر تعمل ايه', 'ايه اللي تقدر تعمله', 'ماذا تستطيع',\n  'ايه امكانياتك', 'مساعده', 'help', 'what can you do', 'who are you',\n];\n\n// Deliberately narrow: an exact match on a short message with no digits in it.\n// A question that merely *contains* \"تمام\" is still a question.\nconst short = norm.length <= 30 && !/\\d/.test(norm);\nconst isSmallTalk = short && SMALL_TALK.includes(norm);\nconst isCapability = CAPABILITY.includes(norm);\n\n// Substring matching, not word boundaries. JavaScript's \\b is defined over\n// [A-Za-z0-9_], so every Arabic-only pattern written with \\b matched nothing at\n// all — the first version of these rules passed only the cases that happened to\n// contain a Latin word. Substrings also suit the language: Arabic glues its\n// articles and prepositions on, so \"الفرص\" and \"بالمؤشرات\" have to hit the same\n// stems as \"فرص\" and \"مؤشرات\".\n//\n// Order is the disambiguator, most specific first: an action verb outranks the\n// noun it acts on, and a request for a *file* outranks the topic that file is\n// about — \"صدّر ورقة التكلفة\" is a report request, not a costing question.\nconst RULES = [\n  ['action_agent', 'change_request',\n   ['انشئ', 'انشاء', 'اضف', 'اضافه', 'عدل', 'تعديل', 'حدث', 'تحديث', 'تغيير',\n    // \"وافق علي\" and not bare \"وافق\": \"موافقة\" contains it, so the bare stem\n    // sent \"إيه اللي مستني موافقة؟\" — a plain read — to the action agent.\n    'انقل', 'نقل', 'احذف', 'حذف', 'اعتمد', 'وافق علي', 'ارفض', 'سجل نشاط']],\n  ['report_agent', 'report_request',\n   ['تقرير', 'تقارير', 'ملف', 'بي دي اف', 'pdf', 'pptx', 'powerpoint',\n    'عرض تقديمي', 'صدر', 'تصدير', 'حملي', 'ابعتلي']],\n  ['executive_reporting', 'kpi_question',\n   ['مؤشر', 'مؤشرات', 'kpi', 'weighted', 'win rate', 'forecast', 'ملخص',\n    'للاداره', 'المدير التنفيذي', 'ceo']],\n  ['financial_intelligence', 'financial_question',\n   ['تكلفه', 'تكاليف', 'هامش', 'هوامش', 'سعر', 'اسعار', 'تسعير', 'ربحيه',\n    'مورد', 'موردين', 'مقارنه عروض']],\n  ['compliance_and_approval', 'governance_question',\n   ['موافقه', 'موافقات', 'تدقيق', 'حوكمه', 'فصل المهام', 'sod', 'صلاحيه',\n    'صلاحيات']],\n  ['sales_intelligence', 'pipeline_question',\n   ['فرصه', 'فرص', 'pipeline', 'عميل', 'عملاء', 'حساب', 'حسابات', 'نشاط',\n    'انشطه', 'تواصل', 'مناقصه', 'مناقصات', 'موعد', 'مواعيد', 'مرحله', 'مراحل']],\n];\n\nlet agentHint = null;\nlet intentName = 'unknown';\nlet confidence = 0;\nfor (const [agent, name, stems] of RULES) {\n  if (stems.some((w) => norm.includes(w))) {\n    agentHint = agent; intentName = name; confidence = 0.8; break;\n  }\n}\nif (isSmallTalk) { intentName = 'small_talk'; agentHint = null; confidence = 1; }\nif (isCapability) { intentName = 'capability_question'; agentHint = null; confidence = 1; }\nif (route === 'execute') { intentName = 'confirmation'; agentHint = null; confidence = 1; }\n\n// Entities the model would otherwise have to re-derive from the sentence.\nconst COUNTRIES = { مصر: 'EG', السودان: 'SD', كينيا: 'KE', مدغشقر: 'MG', 'جزر القمر': 'KM' };\nconst entities = {};\nfor (const [ar, code] of Object.entries(COUNTRIES)) if (norm.includes(ar)) entities.country = code;\nconst cc = message.match(/\\b(EG|SD|KE|MG|KM)\\b/);\nif (cc) entities.country = cc[1];\nconst st = message.match(/\\b(ACTIVE|LOST|CLOSED|CANCELLED|ON_HOLD)\\b/);\nif (st) entities.status = st[1];\nconst days = norm.match(/(\\d+)\\s*(يوم|ايام|day)/);\nif (days) entities.days = Number(days[1]);\n\nconst intent = {\n  intent: intentName,\n  agent: agentHint,\n  confidence,\n  action_required: intentName === 'change_request',\n  entities,\n};\n\n// Which model the specialists run for this turn. Decided here, in code, from\n// the intent that was already computed above — the model never chooses its own\n// size. An intent that is not in the table gets the large model.\nconst SPEC_MODEL_ROUTES = {\"pipeline_question\": \"gpt-4o-mini\"};\nconst specModel = SPEC_MODEL_ROUTES[intentName] || 'gpt-4o';\n\n// Which document classes this turn may retrieve. Computed here, in code, from\n// the identity the login node resolved — never from the question and never from\n// the model. The knowledge tool's filter reads this field, so a class absent\n// from the list cannot be reached no matter how the question is phrased.\n//\n// Everyone gets `internal`. `confidential` is deliberately unreachable until\n// two things are true together: documents of that class are actually indexed,\n// and ACMS_IDENTITY_MODE is `required` — because while it is `optional` every\n// unbound session resolves to the same service account, so a per-identity\n// filter would look like a control and enforce nothing.\nconst ragClasses = ['internal'];\n\n\n// The two cases the model is not needed for at all.\nlet cannedReply = null;\nif (isSmallTalk) {\n  cannedReply = 'أهلًا 👋 اسألني عن الفرص أو المؤشرات أو التكلفة أو ما ينتظر موافقة، '\n              + 'أو ارفع كراسة شروط لأحللها.';\n} else if (isCapability) {\n  cannedReply = 'أنا مساعد **ACMS**. أقدر أجاوب عن:\\n'\n              + '• الفرص والـpipeline ومراحلها ومواعيد المناقصات\\n'\n              + '• التكلفة والهوامش ومقارنة عروض الموردين\\n'\n              + '• مؤشرات الأداء وملخصات الإدارة\\n'\n              + '• الموافقات والتدقيق والحوكمة\\n'\n              + '• توليد تقرير PDF أو PowerPoint\\n'\n              + '• تحليل كراسة شروط أو BOQ ترفعها\\n\\n'\n              + 'وأقدر أجهّز تغييرات في النظام — لكنها لا تُنفَّذ إلا بعد أن تكتب رقم التأكيد.';\n}\nif (cannedReply && route !== 'execute') {\n  route = 'reply';\n}\n\n// The answer cache. Only read questions are eligible: a confirmation, a change\n// request and a report each have a side effect or a file behind them, and an\n// `unknown` intent is by definition a question we could not classify — replaying\n// an answer to one would be guessing twice. A turn carrying a file is never\n// eligible either, because the file, not the sentence, is the question.\n//\n// A hit is answered here, before the orchestrator exists for this turn: no\n// dispatch, no tool call, no tokens. Staleness is handled on the service side —\n// the entry carries a fingerprint of the data it came from and is discarded the\n// moment that data moves — so nothing here needs to reason about freshness.\n// The regression harness is excluded on purpose. Its sessions are fresh each\n// run but the cache is keyed on user and question, not session — so from the\n// second run onward the suite would be scoring answers it had produced itself,\n// at a tenth of the latency, and a broken agent would still pass. A test suite\n// that can hit its own cache measures nothing.\nconst CACHEABLE = ['pipeline_question', 'kpi_question', 'financial_question'];\nconst isHarness = /^rg\\d/.test(sessionId);\nconst cacheUser = login.email || 'svc';\nlet cacheHit = false;\nif (route === 'chat' && !file && !isHarness && CACHEABLE.includes(intentName)) {\n  try {\n    const r = await this.helpers.httpRequest({\n      method: 'POST', url: 'http://100.122.6.64:3025/cache/lookup',\n      headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n      body: { user: cacheUser, question: message }, json: true, timeout: 4000,\n    });\n    if (r && r.hit && r.answer) {\n      cacheHit = true;\n      route = 'reply';\n      // Marked, not hidden. An answer the user is told is an hour old is a\n      // different thing from one presented as fresh.\n      cannedReply = r.answer + '\\n\\n---\\n_إجابة محفوظة من قبل '\n                  + (r.ageMin || 0) + ' دقيقة — البيانات لم تتغيّر منذ ذلك الحين._';\n    }\n  } catch (e) { /* cache unavailable: answer the question normally */ }\n}\n\n// A bound on the question itself, decided here in code rather than discovered\n// later by the model. A 77,000-character message was refused by Groq (413) and\n// then handed to the Ollama fallback, whose context window is *smaller* — it\n// ran for 457 seconds and returned a single Arabic letter. A slow wrong answer\n// is worse than a fast honest one, so the text is cut to something that fits\n// and the model is told plainly that it was cut.\nconst MAX_CHARS = 8000;\nlet userMessage = message;\nlet messageTruncated = false;\nif (userMessage.length > MAX_CHARS) {\n  userMessage = userMessage.slice(0, MAX_CHARS)\n    + '\\n\\n[نص السؤال طويل جدًا وقُطع هنا — أجب عن الجزء الظاهر فقط، وابدأ ردّك '\n    + 'بتنبيه أن السؤال اختُصر وأن على المستخدم تقسيمه أو رفعه كملف.]';\n  messageTruncated = true;\n}\n\nreturn [{\n  json: {\n    route,\n    action,\n    sessionId,\n    userMessage,\n    messageTruncated,\n    intent,\n    specModel,\n    ragClasses,\n    cacheHit,\n    cacheUser,\n    cacheable: route === 'chat' && !file && !isHarness\n               && CACHEABLE.includes(intentName),\n    businessContext,\n    // Only when a rule was confident, and only as one short line — the\n    // orchestrator is free to ignore it, and an unhinted turn behaves exactly\n    // as it did before this existed.\n    routingHint: intent.agent\n      ? '[توجيه مقترح آليًا: ' + intent.agent + ' — تجاهله لو بدا خاطئًا]\\n'\n      : '',\n    output: cannedReply,\n    accessToken: login.accessToken,\n    hasFile: !!file,\n    fileName: file ? file.fileName : null,\n    fileExt: file ? String(file.fileExtension || '').toLowerCase() : null,\n    binaryKey: file ? file.binaryKey : null,\n  },\n  binary: trigger.binary || {},\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1808,
+        0
+      ],
+      "id": "gate",
+      "name": "Approval Gate"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "execute"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "reply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "chat"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1584,
+        0
+      ],
+      "id": "gate-if",
+      "name": "Confirmed?"
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.action.method }}",
+        "url": "={{ $json.action.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.accessToken }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.action.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1808,
+        -704
+      ],
+      "id": "do-action",
+      "name": "Execute Action"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst gate = $('Approval Gate').first().json;\nconst res = $input.first().json;\nconst a = gate.action || {};\n\nconst flat = v => Array.isArray(v) ? v.join('، ')\n  : (v && typeof v === 'object' ? JSON.stringify(v) : String(v));\n\n// fullResponse gives { statusCode, body, headers }; neverError means a 4xx\n// arrives here as ordinary output rather than an exception.\nconst status = res.statusCode || 0;\nconst body = res.body !== undefined ? res.body : res;\n\nif (status >= 400) {\n  let why = body && body.message ? flat(body.message) : 'سبب غير معروف';\n  // Progressive data capture refuses a stage move until that stage's own fields\n  // are filled; naming them is the difference between a dead end and a next step.\n  if (body && body.missingFields) {\n    why += '\\n\\n**حقول مطلوبة قبل هذه الخطوة:** ' + flat(body.missingFields)\n         + '\\n\\nاطلب مني تعبئتها وسأجهّز لك اقتراحًا بها.';\n  }\n  return [{ json: { output: '⛔ **فشل التنفيذ** — ' + a.label + '\\n\\n' + why } }];\n}\n\nconst ref = body && (body.code || body.id)\n  ? ('\\n**المرجع:** `' + (body.code || body.id) + '`') : '';\n\n// A new opportunity starts at LEAD_INTAKE with no probability, so it adds to\n// the open value while contributing nothing to the weighted pipeline. Rather\n// than leave the forecast quietly wrong, hand back the id and ask for the two\n// fields that fix it — the id in the message is what lets the next turn build\n// the update without a second lookup.\nlet followUp = '';\nif ((a.url || '').endsWith('/opportunities') && (a.method || 'POST') === 'POST') {\n  const oid = body && body.id ? body.id : '';\n  followUp = '\\n\\n⚠️ الفرصة الآن في **LEAD_INTAKE** بلا احتمال ولا تاريخ إغلاق '\n           + 'متوقع، فهي تُضاف إلى القيمة المفتوحة لكنها **لا تدخل الـWeighted '\n           + 'Pipeline** إطلاقًا.\\n\\n'\n           + '**لإدخالها في التوقّع، ردّ بالقيمتين** — مثال: '\n           + '«الاحتمال 40 والإغلاق 2026-12-15».\\n'\n           + (oid ? 'opportunityId للتحديث: `' + oid + '`' : '');\n}\n// Record what the conversation is now about, as a field rather than as a\n// sentence in the answer. The line above still prints the id — it is useful to\n// the reader — but the next turn no longer depends on the model finding it\n// there, surviving the buffer, and being parsed back out of prose.\nconst oid = (body && body.id) ? body.id\n  : ((a.url || '').match(/opportunities\\/([0-9a-f-]{36})/) || [])[1];\nif (oid) {\n  try {\n    await this.helpers.httpRequest({\n      method: 'PUT',\n      url: 'http://100.122.6.64:3025/context/' + encodeURIComponent(gate.sessionId),\n      headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n      body: {\n        opportunityId: oid,\n        opportunityCode: body && body.code ? body.code : undefined,\n        opportunityName: body && body.name ? body.name : undefined,\n        accountId: (a.body && a.body.accountId) || undefined,\n      },\n      json: true,\n    });\n  } catch (e) { /* context is an optimisation; never fail the execution for it */ }\n}\n\nreturn [{ json: { output:\n  '✅ **تم التنفيذ** — ' + a.label + '\\n\\n' + (a.summary || '') + ref +\n  '\\n\\nالتغيير مسجَّل في سجل التدقيق باسم حساب المساعد.' + followUp } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1584,
+        -704
+      ],
+      "id": "do-result",
+      "name": "Execution Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst chat = $('When chat message received').first().json;\nconst sessionId = String(chat.sessionId || 'default');\n\n// The agent nodes run with onError=continueRegularOutput, so a failure arrives\n// here as an item carrying `error` instead of aborting the execution. Without\n// this the user saw n8n's own text — \"Your request is invalid or could not be\n// processed by the service\" — which names neither the cause nor anything they\n// could do about it. Groq's two real failure modes are worth separating: 413 is\n// one oversized question, 429 is a minute's budget already spent.\nconst failed = $input.first().json.error;\nif (failed) {\n  const detail = String(\n    (failed && (failed.message || failed.description)) || failed || ''\n  );\n  let msg;\n  if (/too large|413|context/i.test(detail)) {\n    msg = 'السؤال أكبر من ميزانية النموذج في هذه الجولة. اسأل عن نطاق أضيق — '\n        + 'حالة واحدة أو فرصة بعينها — وسيعمل.';\n  } else if (/rate limit|429/i.test(detail)) {\n    msg = 'وصلنا حد الطلبات في هذه الدقيقة. أعد المحاولة بعد نحو دقيقة.';\n  } else if (/ECONNREFUSED|ETIMEDOUT|socket|network|fetch failed/i.test(detail)) {\n    msg = 'تعذّر الوصول إلى النظام الآن — على الأرجح انقطاع مؤقت في الخدمة. '\n        + 'أعد المحاولة بعد قليل.';\n  } else {\n    msg = 'حدث خطأ أثناء معالجة الطلب ولم يُنفَّذ أي تغيير.';\n  }\n  return [{ json: { output: '⚠️ ' + msg + '\\n\\n`' + detail.slice(0, 200) + '`' } }];\n}\n\nlet out = String($input.first().json.output || '');\n// A relayed specialist answer sometimes arrives as the raw tool result.\ntry {\n  const parsed = JSON.parse(out);\n  if (Array.isArray(parsed) && parsed.length && typeof parsed[0].output === 'string') {\n    out = parsed[0].output;\n  } else if (parsed && typeof parsed.output === 'string') {\n    out = parsed.output;\n  }\n} catch (e) { /* plain text — the normal case */ }\n\n// …and sometimes with its newlines still escaped, which renders as a literal \\n.\nif (out.indexOf('\\\\n') !== -1 && out.indexOf('\\n') === -1) {\n  out = out.replace(/\\\\n/g, '\\n').replace(/\\\\\"/g, '\"');\n}\n\n// The proposal itself was created by the action agent calling\n// acms_propose_action, which validated it against the whitelist in the report\n// service and stored it. All that is left here is to announce it — `announce=1`\n// hands each proposal over exactly once, so the block appears on the turn it\n// was created and never repeats.\nlet res = null;\ntry {\n  res = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'http://100.122.6.64:3025/pending/' + encodeURIComponent(sessionId) + '?announce=1',\n    headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n    json: true,\n  });\n} catch (e) { /* no service, no block — the answer still goes out */ }\n\n// Screen the answer against the evidence this session was actually shown. The\n// prompt already tells the agent not to cite what it was not given; this is the\n// part that does not depend on the model agreeing.\nasync function screened(text, hasCode) {\n  try {\n    const g = await this.helpers.httpRequest({\n      method: 'POST', url: 'http://100.122.6.64:3025/guard/output',\n      headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n      body: { answer: text, sessionId, hasPendingCode: !!hasCode }, json: true,\n    });\n    if (!g || g.verdict === 'pass') return text;\n    const why = (g.findings || []).map(function (f) { return f.kind; }).join(', ');\n    if (g.verdict === 'block') {\n      return '⛔ حُجبت الإجابة قبل إرسالها (' + why + '). لم يحدث أي تغيير.';\n    }\n    return text + '\\n\\n---\\n⚠️ **تنبيه تدقيق:** ' + why;\n  } catch (e) {\n    return text;   // guard unavailable: the answer still goes out\n  }\n}\n\n// What the system actually served this session, read from the evidence ledger\n// rather than restated by the model. Appended after screening, not before: the\n// guard's job is to catch codes the session was never given, and feeding it the\n// ledger's own codes would make that check answer itself.\nasync function sources() {\n  if (!true) return '';\n  try {\n    const r = await this.helpers.httpRequest({\n      method: 'GET',\n      url: 'http://100.122.6.64:3025/evidence/' + encodeURIComponent(sessionId),\n      headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' }, json: true, timeout: 4000,\n    });\n    const ev = r && r.evidence;\n    const list = (ev && ev.sources) || [];\n    if (!list.length) return '';\n    const seen = new Set();\n    const parts = [];\n    for (const s of list) {\n      const ep = String(s.endpoint || '');\n      if (!ep || seen.has(ep)) continue;\n      seen.add(ep);\n      let n = '';\n      if (s.returned != null && s.total != null) n = ' (' + s.returned + '/' + s.total + ')';\n      else if (s.returned != null) n = ' (' + s.returned + ')';\n      parts.push('`' + ep + '`' + n + (s.truncated ? ' ✂︎' : ''));\n    }\n    if (!parts.length) return '';\n    const codes = (ev.codes || []).length;\n    return '\\n\\n---\\n_المصادر: ' + parts.join(' · ')\n         + (codes ? ' — ' + codes + ' سجلًا' : '') + '_';\n  } catch (e) {\n    return '';   // ledger unavailable: the answer still goes out, unsourced\n  }\n}\n\nif (!res || !res.fresh || !res.proposal) {\n  const answer = (await screened.call(this, out, false)) + (await sources.call(this));\n  // Store only a clean read answer. Anything the guard touched, anything that\n  // reads as a failure, and anything carrying a confirmation number must never\n  // be replayed to a later turn — a stored refusal would outlive its cause, and\n  // a stored code would be a second chance at a single-use claim.\n  const gate = $('Approval Gate').first().json;\n  const storable = gate.cacheable && !gate.cacheHit\n    && !/^⚠️|^⛔/.test(answer)\n    && !/تنبيه تدقيق|اكتب الرقم/.test(answer);\n  if (storable) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST', url: 'http://100.122.6.64:3025/cache/store',\n        headers: { 'X-ACMS-Svc': 'Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E' },\n        body: { user: gate.cacheUser, question: gate.userMessage, answer },\n        json: true, timeout: 4000,\n      });\n    } catch (e) { /* storing is best effort; the answer still goes out */ }\n  }\n  return [{ json: { output: answer } }];\n}\n\nconst p = res.proposal;\nconst path = String(p.url || '').replace('http://100.122.6.64:4010/api', '');\n\n// Show the exact payload, not just the model's prose. Approving a sentence is\n// not approving the request: a tender clearly marked Sudan once came through as\n// country \"EG\" under a summary that read perfectly well.\nconst fields = Object.entries(p.body || {})\n  .map(([k, v]) => '  - `' + k + '`: ' + (typeof v === 'object' ? JSON.stringify(v) : String(v)))\n  .join('\\n');\n\nconst lines = [\n  out.trim(),\n  '',\n  '---',\n  '⚠️ **لم يُنفَّذ أي شيء بعد.**',\n  '',\n  '**الإجراء المقترح:** ' + p.label,\n  '**التفاصيل:** ' + (p.summary || '—'),\n  '',\n  '**ما سيُرسَل بالضبط** (`' + (p.method || 'POST') + ' ' + path + '`):',\n  fields || '  (بدون حقول)',\n  '',\n  'راجع القيم أعلاه. للتنفيذ اكتب الرقم: **' + p.code + '**',\n  'الاقتراح يسقط تلقائيًا بعد 10 دقائق، وأي اقتراح جديد يلغي هذا.',\n];\nreturn [{ json: { output: await screened.call(this, lines.join('\\n'), true) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        0
+      ],
+      "id": "capture",
+      "name": "Capture Proposal"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.hasFile }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        0
+      ],
+      "id": "has-file",
+      "name": "Has Attachment?"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d1",
+                    "leftValue": "={{ $json.fileExt }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pdf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d2",
+                    "leftValue": "={{ $json.fileExt }}",
+                    "rightValue": "xlsx|xls|ods",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sheet"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d3",
+                    "leftValue": "={{ $json.fileExt }}",
+                    "rightValue": "csv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "csv"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "text"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1296,
+        -1408
+      ],
+      "id": "doc-route",
+      "name": "Route By Type"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "={{ $('Approval Gate').first().json.binaryKey }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1088,
+        -1584
+      ],
+      "id": "x-pdf",
+      "name": "Extract PDF"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "={{ $('Approval Gate').first().json.binaryKey }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1088,
+        -1456
+      ],
+      "id": "x-sheet",
+      "name": "Extract Sheet"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "={{ $('Approval Gate').first().json.binaryKey }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1088,
+        -1344
+      ],
+      "id": "x-csv",
+      "name": "Extract CSV"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "={{ $('Approval Gate').first().json.binaryKey }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1088,
+        -1216
+      ],
+      "id": "x-text",
+      "name": "Extract Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst gate = $('Approval Gate').first().json;\nconst chat = $('When chat message received').first().json;\nconst items = $input.all();\n\n// A PDF or text extract lands in `text`; a spreadsheet arrives as one item per\n// row, so rebuild those into a readable table instead of dumping raw JSON.\nlet text = '';\nif (items.length === 1 && typeof items[0].json.text === 'string') {\n  text = items[0].json.text;\n} else {\n  const rows = items.map(i => i.json).filter(Boolean);\n  if (rows.length) {\n    const cols = Object.keys(rows[0]);\n    const line = r => cols.map(c => (r[c] === undefined || r[c] === null ? '' : String(r[c]))).join(' | ');\n    text = cols.join(' | ') + '\\n' + rows.map(line).join('\\n');\n  }\n}\n\n// Line totals and a grand total are computed here, not by the model. Asked to\n// add up a BOQ it produced six correct line totals and a grand total 1,000 off\n// — arithmetic is the one thing a spreadsheet path must never delegate.\nlet totals = '';\nif (items.length > 1 && items[0].json && typeof items[0].json === 'object') {\n  const rows = items.map(i => i.json).filter(Boolean);\n  const cols = Object.keys(rows[0] || {});\n  const find = re => cols.find(c => re.test(c.replace(/\\s+/g, '').toLowerCase()));\n  const qtyCol = find(/^(qty|quantity|كمية|الكمية)$/);\n  const rateCol = find(/(unitrate|unitprice|rate|price|سعر|السعر)/);\n  const descCol = find(/(desc|description|item|بند|الوصف)/) || cols[0];\n  const num = v => {\n    const n = parseFloat(String(v).replace(/[^0-9.\\-]/g, ''));\n    return isFinite(n) ? n : null;\n  };\n  if (qtyCol && rateCol) {\n    const lines = [];\n    let grand = 0;\n    let ok = true;\n    for (const r of rows) {\n      const q = num(r[qtyCol]);\n      const u = num(r[rateCol]);\n      if (q === null || u === null) { ok = false; continue; }\n      const line = q * u;\n      grand += line;\n      lines.push('- ' + String(r[descCol]) + ': ' + q + ' × ' + u + ' = ' + line.toFixed(2));\n    }\n    if (lines.length) {\n      totals = '\\n\\n--- إجماليات محسوبة آليًا (استخدمها كما هي) ---\\n'\n             + lines.join('\\n')\n             + '\\nالمجموع الكلي: ' + grand.toFixed(2)\n             + (ok ? '' : '\\n(بعض الصفوف تعذّر قراءتها رقميًا وأُسقطت من المجموع)');\n    }\n  }\n}\n\n// Long tenders are common and the budget is finite; truncating loudly beats\n// silently analysing the first third of a document. The figure is set by\n// DOC_PROVIDER — Groq's per-minute ceiling is far below a whole tender.\nconst LIMIT = 30000;\nlet truncated = false;\nif (text.length > LIMIT) {\n  text = text.slice(0, LIMIT);\n  truncated = true;\n}\n\nreturn [{\n  json: {\n    fileName: gate.fileName || 'document',\n    documentText: text + totals,\n    hasComputedTotals: totals !== '',\n    truncated,\n    // Bounded by the gate, same as the chat path — a document already fills\n    // the budget on its own, so the covering note must not add to it unchecked.\n    userMessage: String(gate.userMessage || '').trim(),\n    accessToken: gate.accessToken,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        -1408
+      ],
+      "id": "doc-prep",
+      "name": "Prepare Document"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=المستند: {{ $json.fileName }}{{ $json.truncated ? ' (النص مبتور — يغطي الجزء الأول فقط)' : '' }}\nطلب المستخدم: {{ $json.userMessage || 'لخّص المستند واستخرج المواعيد والمتطلبات' }}\n\n--- نص المستند ---\n{{ $json.documentText }}",
+        "options": {
+          "systemMessage": "أنت وكيل ذكاء المستندات في منظومة أفرو التجارية (ACMS). يصلك نص مستخرج من كراسة شروط أو RFQ/RFP أو جدول كميات (BOQ).\n\nمهمتك:\n1. حدّد نوع المستند والجهة المصدِرة ورقم المناقصة إن وُجد.\n2. استخرج المواعيد الحاسمة: آخر موعد للتقديم، موعد الاستيضاحات، سريان العرض.\n3. استخرج المتطلبات الإلزامية (ضمان ابتدائي، سابقة أعمال، شهادات، شروط جزائية).\n4. لو فيه جدول كميات، لخّص البنود الرئيسية بكمياتها ووحداتها، واذكر عددها الكلي.\n5. اذكر صراحةً ما لم تجده بدل أن تفترضه.\n\nقواعد:\n- كل ما تذكره لازم يكون موجودًا في نص المستند. ممنوع الاستنتاج أو الإكمال.\n- لو النص مبتور (سيُقال لك ذلك) نبّه المستخدم أن التحليل يغطي الجزء المتاح فقط.\n- **ممنوع أن تحسب أي شيء بنفسك**: لا جمع ولا ضرب ولا استنتاج تواريخ من مدد. لو وصلك قسم \"إجماليات محسوبة آليًا\" فانقله كما هو. ولو لم يصلك، قل إن الإجمالي غير محسوب بدل أن تحسبه.\n- التواريخ اعرضها كما وردت حرفيًا. لا تحوّل \"120 يومًا\" إلى تاريخ.\n- المبالغ بعملتها كما وردت.\n\nلو طلب المستخدم تسجيل المستند كفرصة جديدة، ابحث أولًا عن الحساب المناسب بـacms_list_accounts وتأكد أنه موجود، ثم أنهِ ردّك بعلامة:\n@@ACTION{\"action\":\"opportunity_create\",\"name\":\"...\",\"accountId\":\"UUID\",\"country\":\"EG\",\"estimatedValue\":123,\"currency\":\"USD\",\"summary\":\"وصف عربي قصير\"}@@\nممنوع اختراع accountId — لو لم تجد الحساب اسأل المستخدم.\n**country خُذها من المستند نفسه** (SD للسودان، EG لمصر، MG لمدغشقر، KM لجزر القمر، KE لكينيا) ولا تضع قيمة افتراضية. ولو المستند لا يذكر قيمة تقديرية فاترك estimatedValue بدون قيمة بدل أن تضع صفرًا.\nوممنوع أن تقول إن شيئًا نُفِّذ؛ التنفيذ يحدث بعد أن يكتب المستخدم رقم التأكيد."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -608,
+        -1408
+      ],
+      "id": "doc-agent",
+      "name": "Document Agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "mode": "list",
+          "value": "gpt-4o",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        -1648
+      ],
+      "id": "doc-openai",
+      "name": "OpenAI — المستندات",
+      "credentials": {
+        "openAiApi": {
+          "id": "igv9RHd0Uf3Osl8k",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "الإنتاج. نافذة سياق واسعة تستوعب كراسة الشروط في نداء واحد، والردّ بالثواني."
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        -1648
+      ],
+      "id": "doc-groq",
+      "name": "Groq — المستندات",
+      "credentials": {
+        "groqApi": {
+          "id": "aAYHFJ3qCZtTe16y",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true,
+      "notes": "سريع (ثوانٍ). القيد: 8000 توكن/دقيقة للحساب المشترك، فالنص المستخرج يُقصّ عند 30000 حرف — المستندات الطويلة تُحلَّل جزئيًا ويُنبَّه المستخدم."
+    },
+    {
+      "parameters": {
+        "model": "qwen3-vl:30b-a3b-instruct-q4_K_M",
+        "options": {
+          "temperature": 0.1,
+          "keepAlive": "60m",
+          "numCtx": 32768
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -1648
+      ],
+      "id": "doc-model",
+      "name": "Ollama — المستندات",
+      "credentials": {
+        "ollamaApi": {
+          "id": "afroOllamaCred01",
+          "name": "Ollama (Afro server)"
+        }
+      },
+      "disabled": true,
+      "notes": "محلي: بلا حدود على حجم المستند، وكراسة العميل لا تخرج من السيرفر. أبطأ بكثير (70–255 ثانية)."
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 3
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -784,
+        240
+      ],
+      "id": "orch-memory",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1008,
+        240
+      ],
+      "id": "orch-openai",
+      "name": "OpenAI — المنسّق",
+      "credentials": {
+        "openAiApi": {
+          "id": "igv9RHd0Uf3Osl8k",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "الإنتاج. المزوّد النشط والوحيد في المسار التشغيلي."
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        368
+      ],
+      "id": "orch-groq",
+      "name": "Groq — المنسّق",
+      "credentials": {
+        "groqApi": {
+          "id": "aAYHFJ3qCZtTe16y",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true,
+      "notes": "سحابي وسريع (ثوانٍ بدل دقائق). حساب Groq المشترك على الخطة المجانية محدود بـ8000 توكن/دقيقة لكل موديل، ويشاركه باقي workflows الشركة."
+    },
+    {
+      "parameters": {
+        "model": "qwen3-vl:30b-a3b-instruct-q4_K_M",
+        "options": {
+          "temperature": 0.1,
+          "keepAlive": "60m",
+          "numCtx": 8192
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        480
+      ],
+      "id": "orch-ollama",
+      "name": "Ollama — المنسّق",
+      "credentials": {
+        "ollamaApi": {
+          "id": "afroOllamaCred01",
+          "name": "Ollama (Afro server)"
+        }
+      },
+      "disabled": true,
+      "notes": "محلي على السيرفر: بلا حدود والبيانات لا تخرج من الشبكة، لكنه أبطأ بكثير (CPU فقط)."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2352,
+        1168
+      ],
+      "id": "rag-embed",
+      "name": "Embeddings — المعرفة",
+      "credentials": {
+        "openAiApi": {
+          "id": "igv9RHd0Uf3Osl8k",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "لا بد أن يطابق نموذج التضمين المستخدم في الاستيعاب، وإلا فالبحث في فضاء مختلف عن الفهرس."
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "ابحث في وثائق الشركة المكتوبة: السياسات وإجراءات التشغيل والقوالب والأدلة الفنية. استخدمها للأسئلة عن *ما هو مكتوب* — «إيه سياسة كذا؟»، «إيه خطوات كذا؟». **لا تستخدمها لأي سؤال عن بيانات النظام** — الفرص والحسابات والأنشطة والتكلفة والهوامش والمؤشرات وحالة أي سجل تأتي من أدوات ACMS وحدها، ولو ذُكرت في وثيقة فالوثيقة قديمة.",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "acms-knowledge"
+        },
+        "topK": 5,
+        "options": {
+          "searchFilterJson": "={{ JSON.stringify({ must: [ { key: 'metadata.classification', match: { any: $('Approval Gate').first().json.ragClasses } } ] }) }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2352,
+        1008
+      ],
+      "id": "rag-tool",
+      "name": "acms_knowledge_search",
+      "credentials": {
+        "qdrantApi": {
+          "id": "acmsQdrant01",
+          "name": "ACMS Qdrant (local)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "mode": "id",
+          "value": "={{ $('Approval Gate').first().json.specModel || 'gpt-4o' }}"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        240
+      ],
+      "id": "spec-openai",
+      "name": "OpenAI — المتخصصون",
+      "credentials": {
+        "openAiApi": {
+          "id": "igv9RHd0Uf3Osl8k",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "الإنتاج. المزوّد النشط والوحيد في المسار التشغيلي. النموذج يُختار لكل سؤال في «Approval Gate» حسب النية: pipeline_question ← gpt-4o-mini، وما عداها gpt-4o."
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        368
+      ],
+      "id": "spec-groq",
+      "name": "Groq — المتخصصون",
+      "credentials": {
+        "groqApi": {
+          "id": "aAYHFJ3qCZtTe16y",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true,
+      "notes": "سحابي وسريع (ثوانٍ بدل دقائق). حساب Groq المشترك على الخطة المجانية محدود بـ8000 توكن/دقيقة لكل موديل، ويشاركه باقي workflows الشركة."
+    },
+    {
+      "parameters": {
+        "model": "qwen3-vl:30b-a3b-instruct-q4_K_M",
+        "options": {
+          "temperature": 0.1,
+          "keepAlive": "60m",
+          "numCtx": 16384
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        480
+      ],
+      "id": "spec-ollama",
+      "name": "Ollama — المتخصصون",
+      "credentials": {
+        "ollamaApi": {
+          "id": "afroOllamaCred01",
+          "name": "Ollama (Afro server)"
+        }
+      },
+      "disabled": true,
+      "notes": "محلي على السيرفر: بلا حدود والبيانات لا تخرج من الشبكة، لكنه أبطأ بكثير (CPU فقط)."
+    },
+    {
+      "parameters": {
+        "toolDescription": "الفرص التجارية حسب الحالة. مرّر status واحدة من: ACTIVE (المفتوحة) أو LOST (المخسورة) أو CLOSED (المكسوبة/المنتهية) أو CANCELLED أو ON_HOLD. الرد مختصر: كود واسم ومرحلة وحالة وقيمة وعملة وتاريخ إغلاق واسم الحساب، ومعه total وtruncated — إن كانت truncated صحيحة فما عرضته جزء لا الكل. المراحل الممكنة داخل النتيجة: LEAD_INTAKE, LEAD_QUALIFICATION, OPPORTUNITY_QUALIFICATION, SCOPE_DISCOVERY, BID_STRATEGY_SOLUTION, COSTING_SOURCING, OPERATIONAL_FINANCIAL_REVIEW, MANAGEMENT_APPROVAL, PROPOSAL_SUBMISSION, CLARIFICATIONS_NEGOTIATION, AWARD_CONTRACTING, PROJECT_HANDOVER, ACTUAL_PERFORMANCE_FEEDBACK.",
+        "url": "=http://100.122.6.64:3025/q/opportunities",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "={{ $fromAI('status', 'احدى القيم ACTIVE او LOST او CLOSED او CANCELLED او ON_HOLD', 'string') }}"
+            },
+            {
+              "name": "session",
+              "value": "={{ $('When chat message received').first().json.sessionId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        1632
+      ],
+      "id": "t-opps",
+      "name": "acms_list_opportunities",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "ابحث عن فرصة بالاسم أو الكود واحصل على معرّفها (id) وبياناتها. استخدمها دائمًا قبل أي أداة تطلب معرّف فرصة. مرّر جزءًا من الاسم مثل FTTH أو Backbone.",
+        "url": "=http://100.122.6.64:4010/api/opportunities",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $fromAI('search', 'جزء من اسم الفرصة او كودها', 'string') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        1488
+      ],
+      "id": "t-find",
+      "name": "acms_find_opportunity",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "طلبات الموافقة المعلّقة (خصومات، نسخ تكلفة، عروض) بمعرّفاتها.",
+        "url": "=http://100.122.6.64:4010/api/approvals/my-queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        1488
+      ],
+      "id": "t-appr",
+      "name": "acms_approvals_queue",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "قائمة الحسابات/العملاء بأكوادها وبلدها ونوعها وحالتها الائتمانية ومعرّفاتها.",
+        "url": "=http://100.122.6.64:3025/q/accounts",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "session",
+              "value": "={{ $('When chat message received').first().json.sessionId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        1488
+      ],
+      "id": "t-acc",
+      "name": "acms_list_accounts",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "القيم المرجعية المسموحة في النظام (المراحل، الحالات، الأدوار، الصناعات، أنواع الشركاء، الدول، العملات). الرد كبير — لا تستدعها إلا عند الشك في قيمة.",
+        "url": "=http://100.122.6.64:4010/api/master-data",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        1344
+      ],
+      "id": "t-md",
+      "name": "acms_master_data",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\": \"object\", \"properties\": {\"answer\": {\"type\": \"string\", \"description\": \"الإجابة العربية كما تُعرض للمستخدم\"}, \"risks\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"description\": \"مخاطر مستنتجة من البيانات، إن وُجدت\"}, \"recommendations\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"limitations\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"description\": \"ما لم تستطع الإجابة عنه ولماذا\"}, \"action_required\": {\"type\": \"boolean\"}}, \"required\": [\"answer\"]}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -784,
+        384
+      ],
+      "id": "spec-parser",
+      "name": "Specialist Output",
+      "notes": "مخطط موحّد لردود المتخصصين — answer وevidence إلزاميان."
+    },
+    {
+      "parameters": {
+        "toolDescription": "تفاصيل فرصة واحدة بالـUUID: الوصف والاستراتيجية والتواريخ والمالك والحساب. خُذ الـid من acms_list_opportunities (الحقل id وليس code).",
+        "url": "=http://100.122.6.64:4010/api/opportunities/{{ $fromAI('id', 'معرف الفرصة UUID', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        1184
+      ],
+      "id": "t-opp1",
+      "name": "acms_get_opportunity",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "الأنشطة المسجّلة (مكالمات، اجتماعات، مهام) على الفرص والحسابات — لأسئلة آخر تواصل مع عميل أو المهام المتأخرة. لكل نشاط نوعه وموضوعه وموعده وتاريخ إنجازه واسم الفرصة والحساب.",
+        "url": "=http://100.122.6.64:3025/q/activities",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "session",
+              "value": "={{ $('When chat message received').first().json.sessionId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        1344
+      ],
+      "id": "t-act",
+      "name": "acms_list_activities",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "المناقصات التي يقترب موعد إغلاقها خلال عدد أيام معيّن (بين 1 و180).",
+        "url": "=http://100.122.6.64:4010/api/bids/deadlines",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "days",
+              "value": "={{ $fromAI('days', 'عدد الايام من 1 الى 180', 'number') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        1488
+      ],
+      "id": "t-dl",
+      "name": "acms_bid_deadlines",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل ذكاء المبيعات: الفرص التجارية ومراحلها وصحتها وقيمها، الحسابات والعملاء، الأنشطة وآخر تواصل، ومواعيد إغلاق المناقصات القريبة. استخدمه لأي سؤال عن pipeline أو فرصة أو عميل أو موعد مناقصة.",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل ذكاء المبيعات في منظومة أفرو التجارية (ACMS). تخصصك: الفرص التجارية وصحتها ومراحلها، الحسابات والعملاء، الأنشطة والتواصل، ومواعيد إغلاق المناقصات. أجب عن سؤال المنسّق باختصار وبجدول عند الحاجة.\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- stage و status و forecastCategory و health أربع صفات مختلفة للفرصة، لا تخلط بينها.\n- الهامش يُحسب على سعر البيع لا على التكلفة (Margin ≠ Markup).\n- اعرض المبالغ بعملتها ولا تحوّل بين العملات.\n- أنت في وضع قراءة فقط: لا إنشاء ولا تعديل ولا حذف.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك.\n- حقل facts في رد الأداة **محسوب من النظام**: اقتبسه كما هو وممنوع أن تعيد حسابه أو تستنتج بديلًا عنه — وخصوصًا أيام آخر تواصل (daysSinceContact وneverContacted) وعدد المتأخرات (overdueCount). لو حقل محسوب غير موجود فقل إنه غير متاح بدل أن تحسبه بنفسك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -704,
+        1008
+      ],
+      "id": "ag-sales",
+      "name": "sales_intelligence",
+      "notes": "1 · ذكاء المبيعات"
+    },
+    {
+      "parameters": {
+        "toolDescription": "سيناريوهات التكلفة والتسعير لفرصة: الحزم والبنود والتكاليف والهامش.",
+        "url": "=http://100.122.6.64:4010/api/opportunities/{{ $fromAI('opportunityId', 'معرف الفرصة UUID', 'string') }}/costing",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        1184
+      ],
+      "id": "t-cost",
+      "name": "acms_opportunity_costing",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "مقارنة عروض الموردين والمقاولين من الباطن لفرصة معيّنة، فنيًا وتجاريًا.",
+        "url": "=http://100.122.6.64:4010/api/opportunities/{{ $fromAI('opportunityId', 'معرف الفرصة UUID', 'string') }}/quotation-comparison",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        1344
+      ],
+      "id": "t-quot",
+      "name": "acms_quotation_comparison",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل الذكاء المالي: مراجعة التكلفة، تحليل الهامش، التحقق من التسعير، ومقارنة عروض الموردين والمقاولين من الباطن. استخدمه لأي سؤال عن تكلفة أو ربحية أو سعر أو مورّد.",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل الذكاء المالي في منظومة أفرو التجارية (ACMS). تخصصك: التكلفة والتسعير والهوامش ومقارنة عروض الموردين. لو احتجت معرّف فرصة، ابحث عنها أولًا بـacms_list_opportunities ثم استخدم الـid. وضّح دائمًا أن الهامش محسوب على سعر البيع.\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- stage و status و forecastCategory و health أربع صفات مختلفة للفرصة، لا تخلط بينها.\n- الهامش يُحسب على سعر البيع لا على التكلفة (Margin ≠ Markup).\n- اعرض المبالغ بعملتها ولا تحوّل بين العملات.\n- أنت في وضع قراءة فقط: لا إنشاء ولا تعديل ولا حذف.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك.\n- حقل facts في رد الأداة **محسوب من النظام**: اقتبسه كما هو وممنوع أن تعيد حسابه أو تستنتج بديلًا عنه — وخصوصًا أيام آخر تواصل (daysSinceContact وneverContacted) وعدد المتأخرات (overdueCount). لو حقل محسوب غير موجود فقل إنه غير متاح بدل أن تحسبه بنفسك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        1008
+      ],
+      "id": "ag-fin",
+      "name": "financial_intelligence",
+      "notes": "2 · الذكاء المالي"
+    },
+    {
+      "parameters": {
+        "toolDescription": "مؤشرات الأداء الحالية: WEIGHTED_PIPELINE, WIN_RATE, FORECAST_ACCURACY, OPEN_APPROVALS, APPROVAL_WAIT, GROSS_MARGIN — بقيمتها ووحدتها وعدد السجلات (basis) وسبب عدم التوفر إن وُجد.",
+        "url": "=http://100.122.6.64:4010/api/metrics/dashboard",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        1184
+      ],
+      "id": "t-met",
+      "name": "acms_dashboard_metrics",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "شرح مؤشر واحد: طريقة حسابه والقرار الذي يخدمه وكيف يمكن التلاعب فيه. استخدمها فقط عند السؤال عن معنى مؤشر أو تفسير قيمته.",
+        "url": "=http://100.122.6.64:4010/api/metrics/{{ $fromAI('code', 'كود المؤشر بحروف كبيرة', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        1344
+      ],
+      "id": "t-met1",
+      "name": "acms_metric_explain",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل التقارير التنفيذية: مؤشرات الأداء (Weighted Pipeline، Win Rate، Forecast Accuracy، Gross Margin، الموافقات المفتوحة وزمن انتظارها) وملخصات الإدارة العليا وشرح معنى أي مؤشر. استخدمه لأي سؤال عن الحالة العامة أو ملخص للـCEO أو معنى مؤشر.",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل التقارير التنفيذية في منظومة أفرو التجارية (ACMS). تخصصك: مؤشرات الأداء وملخصات الإدارة العليا. عند عرض أي مؤشر اذكر قيمته ثم طريقة حسابه باختصار. لو المؤشر رجع unavailableReason فاشرح السبب بدل أن تقول \"صفر\".\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- stage و status و forecastCategory و health أربع صفات مختلفة للفرصة، لا تخلط بينها.\n- الهامش يُحسب على سعر البيع لا على التكلفة (Margin ≠ Markup).\n- اعرض المبالغ بعملتها ولا تحوّل بين العملات.\n- أنت في وضع قراءة فقط: لا إنشاء ولا تعديل ولا حذف.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك.\n- حقل facts في رد الأداة **محسوب من النظام**: اقتبسه كما هو وممنوع أن تعيد حسابه أو تستنتج بديلًا عنه — وخصوصًا أيام آخر تواصل (daysSinceContact وneverContacted) وعدد المتأخرات (overdueCount). لو حقل محسوب غير موجود فقل إنه غير متاح بدل أن تحسبه بنفسك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        304,
+        1008
+      ],
+      "id": "ag-exec",
+      "name": "executive_reporting",
+      "notes": "3 · التقارير التنفيذية"
+    },
+    {
+      "parameters": {
+        "toolDescription": "سجل التدقيق لأي سجل: من غيّر ماذا ومتى.",
+        "url": "=http://100.122.6.64:4010/api/audit/{{ $fromAI('entityType', 'نوع السجل مثل Opportunity او Account', 'string') }}/{{ $fromAI('entityId', 'معرف السجل UUID', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        1184
+      ],
+      "id": "t-aud",
+      "name": "acms_audit_trail",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "قواعد فصل المهام (Segregation of Duties) — من الممنوع عليه اعتماد ما أعدّه بنفسه.",
+        "url": "=http://100.122.6.64:4010/api/governance/sod-rules",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('ACMS Login').first().json.accessToken }}"
+            },
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        1344
+      ],
+      "id": "t-sod",
+      "name": "acms_sod_rules",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل الالتزام والموافقات: ما ينتظر موافقة، سجل التدقيق (من غيّر ماذا ومتى)، قواعد فصل المهام، والقيم المرجعية المسموحة في النظام. استخدمه لأسئلة الموافقات والحوكمة والتدقيق وأسماء القيم المسموحة.",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل الالتزام والموافقات في منظومة أفرو التجارية (ACMS). تخصصك: طلبات الموافقة المعلّقة، سجل التدقيق، قواعد فصل المهام، والقيم المرجعية المسموحة.\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- stage و status و forecastCategory و health أربع صفات مختلفة للفرصة، لا تخلط بينها.\n- أنت في وضع قراءة فقط: لا إنشاء ولا تعديل ولا حذف.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        800,
+        1008
+      ],
+      "id": "ag-gov",
+      "name": "compliance_and_approval",
+      "notes": "4 · الالتزام والموافقات"
+    },
+    {
+      "parameters": {
+        "toolDescription": "سجّل اقتراح إجراء ينتظر تأكيد المستخدم. هذه هي الطريقة الوحيدة لتسجيل أي تغيير. تُعيد ok=true مع رقم التأكيد، أو ok=false مع سبب الرفض. لا تنفّذ شيئًا بنفسها.",
+        "method": "POST",
+        "url": "http://100.122.6.64:3025/propose",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sessionId",
+              "value": "={{ $('When chat message received').first().json.sessionId }}"
+            },
+            {
+              "name": "action",
+              "value": "={{ $fromAI('action', 'اسم الاجراء مثل contact_create', 'string') }}"
+            },
+            {
+              "name": "params",
+              "value": "={{ $fromAI('params', 'كائن JSON بحقول الاجراء، مثل {\"accountId\":\"uuid\",\"fullName\":\"...\"}', 'string') }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $fromAI('summary', 'وصف عربي قصير لما سيحدث', 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        1184
+      ],
+      "id": "t-prop",
+      "name": "acms_propose_action",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل التنفيذ: أي طلب تغيير في النظام — نقل فرصة لمرحلة أخرى، تغيير حالتها (مكسوبة/مخسورة/معلّقة)، تسجيل نشاط أو مهمة، البتّ في طلب موافقة أو خصم. يُرجع اقتراحًا ينتظر تأكيد المستخدم ولا ينفّذ شيئًا بنفسه.",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل التنفيذ في منظومة أفرو التجارية (ACMS). أنت **لا تنفّذ شيئًا بنفسك** — أدواتك كلها قراءة فقط. دورك أن تجهّز اقتراح إجراء دقيقًا ينتظر تأكيد المستخدم.\n\nالخطوات:\n1. حدّد الإجراء المطلوب واجمع معرّفاته الحقيقية بأدوات القراءة (acms_find_opportunity للفرص، acms_list_accounts للحسابات، acms_approvals_queue للموافقات). ممنوع اختراع أي معرّف.\n   كل القيم المسموحة مذكورة أدناه — لا تستدعِ أداة للبحث عنها.\n   **لو لم تجد الحساب أو الفرصة المطلوبة بالاسم الذي ذكره المستخدم، فقل ذلك صراحةً ولا تستبدل بها سجلًا آخر قريبًا.** النظام يتحقّق من أن كل معرّف ترسله يخصّ فعلًا الاسم الذي تذكره، ويرفض الاقتراح إن اختلفا.\n2. لو نقص شيء أو كان الطلب غامضًا، اسأل ولا تقترح.\n   لو وصلك سطر «السياق الجاري» فيه opportunityId فاستخدمه مباشرة لأي متابعة على نفس الفرصة، ولا تبحث عنها من جديد ولا تسأل عن اسمها.\n3. لو كان كل شيء واضحًا، **استدعِ أداة acms_propose_action** — هي الطريقة الوحيدة لتسجيل اقتراح. مرّر:\n   action: اسم الإجراء من القائمة أدناه.\n   params: كائن JSON بحقول الإجراء فقط، مثل {\"accountId\":\"a3d5…\",\"fullName\":\"Mohamed Salah\",\"jobTitle\":\"PM\"}\n   summary: وصف عربي قصير لما سيحدث.\n   ثم اكتب للمستخدم سطرًا واحدًا بصيغة المستقبل يصف ما سيحدث، ولا تذكر رقم تأكيد — النظام يضيفه بنفسه بعد ردّك.\n   لو ردّت الأداة بـok=false فاعرض رسالة الخطأ كما هي ولا تدّعِ أن شيئًا تم.\n\nالإجراءات المسموح بها وحقولها:\n- stage: opportunityId, toStage, reason — نقل الفرصة لمرحلة أخرى. لو رفض النظام بسبب حقول ناقصة (Progressive Data Capture) اقترح update أولًا لتعبئتها.\n- update: opportunityId, fields {scopeSummary, solutionStrategy, nextStep, estimatedValue, proposedPrice, probability, forecastCategory, health, expectedCloseDate} — تحديث بيانات الفرصة.\n- status: opportunityId, status (ACTIVE/ON_HOLD/CANCELLED/LOST/CLOSED), exitReason (NO_BID/LOST/CANCELLED/ON_HOLD/DISQUALIFIED مطلوب لغير CLOSED), exitNotes.\n- activity: type (CALL/MEETING/EMAIL/SITE_VISIT/NOTE/TASK), subject, opportunityId أو accountId, dueAt (ISO), body, completed.\n- opportunity_create: name, accountId (من acms_list_accounts), accountName, country (رمز حرفين) — المطلوب فقط. وإن ذُكرت: industry, source, currency, estimatedValue, nextStep. **لا تسأل عن الاختيارية؛ اقترح بما لديك واذكر ما تركته فارغًا.**\n  source من: TENDER_PORTAL, DIRECT_INVITATION, REFERRAL, EXISTING_CLIENT, MARKETING, PARTNER, OTHER.\n  estimatedValue لا تضع فيها صفرًا إن كانت القيمة غير معروفة — اتركها.\n- account_create: legalName, type, country (رمز حرفين) — وإن ذُكرت: tradeName, industry, city, address, website, taxId, creditStatus, paymentTermDays.\n  type من: OPERATOR, CONTRACTOR, GOVERNMENT, ENTERPRISE, DEVELOPER, VENDOR.\n  industry من: FTTH, FTTS, WIRELESS, FIXED, SUBMARINE, MEP, ELV, CORE_NETWORK, IT, SUPPLY.\n  creditStatus من: GOOD, WATCH, HOLD, BLOCKED.\n  **الحساب لا يحمل عملة** — العملة على مستوى الفرصة. لو ذكر المستخدم عملة فوضّح ذلك ولا تدرجها.\n  قبل الاقتراح ابحث في acms_list_accounts للتأكد أن العميل غير مسجَّل بالفعل، وإن وجدته فاعرضه بدل إنشاء نسخة مكررة.\n- contact_create: accountId (UUID من acms_list_accounts)، accountName، fullName — وإن ذُكرت: jobTitle, email, phone, mobile, influence, isPrimary, notes, roles.\n  influence من: HIGH, MEDIUM, LOW, UNKNOWN.\n  roles مصفوفة من: DECISION_MAKER, TECHNICAL_EVALUATOR, COMMERCIAL_EVALUATOR, PROCUREMENT, FINANCE, END_USER, GATEKEEPER, CHAMPION, BLOCKER.\n  ابحث عن الحساب أولًا بـacms_list_accounts؛ لو لم تجده فاقترح account_create قبله ولا تخترع معرّفًا.\n- approval_decide: approvalId, decision, note.\n  لو رجعت acms_approvals_queue فارغة فهذا يعني **لا يوجد طلب في قائمتك**، وليس أنك غير مخوَّل. قل ذلك صراحة — وممنوع أن تقول إنك لا تستطيع الاعتماد أو إنك بلا صلاحية.\n- discount_decide: discountId, approve (true/false), note.\n\nالمراحل المسموحة: LEAD_INTAKE, LEAD_QUALIFICATION, OPPORTUNITY_QUALIFICATION, SCOPE_DISCOVERY, BID_STRATEGY_SOLUTION, COSTING_SOURCING, OPERATIONAL_FINANCIAL_REVIEW, MANAGEMENT_APPROVAL, PROPOSAL_SUBMISSION, CLARIFICATIONS_NEGOTIATION, AWARD_CONTRACTING, PROJECT_HANDOVER, ACTUAL_PERFORMANCE_FEEDBACK.\n\n**ممنوع منعًا باتًا** أن تقول \"تم\" أو \"نُفِّذ\" أو \"حدّثت\" أو \"أنشأت\" — لم يحدث شيء بعد. ولا تذكر رقم تأكيد ولا تخترعه.\n\nمثال كامل: للطلب «أضف حساب Etisalat في مصر، مشغّل، لاسلكي» تستدعي:\n  action = account_create\n  params = {\"legalName\":\"Etisalat\",\"type\":\"OPERATOR\",\"country\":\"EG\",\"industry\":\"WIRELESS\"}\n  summary = إنشاء حساب Etisalat\nثم تكتب: «سيتم إنشاء حساب باسم Etisalat في مصر، نوع OPERATOR وصناعة WIRELESS.»\n\nإن لم تستدعِ الأداة فلم تطلب شيئًا — فلا تصف الإجراء وكأنه حدث.\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- stage و status و forecastCategory و health أربع صفات مختلفة للفرصة، لا تخلط بينها.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك.\n- حقل facts في رد الأداة **محسوب من النظام**: اقتبسه كما هو وممنوع أن تعيد حسابه أو تستنتج بديلًا عنه — وخصوصًا أيام آخر تواصل (daysSinceContact وneverContacted) وعدد المتأخرات (overdueCount). لو حقل محسوب غير موجود فقل إنه غير متاح بدل أن تحسبه بنفسك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        1312,
+        1008
+      ],
+      "id": "ag-act",
+      "name": "action_agent",
+      "notes": "5 · التنفيذ والتكامل"
+    },
+    {
+      "parameters": {
+        "toolDescription": "يولّد ملف تقرير من بيانات ACMS الحيّة ويعيد رابط تحميله مع حقل facts فيه الأرقام المحسوبة. report: exec_summary أو cost_sheet. format: pdf أو pptx. opportunityId مطلوب لـcost_sheet فقط. narrative تعليق عربي قصير بلا أرقام.",
+        "method": "POST",
+        "url": "http://100.122.6.64:3025/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-ACMS-Svc",
+              "value": "Q5XwviM2-hdN48Q7gpyH7zkEM3ubBwJEONcjTNoub2E"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "report",
+              "value": "={{ $fromAI('report', 'exec_summary او cost_sheet', 'string') }}"
+            },
+            {
+              "name": "format",
+              "value": "={{ $fromAI('format', 'pdf او pptx', 'string') }}"
+            },
+            {
+              "name": "opportunityId",
+              "value": "={{ $fromAI('opportunityId', 'معرف الفرصة UUID لتقرير التكلفة فقط، والا اتركه فارغا', 'string') }}"
+            },
+            {
+              "name": "narrative",
+              "value": "={{ $fromAI('narrative', 'تعليق تنفيذي قصير بالعربية يوضع في التقرير، بدون ارقام', 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1808,
+        1184
+      ],
+      "id": "t-rep",
+      "name": "acms_generate_report",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "وكيل التقارير: يولّد ملفًا جاهزًا — ملخّص تنفيذي أو ورقة تكلفة — بصيغة PDF أو PowerPoint، ويعيد رابط تحميله. استخدمه لأي طلب فيه \"تقرير\" أو \"ملف\" أو \"عرض تقديمي\" أو \"صدّر\" أو \"ابعتلي\".",
+        "text": "={{ $fromAI('query', 'نص السؤال كجملة واحدة', 'string') }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "أنت وكيل التقارير في منظومة أفرو التجارية (ACMS). تولّد ملفات جاهزة للإرسال عبر أداة acms_generate_report، ثم تعطي المستخدم رابط التحميل.\n\nالتقارير المتاحة:\n- exec_summary: ملخّص تنفيذي — مؤشرات الأداء، الـpipeline حسب المرحلة، الفرص المفتوحة، مواعيد المناقصات، والمكسوب والمخسور. لا يحتاج معرّف فرصة.\n- cost_sheet: ورقة تكلفة لفرصة واحدة — الحزم والبنود وإجمالي البيع والتكلفة والهامش. يحتاج opportunityId، فابحث عنه أولًا بـacms_find_opportunity.\n\nالصيغ: pdf للقراءة والطباعة، pptx للعرض على الإدارة.\n\n**كل الأرقام تُحسب داخل خدمة التقارير من بيانات النظام — لا تحسب شيئًا ولا تكتب رقمًا في التعليق.** حقل narrative مخصّص لتعليق تنفيذي قصير (سطران أو ثلاثة) عن الاتجاه والمخاطر والخطوة التالية، بلا أرقام.\n\nبعد التوليد تُرجع الأداة رابطًا وحقل facts فيه الأرقام الحقيقية — اعرض الرابط ثم لخّص facts كما جاءت حرفيًا. لو رجع خطأ فاذكره كما هو ولا تدّعِ أن الملف جاهز.\n\nقواعد ملزمة:\n- لا تذكر أي رقم أو اسم أو حالة إلا إذا رجع من أداة استدعيتها الآن. ممنوع التخمين.\n- نتيجة فاضية معناها \"لا توجد بيانات في النظام\" — مش صفر ومش تقدير.\n- اذكر مع كل رقم أو استنتاج مصدره: كود السجل أو معرّفه (مثل OPP-2026-000013 أو ACC-2026-000006). استنتاج بلا سجل يسنده لا يُذكر.\n- أنت في وضع قراءة فقط: لا إنشاء ولا تعديل ولا حذف.\n- لو رجع في رد أداة حقل error فالأداة فشلت: قل ذلك صراحة ولا تعتبرها نتيجة فارغة ولا تكمل الناقص من عندك.\n- لو جاء في الرد truncated=true فما وصلك جزء من السجلات لا كلها — قل ذلك."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        1808,
+        1008
+      ],
+      "id": "ag-rep",
+      "name": "report_agent",
+      "notes": "6 · التقارير المولَّدة"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acms-rag-ingest-01",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        2208
+      ],
+      "id": "ing-hook",
+      "name": "Ingest Request",
+      "webhookId": "acms-rag-ingest-01",
+      "notes": "POST {docId,title,text,classification,orgUnitId,docType,source}"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $input.first().json.body || $input.first().json;\n\nconst REQUIRED = ['docId', 'title', 'text', 'classification', 'docType'];\nconst missing = REQUIRED.filter((k) => !String(body[k] || '').trim());\nif (missing.length) {\n  return [{ json: { ok: false, error: 'حقول ناقصة: ' + missing.join('، ') } }];\n}\n\n// Rejected, never defaulted. Guessing \"internal\" puts a contract in front of\n// everyone; guessing \"confidential\" hides something nobody will find again.\nconst CLASSES = ['internal', 'confidential'];\nif (!CLASSES.includes(String(body.classification))) {\n  return [{ json: { ok: false,\n    error: 'classification لا بد أن تكون: ' + CLASSES.join(' أو ') } }];\n}\n\nconst text = String(body.text);\nif (text.length < 40) {\n  return [{ json: { ok: false, error: 'النص أقصر من أن يُفهرس.' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: String(body.docId),\n    title: String(body.title),\n    text,\n    classification: String(body.classification),\n    orgUnitId: String(body.orgUnitId || '*'),\n    docType: String(body.docType),\n    source: String(body.source || 'manual'),\n    indexedAt: new Date().toISOString(),\n    chars: text.length,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2160,
+        2208
+      ],
+      "id": "ing-validate",
+      "name": "Validate Document"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1920,
+        2208
+      ],
+      "id": "ing-valid",
+      "name": "Valid Document?"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "acms-knowledge"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        -1664,
+        2128
+      ],
+      "id": "ing-store",
+      "name": "Qdrant · Insert",
+      "credentials": {
+        "qdrantApi": {
+          "id": "acmsQdrant01",
+          "name": "ACMS Qdrant (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "docId",
+                "value": "={{ $json.docId }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "classification",
+                "value": "={{ $json.classification }}"
+              },
+              {
+                "name": "orgUnitId",
+                "value": "={{ $json.orgUnitId }}"
+              },
+              {
+                "name": "docType",
+                "value": "={{ $json.docType }}"
+              },
+              {
+                "name": "source",
+                "value": "={{ $json.source }}"
+              },
+              {
+                "name": "indexedAt",
+                "value": "={{ $json.indexedAt }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -1648,
+        2448
+      ],
+      "id": "ing-loader",
+      "name": "Document Loader"
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 200,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        2624
+      ],
+      "id": "ing-splitter",
+      "name": "Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1856,
+        2448
+      ],
+      "id": "ing-embed",
+      "name": "Embeddings — الاستيعاب",
+      "credentials": {
+        "openAiApi": {
+          "id": "igv9RHd0Uf3Osl8k",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "لا بد أن يطابق نموذج تضمين البحث، وإلا فالفهرس والاستعلام في فضاءين مختلفين."
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: true, docId: $('Validate Document').first().json.docId } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        2128
+      ],
+      "id": "ing-done",
+      "name": "Indexed"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: $('Validate Document').first().json.error } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        2304
+      ],
+      "id": "ing-reject",
+      "name": "Rejected"
+    },
+    {
+      "parameters": {
+        "content": "## 1 · المدخل والهوية\nالمحادثة تدخل من هنا، و**ACMS Login** يحوّل الجلسة إلى توكن المستخدم الحقيقي.\n\n`ACMS_IDENTITY_MODE=required` — الجلسة غير المرتبطة لا تحصل على توكن، وتُطالَب بـ`/login`. كلمة السر لا تمرّ من هنا أبدًا: المستخدم يسجّل في صفحة الدخول ويعود برمز ربط.\n\n⚠️ حزمة الانحدار تستخدم جلسات غير مرتبطة، فشغّلها عبر `acms-regress/run-regress.sh` الذي يخفّض الوضع مؤقتًا ويعيده.",
+        "height": 440,
+        "width": 520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2448,
+        -192
+      ],
+      "id": "note-المدخل والهوية",
+      "name": "Sticky · المدخل والهوية"
+    },
+    {
+      "parameters": {
+        "content": "## 2 · البوابة الحتمية — بلا نموذج\n**Approval Gate** يقرّر كل شيء بالكود قبل أن يُستدعى أي نموذج:\n- النية والتوجيه (مطابقة نصية — `\\b` لا تعمل مع العربية)\n- المسار: تنفيذ / ردّ جاهز / محادثة\n- **أي نموذج** يشغّل المتخصصين (`specModel`)\n- **أي أصناف وثائق** يُسمح بها (`ragClasses`)\n- فحص حقن الأوامر، وحدّ 8000 حرف\n- البحث في ذاكرة الإجابات\n\nالتحية و«ماذا تستطيع؟» تُجاب من هنا في ~750ms بلا أي توكن.",
+        "height": 440,
+        "width": 740,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        -192
+      ],
+      "id": "note-البوابة الحتمية",
+      "name": "Sticky · البوابة الحتمية"
+    },
+    {
+      "parameters": {
+        "content": "## 3 · مسار الكتابة — خالٍ من النموذج\nبعد أن يكتب المستخدم رقم التأكيد، الطلب المخزَّن يُعاد إرساله كما هو. **النموذج غائب عن هذا المسار تمامًا** — لا يقرّر المسار ولا الحمولة.\n\nالرقم يُستهلك مرة واحدة؛ إعادته أو تخمينه لا تُنتج أي أثر.",
+        "height": 440,
+        "width": 520,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        -896
+      ],
+      "id": "note-مسار التنفيذ",
+      "name": "Sticky · مسار التنفيذ"
+    },
+    {
+      "parameters": {
+        "content": "## 4 · المستندات\nالملف المرفوع يصل كـ`data0`، ويُوجَّه حسب الامتداد إلى أحد أربعة مستخرجات ثم إلى **Prepare Document**.\n\n**الحساب يتم في الكود لا في النموذج:** الأعمدة الرقمية تُجمَع وتُسلَّم كحقائق. طُلب من النموذج جمع BOQ فأخرج ستة أسطر صحيحة ومجموعًا يزيد 1000، وعلى النص الخام اخترع 420,985 بدل 1,469,340.",
+        "height": 870,
+        "width": 1440,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        -1840
+      ],
+      "id": "note-مسار المستندات",
+      "name": "Sticky · مسار المستندات"
+    },
+    {
+      "parameters": {
+        "content": "## 5 · المنسّق\nيوزّع فقط — لا يملك بيانات ولا يحسب.\n\n**المزوّد النشط: OpenAI وحده.**\nGroq وOllama موجودتان ومعطَّلتان (Disabled) عمدًا — للرجوع المستقبلي بقرار صريح، لا كاحتياطي تلقائي.\n\nالمنسّق على `gpt-4o-mini`، والمتخصصون يختارون النموذج لكل سؤال حسب النية القادمة من البوابة.",
+        "height": 920,
+        "width": 740,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        -192
+      ],
+      "id": "note-المنسّق والنماذج",
+      "name": "Sticky · المنسّق والنماذج"
+    },
+    {
+      "parameters": {
+        "content": "## 6 · الوكلاء المتخصصون\nكل واحد وكيل كامل بتعليماته وأدواته. القواعد مركّبة لكل وكيل — لا كتلة واحدة للجميع: إخبار `action_agent` أنه «للقراءة فقط» كان تناقضًا جعله يرفض عملًا من صميم مهمته.\n\nالأدوات أسفلهم تقرأ عبر طبقة `/q/*` التي تُسقِط الحقول غير المطلوبة وتحسب الحقائق — لا عبر ACMS مباشرة.",
+        "height": 1070,
+        "width": 2800,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        816
+      ],
+      "id": "note-المتخصصون",
+      "name": "Sticky · المتخصصون"
+    },
+    {
+      "parameters": {
+        "content": "## 7 · المعرفة (RAG)\nبحث في وثائق الشركة عبر Qdrant محلي.\n\n**الحدّ:** ACMS مصدر بيانات النظام، والوثائق مصدر المعرفة المكتوبة. أي رقم عن فرصة أو تكلفة أو حالة يأتي من ACMS — ولو ورد في وثيقة فالوثيقة قديمة.\n\nالفلتر **تعبير ثابت** يقرأ `ragClasses` من البوابة، لا `$fromAI`. النموذج يختار الاستعلام، لا ما يُسمح له برؤيته.",
+        "height": 600,
+        "width": 300,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        816
+      ],
+      "id": "note-طبقة المعرفة",
+      "name": "Sticky · طبقة المعرفة"
+    },
+    {
+      "parameters": {
+        "content": "## 8 · التسليم\n**Capture Proposal** هي آخر ما يلمس الإجابة:\n- يفحصها حارس المخرجات (تسريب، كود لم يُقدَّم، ادّعاء تنفيذ)\n- يُلحق المصادر **من سجل الأدلة** لا من كلام النموذج\n- يخزّن الإجابة في الذاكرة إن كانت صالحة\n\nالمخطط المهيكل لا يطلب `evidence` من النموذج عمدًا: حقل إلزامي بلا قيمة صحيحة يُنتِج اختلاقًا، لا إسنادًا.",
+        "height": 440,
+        "width": 300,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        -192
+      ],
+      "id": "note-التسليم",
+      "name": "Sticky · التسليم"
+    },
+    {
+      "parameters": {
+        "content": "## 9 · استيعاب الوثائق — مسار منفصل\n`POST /webhook/acms-rag-ingest-01`\n`{docId, title, text, classification, orgUnitId, docType, source}`\n\n**لا يتصل بمسار المحادثة إطلاقًا** — مخطط مستقل داخل نفس الملف.\n\n`classification` إما `internal` أو `confidential`، و**الوثيقة بلا تصنيف تُرفض ولا تُخمَّن**.\n\nالتقطيع 1000/200. نموذج التضمين هنا **يجب** أن يطابق نموذج البحث في طبقة المعرفة، وإلا فالفهرسة والاستعلام في فضاءين مختلفين ولن يظهر خطأ — فقط نتائج بلا معنى.\n\nالدفع من `n8n/push_docs.py`.",
+        "height": 940,
+        "width": 1280,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2448,
+        1936
+      ],
+      "id": "note-الاستيعاب",
+      "name": "Sticky · الاستيعاب"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "ACMS Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ACMS Login": {
+      "main": [
+        [
+          {
+            "node": "Approval Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Gate": {
+      "main": [
+        [
+          {
+            "node": "Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Action": {
+      "main": [
+        [
+          {
+            "node": "Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ACMS Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Capture Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Execute Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Attachment?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF": {
+      "main": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CSV": {
+      "main": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Type": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Document": {
+      "main": [
+        [
+          {
+            "node": "Document Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — المستندات": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq — المستندات": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama — المستندات": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachment?": {
+      "main": [
+        [
+          {
+            "node": "Route By Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — المنسّق": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Specialist Output",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq — المنسّق": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Specialist Output",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama — المنسّق": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Specialist Output",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings — المعرفة": {
+      "ai_embedding": [
+        [
+          {
+            "node": "acms_knowledge_search",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_knowledge_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sales_intelligence": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Specialist Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "financial_intelligence",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "report_agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — المتخصصون": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "financial_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "report_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq — المتخصصون": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "financial_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "report_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama — المتخصصون": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "financial_intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "report_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_list_opportunities": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_find_opportunity": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "financial_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "executive_reporting",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "report_agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Document Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_get_opportunity": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_list_accounts": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Document Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_list_activities": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_bid_deadlines": {
+      "ai_tool": [
+        [
+          {
+            "node": "sales_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "financial_intelligence": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_opportunity_costing": {
+      "ai_tool": [
+        [
+          {
+            "node": "financial_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_quotation_comparison": {
+      "ai_tool": [
+        [
+          {
+            "node": "financial_intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "executive_reporting": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_dashboard_metrics": {
+      "ai_tool": [
+        [
+          {
+            "node": "executive_reporting",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_metric_explain": {
+      "ai_tool": [
+        [
+          {
+            "node": "executive_reporting",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compliance_and_approval": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_approvals_queue": {
+      "ai_tool": [
+        [
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "action_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_audit_trail": {
+      "ai_tool": [
+        [
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_sod_rules": {
+      "ai_tool": [
+        [
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_master_data": {
+      "ai_tool": [
+        [
+          {
+            "node": "compliance_and_approval",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Document Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "action_agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_propose_action": {
+      "ai_tool": [
+        [
+          {
+            "node": "action_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "report_agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "ACMS Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "acms_generate_report": {
+      "ai_tool": [
+        [
+          {
+            "node": "report_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Document": {
+      "main": [
+        [
+          {
+            "node": "Valid Document?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Document?": {
+      "main": [
+        [
+          {
+            "node": "Qdrant · Insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant · Insert",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Document Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings — الاستيعاب": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant · Insert",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant · Insert": {
+      "main": [
+        [
+          {
+            "node": "Indexed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6b6fcdd3-f473-41f2-b580-5c3b53adf651",
+  "meta": {
+    "instanceId": "98b21d27bf6e6637da69e8ce6f0479d251f9e9f9c2237f8c2ff21792555df678"
+  },
+  "nodeGroups": [],
+  "id": "acmsOrch01",
+  "tags": []
+}

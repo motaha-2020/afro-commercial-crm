@@ -10,7 +10,8 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Industry, LeadSource, LeadStatus } from '@prisma/client';
+import { IsRefCode } from '../master-data/is-ref-code.validator';
+import { LeadStatus } from '@prisma/client';
 import { CURRENCIES, type Currency } from '@acms/shared';
 
 export class CreateLeadDto {
@@ -23,8 +24,8 @@ export class CreateLeadDto {
   @IsString()
   description?: string;
 
-  @IsEnum(LeadSource)
-  source!: LeadSource;
+  @IsRefCode('LEAD_SOURCE')
+  source!: string;
 
   @IsString()
   @MinLength(2)
@@ -32,8 +33,8 @@ export class CreateLeadDto {
   country!: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsOptional()
   @IsNumber()
@@ -75,12 +76,12 @@ export class UpdateLeadDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(LeadSource)
-  source?: LeadSource;
+  @IsRefCode('LEAD_SOURCE')
+  source?: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsOptional()
   @IsNumber()
@@ -154,8 +155,8 @@ export class ListLeadsQuery {
   status?: LeadStatus;
 
   @IsOptional()
-  @IsEnum(LeadSource)
-  source?: LeadSource;
+  @IsRefCode('LEAD_SOURCE')
+  source?: string;
 
   @IsOptional()
   @IsString()

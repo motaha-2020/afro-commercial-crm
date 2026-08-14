@@ -8,7 +8,8 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AccountType, CreditStatus, Industry } from '@prisma/client';
+import { IsRefCode } from '../master-data/is-ref-code.validator';
+import { CreditStatus } from '@prisma/client';
 
 export class CreateAccountDto {
   @IsString()
@@ -21,12 +22,12 @@ export class CreateAccountDto {
   @MaxLength(200)
   tradeName?: string;
 
-  @IsEnum(AccountType)
-  type!: AccountType;
+  @IsRefCode('ACCOUNT_TYPE')
+  type!: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsString()
   @MinLength(2)
@@ -81,12 +82,12 @@ export class UpdateAccountDto {
   tradeName?: string;
 
   @IsOptional()
-  @IsEnum(AccountType)
-  type?: AccountType;
+  @IsRefCode('ACCOUNT_TYPE')
+  type?: string;
 
   @IsOptional()
-  @IsEnum(Industry)
-  industry?: Industry;
+  @IsRefCode('INDUSTRY')
+  industry?: string;
 
   @IsOptional()
   @IsString()
@@ -130,8 +131,8 @@ export class ListAccountsQuery {
   country?: string;
 
   @IsOptional()
-  @IsEnum(AccountType)
-  type?: AccountType;
+  @IsRefCode('ACCOUNT_TYPE')
+  type?: string;
 
   // Query strings arrive as text. Without an explicit @Type the validator sees
   // "100" and rejects it as not an integer — which meant every paginated

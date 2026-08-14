@@ -1,0 +1,19 @@
+# Production overlay for the shared Afro server.
+#
+# The base file publishes no host ports, so this only adds the two that must be
+# reachable — web and api — bound to the Tailscale IP. Postgres and MinIO are
+# never published: they are reachable only over ACMS's private compose network,
+# so nothing collides with the box's existing supabase/n8n stacks.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file ../.env up -d --build
+name: acms
+
+services:
+  api:
+    ports:
+      - '${BIND_IP:-127.0.0.1}:${API_PORT:-4000}:4000'
+
+  web:
+    ports:
+      - '${BIND_IP:-127.0.0.1}:${WEB_PORT:-3100}:3000'

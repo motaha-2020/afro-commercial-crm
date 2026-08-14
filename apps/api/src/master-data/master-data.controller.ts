@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import {
   ACCOUNT_RELATIONSHIP_TYPES,
   ACCOUNT_TYPES,
@@ -30,6 +30,7 @@ import {
   STAGE_PRIMARY_OWNER,
 } from '@acms/shared';
 import { Public } from '../auth/guards';
+import { RefListsService } from './ref-lists.service';
 
 /**
  * Read-only catalogue of the system's controlled vocabularies. The UI builds
@@ -39,9 +40,43 @@ import { Public } from '../auth/guards';
  */
 @Controller('master-data')
 export class MasterDataController {
+  constructor(private readonly refLists: RefListsService) {}
+
+  /**
+   * The lists an administrator maintains now come from the database; the rest
+   * still come from code because code branches on them. Both are returned in
+   * the same shape so a screen does not need to know which is which.
+   *
+   * The legacy keys keep returning plain code arrays so existing screens carry
+   * on working; `lists` carries the same values with their labels, which is
+   * what a dropdown actually needs.
+   */
   @Public()
   @Get()
-  all() {
+  async all(@Query('activeOnly') activeOnly?: string) {
+    const managed = await this.refLists.listAll(activeOnly !== 'false');
+    const codesOf = (key: string) =>
+      managed.find((l) => l.key === key)?.items.map((i) => i.code);
+
+    return {
+      lists: managed,
+      ...this.staticCatalogue(),
+      // Managed lists override the compiled defaults. Falling back to the
+      // constants matters on a database seeded before this feature existed:
+      // an empty dropdown would look like a broken screen rather than a
+      // migration that has not run.
+      industries: codesOf('INDUSTRY') ?? INDUSTRIES,
+      accountTypes: codesOf('ACCOUNT_TYPE') ?? ACCOUNT_TYPES,
+      leadSources: codesOf('LEAD_SOURCE') ?? LEAD_SOURCES,
+      activityTypes: codesOf('ACTIVITY_TYPE') ?? ACTIVITY_TYPES,
+      partnerTypes: codesOf('PARTNER_TYPE') ?? PARTNER_TYPES,
+      contactRoles: codesOf('CONTACT_ROLE') ?? CONTACT_ROLES,
+      countries: codesOf('COUNTRY') ?? COUNTRIES,
+      currencies: codesOf('CURRENCY') ?? CURRENCIES,
+    };
+  }
+
+  private staticCatalogue() {
     return {
       stages: OPPORTUNITY_STAGES.map((code) => ({
         code,
