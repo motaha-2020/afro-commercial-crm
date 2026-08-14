@@ -95,7 +95,15 @@ export default async function AccountsPage({
 
       {/* A plain GET form: the filter lives in the URL, so a filtered list can
           be bookmarked and sent to someone else and still be the same list. */}
-      <form className="panel list-filters" method="get" action={`/${locale}/accounts`}>
+      {/* autoComplete off because the browser restores previously typed values
+          on reload, which would show a filter the URL does not carry — the
+          control would claim a filter the list is not applying. */}
+      <form
+        className="panel list-filters"
+        method="get"
+        action={`/${locale}/accounts`}
+        autoComplete="off"
+      >
         <input
           type="search"
           name="search"
