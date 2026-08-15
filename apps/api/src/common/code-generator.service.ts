@@ -48,6 +48,34 @@ export class CodeGeneratorService {
     return `${prefix}-${year}-${String(seq).padStart(6, '0')}`;
   }
 
+  /**
+   * A run of consecutive codes for one bulk write.
+   *
+   * Calling next() in a loop does NOT work and is worth saying out loud: it
+   * derives the sequence from MAX(code), so without an insert in between every
+   * call returns the same number. A bulk import that did that failed on the
+   * second row with a unique-constraint violation.
+   *
+   * Concurrency is unchanged from next(): two imports running at the same
+   * instant can read the same maximum, and the loser's insert violates the
+   * unique index. For an all-or-nothing import that is the right failure — the
+   * whole transaction rolls back and nothing half-lands.
+   */
+  async nextBatch(
+    prefix: string,
+    table: CodedTable,
+    year: number,
+    count: number,
+  ): Promise<string[]> {
+    if (count <= 0) return [];
+    const first = await this.next(prefix, table, year);
+    const start = Number(first.split('-')[2]);
+    return Array.from(
+      { length: count },
+      (_, i) => `${prefix}-${year}-${String(start + i).padStart(6, '0')}`,
+    );
+  }
+
   private tableName(table: CodedTable): string {
     switch (table) {
       case 'account':

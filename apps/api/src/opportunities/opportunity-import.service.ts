@@ -106,12 +106,10 @@ export class OpportunityImportService {
     if (rows.length === 0) throw new BadRequestException('The file has no rows to import');
 
     const year = new Date().getFullYear();
-    // Codes are reserved up front: asking the generator for one inside the
-    // transaction, once per row, would hold its lock for the whole write.
-    const codes: string[] = [];
-    for (let i = 0; i < rows.length; i++) {
-      codes.push(await this.codes.next('OPP', 'opportunity', year));
-    }
+    // One run of consecutive codes, not next() in a loop: the generator derives
+    // its number from MAX(code), so without an insert between calls it hands
+    // back the same code every time and the second row collides.
+    const codes = await this.codes.nextBatch('OPP', 'opportunity', year, rows.length);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const out: { id: string; code: string; name: string }[] = [];
