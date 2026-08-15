@@ -102,9 +102,11 @@ function flatten(items: ScopeItemNode[], depth = 0): { item: ScopeItemNode; dept
 
 export function ScopeBuilder({
   opportunityId,
+  locale,
   scope,
 }: {
   opportunityId: string;
+  locale: string;
   scope: ScopeOverview;
 }) {
   const t = useTranslations('scopeBuilder');
@@ -398,16 +400,27 @@ export function ScopeBuilder({
                   <strong style={{ color: pkg.id === selectedPackageId ? 'var(--primary)' : 'inherit' }}>
                     {pkg.name}
                   </strong>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deletePackage(pkg.id);
-                    }}
-                  >
-                    {t('remove')}
-                  </button>
+                  <div className="btn-row">
+                    {/* Items are imported into this package, so the package is
+                        already chosen rather than named on every row. */}
+                    <a
+                      className="btn btn-sm"
+                      onClick={(e) => e.stopPropagation()}
+                      href={`/${locale}/import/scope-items?contextId=${pkg.id}&back=/${locale}/opportunities/${opportunityId}/scope`}
+                    >
+                      {t('importItems')}
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePackage(pkg.id);
+                      }}
+                    >
+                      {t('remove')}
+                    </button>
+                  </div>
                 </div>
                 <div className="btn-row" style={{ marginTop: 4 }}>
                   <span className="badge">{t(pkg.category)}</span>

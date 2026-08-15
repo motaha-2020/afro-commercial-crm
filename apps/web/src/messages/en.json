@@ -704,7 +704,9 @@
     "SENT": "Sent",
     "ANSWERED": "Answered",
     "CLOSED": "Closed",
-    "UNANSWERED_AT_SUBMISSION": "Unanswered at submission"
+    "UNANSWERED_AT_SUBMISSION": "Unanswered at submission",
+    "importPackages": "Import packages",
+    "importItems": "Import items"
   },
   "bidWorkspace": {
     "title": "Bid & Tender Workspace",
@@ -866,7 +868,8 @@
     "warningsBlockingHint": "An item priced at nothing or below cost puts the whole bid under water.",
     "warningsOnly": "{n} thing(s) worth a look",
     "warningsHint": "None of these block approval, but each is somewhere the number rests on less than it appears to.",
-    "notChecked": "Not checked"
+    "notChecked": "Not checked",
+    "importItems": "Import BOQ"
   },
   "documents": {
     "title": "Documents",

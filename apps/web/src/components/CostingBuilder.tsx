@@ -560,6 +560,16 @@ export function CostingBuilder({
                     >
                       {t('addItem')}
                     </button>
+                    {/* Imported into this package, so the package is already
+                        chosen and cannot be got wrong on line 300. Absent when
+                        the version is locked, because the import would be
+                        refused — the same reason the other buttons are. */}
+                    <a
+                      className="btn btn-sm"
+                      href={`/${locale}/import/boq-items?contextId=${pkg.id}&back=/${locale}/opportunities/${opportunityId}/costing`}
+                    >
+                      {t('importItems')}
+                    </a>
                     <button type="button" className="btn btn-sm btn-danger" onClick={() => deletePackage(pkg.id)}>
                       {t('remove')}
                     </button>

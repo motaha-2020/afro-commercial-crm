@@ -704,7 +704,9 @@
     "SENT": "مُرسَل",
     "ANSWERED": "تمت الإجابة",
     "CLOSED": "مغلق",
-    "UNANSWERED_AT_SUBMISSION": "بلا إجابة عند التقديم"
+    "UNANSWERED_AT_SUBMISSION": "بلا إجابة عند التقديم",
+    "importPackages": "استيراد الحزم",
+    "importItems": "استيراد البنود"
   },
   "bidWorkspace": {
     "title": "مساحة المناقصات",
@@ -866,7 +868,8 @@
     "warningsBlockingHint": "بند بلا سعر أو تحت التكلفة يضع العرض كله تحت الماء.",
     "warningsOnly": "{n} ملاحظة تستحق النظر",
     "warningsHint": "لا يمنع أيٌّ منها الاعتماد، لكن كلًّا منها موضع يستند فيه الرقم إلى أقل مما يبدو.",
-    "notChecked": "لم يُفحص"
+    "notChecked": "لم يُفحص",
+    "importItems": "استيراد جدول الكميات"
   },
   "documents": {
     "title": "المستندات",

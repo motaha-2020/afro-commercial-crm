@@ -704,7 +704,9 @@
     "SENT": "Envoyée",
     "ANSWERED": "Répondue",
     "CLOSED": "Clôturée",
-    "UNANSWERED_AT_SUBMISSION": "Sans réponse à la remise"
+    "UNANSWERED_AT_SUBMISSION": "Sans réponse à la remise",
+    "importPackages": "Importer des lots",
+    "importItems": "Importer les postes"
   },
   "bidWorkspace": {
     "title": "Espace appels d’offres",
@@ -866,7 +868,8 @@
     "warningsBlockingHint": "Un poste sans prix ou sous le coût met toute l'offre en perte.",
     "warningsOnly": "{n} point(s) à regarder",
     "warningsHint": "Aucun ne bloque l'approbation, mais chacun est un endroit où le chiffre repose sur moins qu'il n'y paraît.",
-    "notChecked": "Non vérifié"
+    "notChecked": "Non vérifié",
+    "importItems": "Importer le métré"
   },
   "documents": {
     "title": "Documents",
