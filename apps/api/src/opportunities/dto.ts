@@ -173,20 +173,6 @@ export class ChangeStatusDto {
   exitNotes?: string;
 }
 
-/**
- * The uploaded spreadsheet, as text.
- *
- * The file is parsed in the service rather than in the browser so that one set
- * of rules decides what a valid row is. Parsing on the client would mean the
- * API had to re-check everything anyway, and the two checks would disagree the
- * first time either was edited.
- */
-export class ImportCsvDto {
-  @IsString()
-  @MaxLength(2_000_000)
-  csv!: string;
-}
-
 export class ListOpportunitiesQuery {
   @IsOptional()
   @IsEnum(OpportunityStage)

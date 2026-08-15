@@ -91,7 +91,8 @@
     "city": "City",
     "address": "Address",
     "website": "Website",
-    "taxId": "Tax ID"
+    "taxId": "Tax ID",
+    "import": "Import"
   },
   "contacts": {
     "title": "Contacts",
@@ -215,7 +216,8 @@
     "edit": "Edit",
     "editTitle": "Edit lead",
     "save": "Save changes",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "import": "Import"
   },
   "newLead": {
     "title": "New lead",
@@ -329,7 +331,8 @@
     "website": "Website",
     "contactPhone": "Phone",
     "address": "Address",
-    "notes": "Notes"
+    "notes": "Notes",
+    "import": "Import"
   },
   "newPartner": {
     "title": "New partner",
@@ -1315,10 +1318,22 @@
     "forbidden": "This screen is for administrators.",
     "back": "Back to the dashboard"
   },
-  "opportunityImport": {
-    "title": "Import opportunities",
+  "importResources": {
+    "accounts": "customers",
+    "contacts": "contacts",
+    "leads": "leads",
+    "partners": "suppliers & subcontractors",
+    "opportunities": "opportunities",
+    "scope-packages": "scope packages",
+    "scope-items": "scope items",
+    "boq-items": "bill of quantities"
+  },
+  "dataImport": {
+    "title": "Import {what}",
     "subtitle": "Download the template, fill it in Excel, upload it — you see exactly what will be created before anything is saved. Up to {max} rows per file.",
-    "back": "Back to the board",
+    "back": "Back",
+    "done": "Done",
+    "needsContext": "These rows have to belong to something. Open the record you want them under and start the import from there.",
     "downloadTemplate": "Download the template",
     "chooseFile": "Choose a file",
     "checking": "Checking the file…",
@@ -1329,48 +1344,30 @@
     "line": "Row",
     "column": "Column",
     "problem": "Problem",
-    "name": "Opportunity",
-    "customer": "Customer",
-    "stage": "Stage",
-    "newContact": "Creates contact",
+    "record": "Will create",
+    "attachesTo": "Attaches to",
+    "alsoCreates": "Also creates",
     "andMore": "…and {n} more rows",
-    "confirmImport": "Import {n} opportunities",
+    "confirmImport": "Import {n} rows",
     "importing": "Importing…",
     "cancel": "Cancel",
     "doneTitle": "Import complete",
-    "doneBody": "{n} opportunities were created. Each one carries its own audit entry, exactly as if it had been entered by hand.",
-    "toBoard": "Go to the board",
+    "doneBody": "{n} records were created. Each one carries its own audit entry, exactly as if it had been entered by hand.",
     "importAnother": "Import another file",
     "columnsTitle": "The columns",
     "columnsHint": "Keep the header row exactly as it comes in the template — those names are what the system reads. Column order does not matter, and a column you do not need may be left empty.",
-    "meaning": "Meaning",
+    "treeHint": "This is a breakdown, so rows can sit under other rows. Give a row any short label in `ref`, then put that label in `parentRef` on each of its children. A parent may appear anywhere in the file.",
     "required": "Required",
     "accepts": "Accepts",
     "yes": "Yes",
     "no": "Optional",
-    "dateFormat": "A date written YYYY-MM-DD",
+    "defaultsTo": "defaults to {value}",
     "fromRefList": "A code from the {list} list",
     "kind_text": "Free text",
     "kind_number": "A number",
-    "kind_date": "A date",
+    "kind_date": "A date, written YYYY-MM-DD",
     "kind_code": "A code",
-    "col_name": "What the opportunity is called",
-    "col_accountCode": "The customer's code, or their legal name if you do not have it",
-    "col_country": "Where the work is",
-    "col_stage": "How far it has got. Defaults to intake",
-    "col_status": "Whether it is still live. Defaults to active",
-    "col_forecastCategory": "Its weight in the forecast. Defaults to pipeline",
-    "col_health": "How it is going. Defaults to green",
-    "col_currency": "Required whenever a value is given — a number without its currency cannot be trusted",
-    "col_estimatedValue": "The expected value",
-    "col_contactName": "Who sent it from the customer's side. Created under that customer if not already on file",
-    "col_contactEmail": "Their email, used to match an existing contact first",
-    "col_receivedDate": "When it arrived from the customer",
-    "col_expectedCloseDate": "When it should be decided",
-    "col_nextStep": "The action to be taken on it next",
-    "col_source": "Where it came from",
-    "col_industry": "The customer's sector",
-    "col_ownerEmail": "Who owns it here. Defaults to you",
-    "col_description": "Anything else worth recording"
+    "kind_codes": "One or more codes, separated by ;",
+    "kind_boolean": "yes or no"
   }
 }

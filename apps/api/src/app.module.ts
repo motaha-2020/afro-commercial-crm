@@ -16,6 +16,7 @@ import { ContactsModule } from './contacts/contacts.module';
 import { LeadsModule } from './leads/leads.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { ImportsModule } from './imports/imports.module';
 import { ScopeModule } from './scope/scope.module';
 import { BidsModule } from './bids/bids.module';
 import { CostingModule } from './costing/costing.module';
@@ -45,6 +46,7 @@ import { AiModule } from './ai/ai.module';
     LeadsModule,
     ActivitiesModule,
     OpportunitiesModule,
+    ImportsModule,
     ScopeModule,
     BidsModule,
     CostingModule,

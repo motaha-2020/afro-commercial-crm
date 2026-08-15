@@ -110,6 +110,9 @@ export default async function PartnersPage({
           <span className="badge badge-primary">
             {eligible.length} / {total}
           </span>
+          <Link className="btn" href={`/${locale}/import/partners`}>
+            {t('import')}
+          </Link>
           <Link className="btn" href={`/${locale}/partners/new`}>
             + {t('newPartner')}
           </Link>

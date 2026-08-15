@@ -8,18 +8,33 @@ import type { ImportPreview } from '@acms/shared';
 type Phase = 'idle' | 'checking' | 'checked' | 'importing' | 'done';
 
 /**
- * Upload, look, then commit.
+ * Upload, look, then commit — for every importable thing.
  *
  * The middle step is the whole design. A hundred-row file with three bad rows
  * is the normal case, not the exception, and the two alternatives are both
- * worse: importing the good rows leaves the operator comparing a spreadsheet
- * against a list by hand to find out what landed, and rejecting the file on
- * the first error sends them back to Excel knowing about one mistake out of
- * three. Showing every problem at once, before anything is written, is what
- * makes a file fixable in one pass.
+ * worse: importing the good rows leaves someone comparing a spreadsheet against
+ * a list by hand to find out what landed, and rejecting the file on the first
+ * error sends them back to Excel knowing about one mistake out of three.
+ * Showing every problem at once, before anything is written, is what makes a
+ * file fixable in one pass.
+ *
+ * One component for all of them, because the differences between importing
+ * customers and importing a bill of quantities are entirely in the columns, and
+ * the columns are declared on the server.
  */
-export function OpportunityImport({ locale }: { locale: string }) {
-  const t = useTranslations('opportunityImport');
+export function DataImport({
+  resource,
+  contextId,
+  returnHref,
+  returnLabel,
+}: {
+  resource: string;
+  /** The record the rows attach to, when the whole file shares one parent. */
+  contextId?: string;
+  returnHref: string;
+  returnLabel: string;
+}) {
+  const t = useTranslations('dataImport');
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +44,8 @@ export function OpportunityImport({ locale }: { locale: string }) {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState('');
   const [imported, setImported] = useState(0);
+
+  const query = contextId ? `?contextId=${encodeURIComponent(contextId)}` : '';
 
   function reset() {
     setPhase('idle');
@@ -40,26 +57,9 @@ export function OpportunityImport({ locale }: { locale: string }) {
     if (fileRef.current) fileRef.current.value = '';
   }
 
-  async function onPick(file: File) {
-    setError('');
-    setPreview(null);
-    setFileName(file.name);
-    setPhase('checking');
-    try {
-      // Read as text in the browser, checked on the server. The file itself is
-      // never stored anywhere: a rejected import should leave no trace to clean
-      // up later.
-      const text = await file.text();
-      setCsv(text);
-      await check(text);
-    } catch {
-      setError(t('unreadable'));
-      setPhase('idle');
-    }
-  }
-
   async function send(text: string, mode: 'preview' | 'commit') {
-    const res = await fetch(`/api/opportunities/import?mode=${mode}`, {
+    const sep = query ? '&' : '?';
+    const res = await fetch(`/api/imports/${resource}${query}${sep}mode=${mode}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ csv: text }),
@@ -70,8 +70,8 @@ export function OpportunityImport({ locale }: { locale: string }) {
       const message = Array.isArray(payload.message)
         ? payload.message.join(' · ')
         : (payload.message ?? t('failed'));
-      // A file missing a whole column is a different failure from a file with
-      // a few bad rows, and naming the columns saves a guessing game.
+      // A file missing a whole column is a different failure from a file with a
+      // few bad rows, and naming the columns saves a guessing game.
       setError(
         payload.missingColumns?.length
           ? `${message}: ${payload.missingColumns.join(', ')}`
@@ -88,6 +88,23 @@ export function OpportunityImport({ locale }: { locale: string }) {
     if (payload) {
       setPreview(payload);
       setPhase('checked');
+    }
+  }
+
+  async function onPick(file: File) {
+    setError('');
+    setPreview(null);
+    setFileName(file.name);
+    setPhase('checking');
+    try {
+      // Read as text here, checked on the server. The file itself is never
+      // stored: a rejected import should leave nothing to clean up.
+      const text = await file.text();
+      setCsv(text);
+      await check(text);
+    } catch {
+      setError(t('unreadable'));
+      setPhase('idle');
     }
   }
 
@@ -116,8 +133,8 @@ export function OpportunityImport({ locale }: { locale: string }) {
         <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('doneTitle')}</h2>
         <p>{t('doneBody', { n: imported })}</p>
         <div className="btn-row">
-          <a className="btn btn-primary" href={`/${locale}/opportunities`}>
-            {t('toBoard')}
+          <a className="btn btn-primary" href={returnHref}>
+            {returnLabel}
           </a>
           <button type="button" className="btn" onClick={reset}>
             {t('importAnother')}
@@ -131,7 +148,7 @@ export function OpportunityImport({ locale }: { locale: string }) {
     <div className="panel">
       <div className="btn-row" style={{ marginBottom: 12 }}>
         {/* A plain link, so the browser saves the file itself. */}
-        <a className="btn" href="/api/opportunities/import/template" download>
+        <a className="btn" href={`/api/imports/${resource}/template`} download>
           {t('downloadTemplate')}
         </a>
 
@@ -167,56 +184,58 @@ export function OpportunityImport({ locale }: { locale: string }) {
               : t('summaryOk', { total: preview.totalRows })}
           </p>
 
-          {badRows.length > 0 && (
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>{t('line')}</th>
-                  <th>{t('column')}</th>
-                  <th>{t('problem')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Every problem, not the first: the point of a preview is to
-                    need only one trip back to the spreadsheet. */}
-                {badRows.flatMap((row) =>
-                  row.errors.map((e, i) => (
-                    <tr key={`${row.line}-${i}`}>
-                      <td>{row.line}</td>
-                      <td>{e.column ?? '—'}</td>
-                      <td>{e.message}</td>
-                    </tr>
-                  )),
-                )}
-              </tbody>
-            </table>
-          )}
-
-          {badRows.length === 0 && preview.rows.length > 0 && (
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>{t('line')}</th>
-                  <th>{t('name')}</th>
-                  <th>{t('customer')}</th>
-                  <th>{t('stage')}</th>
-                  <th>{t('newContact')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.rows.slice(0, 25).map((row) => (
-                  <tr key={row.line}>
-                    <td>{row.line}</td>
-                    <td>{row.name}</td>
-                    <td>{row.accountLabel ?? '—'}</td>
-                    <td>{row.stage}</td>
-                    {/* Said out loud, because importing opportunities is not
-                        obviously a thing that creates people. */}
-                    <td>{row.createsContact ?? '—'}</td>
+          {badRows.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>{t('line')}</th>
+                    <th>{t('column')}</th>
+                    <th>{t('problem')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {/* Every problem, not the first: the point of a preview is to
+                      need only one trip back to the spreadsheet. */}
+                  {badRows.flatMap((row) =>
+                    row.errors.map((e, i) => (
+                      <tr key={`${row.line}-${i}`}>
+                        <td>{row.line}</td>
+                        <td>{e.column ?? '—'}</td>
+                        <td>{e.message}</td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            preview.rows.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>{t('line')}</th>
+                      <th>{t('record')}</th>
+                      <th>{t('attachesTo')}</th>
+                      <th>{t('alsoCreates')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.rows.slice(0, 25).map((row) => (
+                      <tr key={row.line}>
+                        <td>{row.line}</td>
+                        <td>{row.label}</td>
+                        <td>{row.parentLabel ?? '—'}</td>
+                        {/* Said out loud: importing opportunities is not
+                            obviously a thing that creates people. */}
+                        <td>{row.createsLabel ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
 
           {preview.rows.length > 25 && badRows.length === 0 && (

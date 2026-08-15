@@ -105,6 +105,9 @@ export default async function LeadsPage({
           <span className="badge badge-primary">
             {live.length} / {total}
           </span>
+          <Link className="btn" href={`/${locale}/import/leads`}>
+            {t('import')}
+          </Link>
           <Link className="btn" href={`/${locale}/leads/new`}>
             + {t('newLead')}
           </Link>

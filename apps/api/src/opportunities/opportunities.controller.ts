@@ -3,31 +3,25 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { OpportunitiesService } from './opportunities.service';
-import { OpportunityImportService } from './opportunity-import.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
   ChangeStageDto,
   ChangeStatusDto,
   CreateOpportunityDto,
-  ImportCsvDto,
   ListOpportunitiesQuery,
   UpdateOpportunityDto,
 } from './dto';
 
 @Controller('opportunities')
 export class OpportunitiesController {
-  constructor(
-    private readonly opportunities: OpportunitiesService,
-    private readonly imports: OpportunityImportService,
-  ) {}
+  constructor(private readonly opportunities: OpportunitiesService) {}
 
   @Get()
   list(
@@ -43,36 +37,6 @@ export class OpportunitiesController {
     return this.opportunities.owners(user);
   }
 
-  // --- bulk import ---------------------------------------------------------
-
-  @Get('import/template')
-  @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="opportunities-template.csv"')
-  template() {
-    return this.imports.template();
-  }
-
-  /** Validates and writes nothing. The file is not stored either. */
-  @Post('import/preview')
-  previewImport(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: ImportCsvDto,
-  ) {
-    return this.imports.preview(user, dto.csv);
-  }
-
-  /**
-   * Re-validates from scratch and then writes all rows or none.
-   *
-   * It takes the file again rather than a token from the preview: a preview is
-   * a claim about a moment that has passed, and importing against it would let
-   * a customer archived in between be referenced by rows that were checked
-   * before it went.
-   */
-  @Post('import/commit')
-  commitImport(@CurrentUser() user: AuthenticatedUser, @Body() dto: ImportCsvDto) {
-    return this.imports.commit(user, dto.csv);
-  }
 
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {

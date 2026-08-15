@@ -130,7 +130,7 @@ export default async function OpportunitiesPage({
           <p>{t('subtitle')}</p>
         </div>
         <div className="head-actions">
-          <Link className="btn" href={`/${locale}/opportunities/import`}>
+          <Link className="btn" href={`/${locale}/import/opportunities`}>
             {t('import')}
           </Link>
           <Link className="btn" href={`/${locale}/opportunities/new`}>

@@ -91,7 +91,8 @@
     "city": "Ville",
     "address": "Adresse",
     "website": "Site web",
-    "taxId": "Identifiant fiscal"
+    "taxId": "Identifiant fiscal",
+    "import": "Importer"
   },
   "contacts": {
     "title": "Contacts",
@@ -215,7 +216,8 @@
     "edit": "Modifier",
     "editTitle": "Modifier le prospect",
     "save": "Enregistrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "import": "Importer"
   },
   "newLead": {
     "title": "Nouveau prospect",
@@ -329,7 +331,8 @@
     "website": "Site web",
     "contactPhone": "Téléphone",
     "address": "Adresse",
-    "notes": "Notes"
+    "notes": "Notes",
+    "import": "Importer"
   },
   "newPartner": {
     "title": "Nouveau partenaire",
@@ -1315,10 +1318,22 @@
     "forbidden": "Cet écran est réservé aux administrateurs.",
     "back": "Retour au tableau de bord"
   },
-  "opportunityImport": {
-    "title": "Importer des opportunités",
+  "importResources": {
+    "accounts": "clients",
+    "contacts": "contacts",
+    "leads": "pistes",
+    "partners": "fournisseurs et sous-traitants",
+    "opportunities": "opportunités",
+    "scope-packages": "lots de périmètre",
+    "scope-items": "postes de périmètre",
+    "boq-items": "métré"
+  },
+  "dataImport": {
+    "title": "Importer : {what}",
     "subtitle": "Téléchargez le modèle, remplissez-le dans Excel, puis envoyez-le — vous voyez exactement ce qui sera créé avant tout enregistrement. Jusqu'à {max} lignes par fichier.",
-    "back": "Retour au tableau",
+    "back": "Retour",
+    "done": "Terminé",
+    "needsContext": "Ces lignes doivent appartenir à quelque chose. Ouvrez l'enregistrement concerné et lancez l'importation depuis là.",
     "downloadTemplate": "Télécharger le modèle",
     "chooseFile": "Choisir un fichier",
     "checking": "Vérification du fichier…",
@@ -1329,48 +1344,30 @@
     "line": "Ligne",
     "column": "Colonne",
     "problem": "Problème",
-    "name": "Opportunité",
-    "customer": "Client",
-    "stage": "Étape",
-    "newContact": "Crée un contact",
+    "record": "Créera",
+    "attachesTo": "Rattaché à",
+    "alsoCreates": "Crée aussi",
     "andMore": "…et {n} autres lignes",
-    "confirmImport": "Importer {n} opportunités",
+    "confirmImport": "Importer {n} lignes",
     "importing": "Importation…",
     "cancel": "Annuler",
     "doneTitle": "Importation terminée",
-    "doneBody": "{n} opportunités ont été créées. Chacune porte sa propre entrée d'audit, exactement comme si elle avait été saisie à la main.",
-    "toBoard": "Aller au tableau",
+    "doneBody": "{n} enregistrements ont été créés. Chacun porte sa propre entrée d'audit, exactement comme s'il avait été saisi à la main.",
     "importAnother": "Importer un autre fichier",
     "columnsTitle": "Les colonnes",
     "columnsHint": "Conservez la ligne d'en-tête telle quelle dans le modèle — ce sont ces noms que le système lit. L'ordre des colonnes n'importe pas, et une colonne inutile peut rester vide.",
-    "meaning": "Signification",
+    "treeHint": "Il s'agit d'une décomposition : une ligne peut se placer sous une autre. Donnez à une ligne une étiquette courte dans `ref`, puis reportez-la dans `parentRef` de chacun de ses enfants. Le parent peut figurer n'importe où dans le fichier.",
     "required": "Obligatoire",
     "accepts": "Accepte",
     "yes": "Oui",
     "no": "Facultatif",
-    "dateFormat": "Une date au format AAAA-MM-JJ",
+    "defaultsTo": "par défaut {value}",
     "fromRefList": "Un code de la liste {list}",
     "kind_text": "Texte libre",
     "kind_number": "Un nombre",
-    "kind_date": "Une date",
+    "kind_date": "Une date au format AAAA-MM-JJ",
     "kind_code": "Un code",
-    "col_name": "Le nom de l'opportunité",
-    "col_accountCode": "Le code du client, ou sa raison sociale si vous ne l'avez pas",
-    "col_country": "Le pays des travaux",
-    "col_stage": "Son avancement. Par défaut : réception",
-    "col_status": "Si elle est toujours en cours. Par défaut : active",
-    "col_forecastCategory": "Son poids dans les prévisions. Par défaut : pipeline",
-    "col_health": "Comment elle se porte. Par défaut : vert",
-    "col_currency": "Obligatoire dès qu'une valeur est donnée — un nombre sans sa devise n'est pas fiable",
-    "col_estimatedValue": "La valeur estimée",
-    "col_contactName": "Qui l'a envoyée côté client. Créé sous ce client s'il n'existe pas déjà",
-    "col_contactEmail": "Son e-mail, utilisé d'abord pour la correspondance",
-    "col_receivedDate": "Quand elle est arrivée du client",
-    "col_expectedCloseDate": "Quand elle devrait être tranchée",
-    "col_nextStep": "La prochaine action à mener",
-    "col_source": "D'où elle vient",
-    "col_industry": "Le secteur du client",
-    "col_ownerEmail": "Qui la pilote ici. Par défaut : vous",
-    "col_description": "Tout autre détail utile"
+    "kind_codes": "Un ou plusieurs codes séparés par ;",
+    "kind_boolean": "oui ou non"
   }
 }

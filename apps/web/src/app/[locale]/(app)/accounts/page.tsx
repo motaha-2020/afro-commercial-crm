@@ -88,6 +88,9 @@ export default async function AccountsPage({
         </div>
         <div className="head-actions">
           <span className="badge badge-primary">{total}</span>
+          <Link className="btn" href={`/${locale}/import/accounts`}>
+            {t('import')}
+          </Link>
           <Link className="btn" href={`/${locale}/accounts/new`}>
             + {t('newAccount')}
           </Link>
