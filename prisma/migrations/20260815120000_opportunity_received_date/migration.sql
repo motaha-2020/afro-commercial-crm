@@ -1,0 +1,12 @@
+-- When the enquiry arrived FROM the customer, which the schema could not say.
+--
+-- createdAt was the only date anywhere near this, and it answers a different
+-- question: when did our staff type the record in. An enquiry received in
+-- January and logged in March reads as a March enquiry under that proxy, so
+-- "how long do we take to respond?" had no honest answer. submissionDate is
+-- the far end of the same span — the day our proposal went back out.
+--
+-- Nullable and additive: every existing row keeps an unknown received date,
+-- which is the truth. Backfilling it from createdAt would have manufactured
+-- exactly the wrong answer for every record already in the book.
+ALTER TABLE "Opportunity" ADD COLUMN "receivedDate" TIMESTAMP(3);

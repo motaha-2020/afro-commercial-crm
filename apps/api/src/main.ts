@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/structured-logger';
@@ -11,10 +12,18 @@ import { RefListsService } from './master-data/ref-lists.service';
 async function bootstrap() {
   // Buffered so startup messages are emitted through our logger too, not the
   // default one — otherwise the first lines of every boot are unstructured.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.useLogger(new StructuredLogger());
 
   app.use(helmet());
+
+  // The default 100kb body was set for forms. A 500-row opportunity import is
+  // a few hundred kilobytes of text, and under the default it failed as a bare
+  // 413 with nothing naming the file as the cause.
+  app.useBodyParser('json', { limit: '4mb' });
+
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: process.env.WEB_ORIGIN?.split(',') ?? ['http://localhost:3000'],

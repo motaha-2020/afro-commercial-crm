@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
+import { shortDate } from '@/lib/format';
 import { BidScoreForm } from '@/components/BidScoreForm';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
@@ -89,6 +90,10 @@ interface Opportunity {
   health: string;
   currency: string;
   estimatedValue: string | null;
+  receivedDate: string | null;
+  expectedCloseDate: string | null;
+  nextStep: string | null;
+  primaryContact: { id: string; fullName: string; jobTitle: string | null } | null;
   account: { id: string; legalName: string };
 }
 
@@ -160,14 +165,40 @@ export default async function OpportunityDetailPage({
   return (
     <>
       <div className="page-head">
-        <div>
-          <h1>{opportunity.name}</h1>
-          <p>
-            {opportunity.code} •{' '}
-            <Link href={`/${locale}/accounts/${opportunity.account.id}`}>
-              {opportunity.account.legalName}
-            </Link>
-          </p>
+        <div className="page-title">
+          {/* The same link as the one at the foot of the page, put where you
+              are when you decide to leave. Reaching the bottom of a long record
+              first was a tax on changing your mind. It is an icon rather than
+              words because it sits beside the title and must not compete with
+              it; the label survives for screen readers and on hover. */}
+          <Link
+            className="page-back"
+            href={`/${locale}/opportunities`}
+            aria-label={t('backToBoard')}
+            title={t('backToBoard')}
+          >
+            {/* Mirrors itself in Arabic: "back" points the way the reader
+                came from, which is the other way in an RTL page. */}
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M15 5l-7 7 7 7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+          <div>
+            <h1>{opportunity.name}</h1>
+            <p>
+              {opportunity.code} •{' '}
+              <Link href={`/${locale}/accounts/${opportunity.account.id}`}>
+                {opportunity.account.legalName}
+              </Link>
+            </p>
+          </div>
         </div>
         <div className="reading-badges">
           {/* The four independent readings, never collapsed into one status. */}
@@ -177,6 +208,48 @@ export default async function OpportunityDetailPage({
           <span className={`badge health-${opportunity.health}`}>
             {healthT(opportunity.health)}
           </span>
+        </div>
+      </div>
+
+      {/* The four questions asked of every pipeline row in every review: who
+          sent it, when it came, when it must be decided, and what happens next.
+          Three of the four fields already existed in the record and were shown
+          on no screen, which is the same as not having them. */}
+      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+        <div className="kpi">
+          <div className="label">{t('sentBy')}</div>
+          <div className="value" style={{ fontSize: 15 }}>
+            {opportunity.primaryContact ? (
+              <>
+                {opportunity.primaryContact.fullName}
+                {opportunity.primaryContact.jobTitle && (
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {opportunity.primaryContact.jobTitle}
+                  </div>
+                )}
+              </>
+            ) : (
+              '—'
+            )}
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">{t('receivedOn')}</div>
+          <div className="value" style={{ fontSize: 15 }}>
+            {shortDate(opportunity.receivedDate)}
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">{t('closesOn')}</div>
+          <div className="value" style={{ fontSize: 15 }}>
+            {shortDate(opportunity.expectedCloseDate)}
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">{t('nextAction')}</div>
+          <div className="value" style={{ fontSize: 15 }}>
+            {opportunity.nextStep || '—'}
+          </div>
         </div>
       </div>
 

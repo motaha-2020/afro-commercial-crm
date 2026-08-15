@@ -506,6 +506,13 @@ model Opportunity {
   solutionStrategy String?
   nextStep         String?
 
+  /// When the enquiry arrived FROM the customer — not when we recorded it.
+  /// createdAt answers a different question (when did our staff type it in),
+  /// and using it as a proxy makes an enquiry received in January but logged in
+  /// March look like a March enquiry, which destroys any measure of how long we
+  /// take to respond. submissionDate is the far end of that same span: the day
+  /// our proposal went back out.
+  receivedDate      DateTime?
   expectedCloseDate DateTime?
   submissionDate    DateTime?
   awardDate         DateTime?

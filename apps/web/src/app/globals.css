@@ -556,3 +556,29 @@ table.data tr:hover td { background: rgba(90, 53, 199, .035); }
   .kanban-col { flex: 0 0 84%; max-width: none; max-height: 70vh; }
   .kanban { scroll-snap-type: x mandatory; }
 }
+
+/* Back-to-parent affordance beside the page title. It repeats the link at the
+   foot of the record on purpose: reaching the bottom of a long screen before
+   you can leave it is a tax on changing your mind. */
+.page-title { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.page-back:hover { border-color: var(--primary); color: var(--primary); }
+
+/* "Back" points the way the reader came from, and in an RTL page that is the
+   other way. One rule, rather than two icons that can drift apart. */
+[dir="rtl"] .page-back svg { transform: scaleX(-1); }
