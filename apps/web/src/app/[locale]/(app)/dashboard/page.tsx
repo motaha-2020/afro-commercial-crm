@@ -41,10 +41,17 @@ export default async function DashboardPage() {
     }>('/metrics/dashboard', { token }).catch(() => null),
   ]);
 
-  const totalValue = items.reduce(
-    (sum, o) => sum + Number(o.estimatedValue ?? 0),
-    0,
-  );
+  // Per currency, never one blended figure. This fallback tile used to add
+  // every opportunity together and label the sum USD, so a pipeline held in
+  // EGP was reported as dollars. Converting here instead would mean inventing
+  // an exchange rate on a dashboard, which is worse.
+  const pipeline = new Map<string, number>();
+  for (const o of items) {
+    const n = Number(o.estimatedValue ?? 0);
+    if (!n) continue;
+    pipeline.set(o.currency, (pipeline.get(o.currency) ?? 0) + n);
+  }
+  const pipelineTotals = [...pipeline.entries()].sort((a, b) => b[1] - a[1]);
   const active = items.filter((o) => o.status === 'ACTIVE').length;
   const atRisk = items.filter((o) => o.health === 'RED').length;
 
@@ -67,7 +74,13 @@ export default async function DashboardPage() {
         <div className="grid cols-4" style={{ marginBottom: 20 }}>
           <div className="kpi">
             <div className="label">{t('openPipeline')}</div>
-            <div className="value">{money(totalValue)}</div>
+            <div className="value">
+              {pipelineTotals.length === 0
+                ? '—'
+                : pipelineTotals.map(([c, sum]) => (
+                    <div key={c}>{money(sum, c)}</div>
+                  ))}
+            </div>
           </div>
           <div className="kpi">
             <div className="label">{t('activeOpportunities')}</div>

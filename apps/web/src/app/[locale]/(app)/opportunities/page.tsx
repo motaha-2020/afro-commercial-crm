@@ -31,6 +31,25 @@ interface OwnerOption {
   fullNameAr: string;
 }
 
+/**
+ * A column's worth, per currency.
+ *
+ * Adding EGP to USD and printing one number is not a rounding problem, it is a
+ * false statement: the board used to sum every card and label the result USD,
+ * so a 15M EGP pipeline read as "USD 15.00M". Currencies are not converted here
+ * either — a board is not the place to invent an exchange rate — so a column
+ * holding two currencies shows two totals, which is the honest answer.
+ */
+function totalsByCurrency(cards: OppCard[]) {
+  const sums = new Map<string, number>();
+  for (const c of cards) {
+    const n = Number(c.estimatedValue ?? 0);
+    if (!n) continue;
+    sums.set(c.currency, (sums.get(c.currency) ?? 0) + n);
+  }
+  return [...sums.entries()].sort((a, b) => b[1] - a[1]);
+}
+
 // A focused board: the stages a live bid actually moves through day to day.
 // The full 13-stage lifecycle still exists in the data; this groups the busy
 // middle so the board stays readable.
@@ -165,34 +184,52 @@ export default async function OpportunitiesPage({
       <div className="kanban">
         {BOARD_STAGES.map((stage) => {
           const cards = byStage.get(stage)!;
-          const total = cards.reduce((s, c) => s + Number(c.estimatedValue ?? 0), 0);
+          const totals = totalsByCurrency(cards);
           return (
             <div className="kanban-col" key={stage}>
-              <h3>{stageT(stage)}</h3>
-              <div className="count">
-                {cards.length} • {money(total)}
-              </div>
-              {cards.map((c) => (
-                <Link className="opp-card" key={c.id} href={`/${locale}/opportunities/${c.id}`}>
-                  <div className="name">{c.name}</div>
-                  <div className="meta">
-                    {c.code} • {c.account.legalName}
+              {/* Stays put while the cards below it scroll: a column you have
+                  scrolled into is a column whose name you can no longer see. */}
+              <div className="kanban-col-head">
+                <h3>{stageT(stage)}</h3>
+                <div className="kanban-col-stats">
+                  <span className="kanban-count">{cards.length}</span>
+                  <div className="kanban-totals">
+                    {totals.map(([currency, sum]) => (
+                      <span key={currency}>{money(sum, currency)}</span>
+                    ))}
+                    {totals.length === 0 && <span className="muted">—</span>}
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <span className={`badge health-${c.health}`}>
-                      {healthT(c.health)}
-                    </span>
-                  </div>
-                  <div className="value">{money(c.estimatedValue, c.currency)}</div>
-                </Link>
-              ))}
-              {cards.length === 0 && (
-                <div className="count" style={{ marginTop: 12 }}>
-                  {/* An empty column and a column emptied by a filter are
-                      different facts, and only one of them is a problem. */}
-                  {filtered ? t('noMatchColumn') : t('emptyColumn')}
                 </div>
-              )}
+              </div>
+
+              {/* The cards scroll inside the column rather than stretching it.
+                  Twenty cards in one stage used to make that column several
+                  screens tall while its neighbours stayed short, so the board
+                  stopped being comparable at a glance — which is the only
+                  thing a board is for. */}
+              <div className="kanban-cards">
+                {cards.map((c) => (
+                  <Link className="opp-card" key={c.id} href={`/${locale}/opportunities/${c.id}`}>
+                    <div className="name">{c.name}</div>
+                    <div className="meta">
+                      {c.code} • {c.account.legalName}
+                    </div>
+                    <div className="row">
+                      <span className={`badge health-${c.health}`}>
+                        {healthT(c.health)}
+                      </span>
+                      <span className="value">{money(c.estimatedValue, c.currency)}</span>
+                    </div>
+                  </Link>
+                ))}
+                {cards.length === 0 && (
+                  <div className="kanban-empty">
+                    {/* An empty column and a column emptied by a filter are
+                        different facts, and only one of them is a problem. */}
+                    {filtered ? t('noMatchColumn') : t('emptyColumn')}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
