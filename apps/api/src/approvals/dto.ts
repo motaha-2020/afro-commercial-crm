@@ -10,6 +10,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { ApprovalRequestStatus } from '@prisma/client';
 
 export enum ApprovalPolicyKeyDto {
   MIN_GROSS_MARGIN_PERCENT = 'MIN_GROSS_MARGIN_PERCENT',
@@ -304,6 +305,36 @@ export class CreateProposalVersionDto {
   @IsNumber()
   @Min(0)
   liabilityCap?: number;
+}
+
+/**
+ * Filters for the approvals queue.
+ *
+ * `status` defaults to PENDING in the service rather than here: the queue's
+ * job is "what is waiting on you", and an unfiltered screen that also listed
+ * everything already decided would bury it.
+ */
+export class MyQueueQuery {
+  @IsOptional()
+  @IsEnum(ApprovalRequestStatus)
+  status?: ApprovalRequestStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  recordType?: string;
+
+  @IsOptional()
+  @IsString()
+  requestedById?: string;
+
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }
 
 export class SubmitProposalVersionDto {

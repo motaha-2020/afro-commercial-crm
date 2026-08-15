@@ -85,12 +85,28 @@ export class PartnersService {
           types: { where: { deletedAt: null } },
           owner: { select: { id: true, fullNameEn: true, fullNameAr: true } },
           _count: { select: { quotations: true } },
+          // Removal is refused for a partner whose quotation was chosen. The
+          // list carries that fact so the screen can leave the button out
+          // instead of offering one that can only ever produce a refusal.
+          quotations: {
+            where: { isSelected: true, deletedAt: null },
+            select: { id: true },
+            take: 1,
+          },
         },
       }),
       this.prisma.businessPartner.count({ where }),
     ]);
 
-    return { items: rows.map((p) => this.withDerivedRating(p)), total, page, pageSize };
+    return {
+      items: rows.map(({ quotations, ...p }) => ({
+        ...this.withDerivedRating(p),
+        hasSelectedQuotation: quotations.length > 0,
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async findOne(user: AuthenticatedUser, id: string) {

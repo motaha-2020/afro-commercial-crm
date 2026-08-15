@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { money, shortDate } from '@/lib/format';
 import { PartnerGovernance, type PartnerRatings } from '@/components/PartnerGovernance';
+import { PartnerEditForm } from '@/components/PartnerEditForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +16,13 @@ interface PartnerDetail extends PartnerRatings {
   tradeName: string | null;
   country: string;
   city: string | null;
+  address: string | null;
   taxNumber: string | null;
+  website: string | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  notes: string | null;
   approvalStatus: string;
   isBlacklisted: boolean;
   blacklistReason: string | null;
@@ -71,6 +75,7 @@ export default async function PartnerDetailPage({
           </p>
         </div>
         <div className="head-actions">
+          <PartnerEditForm partner={partner} />
           {partner.isBlacklisted ? (
             <span className="badge badge-danger">{t('blacklisted')}</span>
           ) : (

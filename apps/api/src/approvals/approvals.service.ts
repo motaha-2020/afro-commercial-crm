@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { ApprovalRequestStatus, Prisma } from '@prisma/client';
 import {
   DECISION_OUTCOME,
   evaluateRules,
@@ -25,7 +25,7 @@ import { OpportunityAccessService } from '../common/opportunity-access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PoliciesService } from './policies.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
-import type { DecideDto, RaiseApprovalDto } from './dto';
+import type { DecideDto, MyQueueQuery, RaiseApprovalDto } from './dto';
 
 @Injectable()
 export class ApprovalsService {
@@ -154,14 +154,19 @@ export class ApprovalsService {
   }
 
   /** The approver's queue. */
-  async myQueue(user: AuthenticatedUser) {
-    const roles = user.roles.map((r) => r.role as string);
+  async myQueue(user: AuthenticatedUser, query: MyQueueQuery = {}) {
+    const status = query.status ?? 'PENDING';
+
+    const requestedAt = this.dateRange(query.from, query.to);
 
     const rows = await this.prisma.approvalRequest.findMany({
       where: {
-        status: 'PENDING',
+        status,
         deletedAt: null,
-        currentStep: { approverRole: { in: roles } },
+        ...this.mine(user, status),
+        ...(query.recordType ? { recordType: query.recordType } : {}),
+        ...(query.requestedById ? { requestedById: query.requestedById } : {}),
+        ...(requestedAt ? { requestedAt } : {}),
       },
       orderBy: { requestedAt: 'asc' },
       include: {
@@ -179,6 +184,66 @@ export class ApprovalsService {
       waitingHours: Math.round((now - r.requestedAt.getTime()) / 3600_000),
       isLate: r.dueAt ? r.dueAt.getTime() < now : false,
     }));
+  }
+
+  /**
+   * The options the queue's filters may offer, drawn from the whole of the
+   * caller's queue rather than from what is currently on screen — a dropdown
+   * built from the filtered rows would drop every other choice as soon as one
+   * was made.
+   */
+  async myQueueFilters(user: AuthenticatedUser) {
+    const rows = await this.prisma.approvalRequest.findMany({
+      where: {
+        deletedAt: null,
+        OR: [this.mine(user, 'PENDING'), this.mine(user, 'APPROVED')],
+      },
+      select: {
+        recordType: true,
+        requestedBy: { select: { id: true, fullNameEn: true, fullNameAr: true } },
+      },
+    });
+
+    const requesters = new Map<string, (typeof rows)[number]['requestedBy']>();
+    for (const r of rows) requesters.set(r.requestedBy.id, r.requestedBy);
+
+    return {
+      recordTypes: [...new Set(rows.map((r) => r.recordType))].sort(),
+      requesters: [...requesters.values()].sort((a, b) =>
+        a.fullNameEn.localeCompare(b.fullNameEn),
+      ),
+    };
+  }
+
+  /**
+   * What makes a request "mine" depends on whether it is still open.
+   *
+   * A pending request is mine because its current step asks for a role I hold.
+   * A decided one has no current step left to match against, so the only
+   * honest claim is that I am the person who decided it — matching on role
+   * there would show colleagues' decisions as though they were my own.
+   */
+  private mine(
+    user: AuthenticatedUser,
+    status: ApprovalRequestStatus,
+  ): Prisma.ApprovalRequestWhereInput {
+    if (status === 'PENDING') {
+      return {
+        currentStep: {
+          approverRole: { in: user.roles.map((r) => r.role as string) },
+        },
+      };
+    }
+    return { actions: { some: { approverId: user.id, deletedAt: null } } };
+  }
+
+  /** `to` covers the whole of its day; a date is a day, not a midnight. */
+  private dateRange(from?: string, to?: string) {
+    if (!from && !to) return undefined;
+    return {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(`${to.slice(0, 10)}T23:59:59.999Z`) } : {}),
+    };
   }
 
   async findOne(user: AuthenticatedUser, id: string) {

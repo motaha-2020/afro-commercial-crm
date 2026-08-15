@@ -6,6 +6,8 @@ import { money } from '@/lib/format';
 import { ContactsPanel, type ContactRow } from '@/components/ContactsPanel';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
+import { AccountEditForm } from '@/components/AccountEditForm';
+import { buildRefLabels, type RefListPayload } from '@/lib/ref-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +20,9 @@ interface Account360 {
   industry: string | null;
   country: string;
   city: string | null;
+  address: string | null;
+  website: string | null;
+  taxId: string | null;
   creditStatus: string;
   paymentTermDays: number | null;
   owner: { fullNameEn: string; fullNameAr: string };
@@ -62,6 +67,13 @@ export default async function AccountDetailPage({
     { token },
   );
 
+  const master = await apiFetch<{
+    accountTypes: string[];
+    industries: string[];
+    lists?: RefListPayload[];
+  }>('/master-data', { token });
+  const labels = buildRefLabels(master.lists, locale);
+
   const documents = await apiFetch<DocumentRow[]>(
     `/documents?entityType=Account&entityId=${id}`,
     { token },
@@ -88,7 +100,12 @@ export default async function AccountDetailPage({
             {locale === 'ar' ? account.owner.fullNameAr : account.owner.fullNameEn}
           </p>
         </div>
-        <span className="badge badge-primary">Account 360°</span>
+        <div className="head-actions">
+          <span className="badge badge-primary">Account 360°</span>
+          {/* Credit standing is not on this form: SoD rule 5 keeps it out of
+              the hands that created the customer, and the API refuses it. */}
+          <AccountEditForm account={account} master={master} labels={labels} />
+        </div>
       </div>
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>

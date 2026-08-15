@@ -13,7 +13,8 @@ export type FilterField =
       anyLabel: string;
       options: { value: string; label: string }[];
     }
-  | { kind: 'toggle'; name: string; label: string };
+  | { kind: 'toggle'; name: string; label: string }
+  | { kind: 'date'; name: string; label: string };
 
 const DEBOUNCE_MS = 300;
 
@@ -105,6 +106,22 @@ export function ListFilters({
               aria-label={field.label}
               onChange={(e) => onType(field.name, e.target.value)}
             />
+          );
+        }
+        if (field.kind === 'date') {
+          // Applied at once like a dropdown: picking a date is a decision, not
+          // a half-typed word. A partly typed date reads as empty anyway.
+          return (
+            <label className="check" key={field.name}>
+              {field.label}
+              <input
+                type="date"
+                name={field.name}
+                value={draft[field.name] ?? ''}
+                aria-label={field.label}
+                onChange={(e) => onPick(field.name, e.target.value)}
+              />
+            </label>
           );
         }
         if (field.kind === 'toggle') {

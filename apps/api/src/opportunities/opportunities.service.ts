@@ -50,6 +50,8 @@ export class OpportunitiesService {
       ...(query.status ? { status: query.status } : {}),
       ...(query.country ? { country: query.country } : {}),
       ...(query.accountId ? { accountId: query.accountId } : {}),
+      ...(query.health ? { health: query.health } : {}),
+      ...(query.ownerId ? { ownerId: query.ownerId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -70,6 +72,29 @@ export class OpportunitiesService {
     });
 
     return { items, total: items.length };
+  }
+
+  /**
+   * The owners a filter may legitimately offer.
+   *
+   * Derived from the unfiltered scope rather than from the rows on screen: an
+   * owner dropdown built out of the current results would lose every other
+   * owner the moment one was picked, and there would be no way back.
+   */
+  async owners(user: AuthenticatedUser) {
+    const scopeFilter = await this.scope.buildFilter(user);
+
+    const rows = await this.prisma.opportunity.findMany({
+      where: { deletedAt: null, ...scopeFilter },
+      distinct: ['ownerId'],
+      select: {
+        owner: { select: { id: true, fullNameEn: true, fullNameAr: true } },
+      },
+    });
+
+    return rows
+      .map((r) => r.owner)
+      .sort((a, b) => a.fullNameEn.localeCompare(b.fullNameEn));
   }
 
   async findOne(user: AuthenticatedUser, id: string) {

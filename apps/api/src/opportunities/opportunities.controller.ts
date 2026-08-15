@@ -31,6 +31,12 @@ export class OpportunitiesController {
     return this.opportunities.list(user, query);
   }
 
+  /** Declared before :id so the literal path is not captured as an id. */
+  @Get('owners')
+  owners(@CurrentUser() user: AuthenticatedUser) {
+    return this.opportunities.owners(user);
+  }
+
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.opportunities.findOne(user, id);

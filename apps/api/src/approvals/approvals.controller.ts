@@ -13,6 +13,7 @@ import {
   DecideDiscountDto,
   DecideDto,
   ListPoliciesQuery,
+  MyQueueQuery,
   RaiseApprovalDto,
   SetPolicyDto,
   SubmitProposalVersionDto,
@@ -58,8 +59,14 @@ export class ApprovalsController {
   // --- approvals -----------------------------------------------------------
 
   @Get('approvals/my-queue')
-  myQueue(@CurrentUser() user: AuthenticatedUser) {
-    return this.approvals.myQueue(user);
+  myQueue(@CurrentUser() user: AuthenticatedUser, @Query() query: MyQueueQuery) {
+    return this.approvals.myQueue(user, query);
+  }
+
+  /** Declared before approvals/:id so the literal path is not read as an id. */
+  @Get('approvals/my-queue/filters')
+  myQueueFilters(@CurrentUser() user: AuthenticatedUser) {
+    return this.approvals.myQueueFilters(user);
   }
 
   @Get('approvals/:id')

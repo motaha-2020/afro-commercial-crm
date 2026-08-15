@@ -188,6 +188,14 @@ export class ListOpportunitiesQuery {
   accountId?: string;
 
   @IsOptional()
+  @IsEnum(HealthState)
+  health?: HealthState;
+
+  @IsOptional()
+  @IsString()
+  ownerId?: string;
+
+  @IsOptional()
   @IsString()
   search?: string;
 }
