@@ -11,7 +11,9 @@
 /** Excel writes CRLF; a file edited on a Mac may not. Both read the same here. */
 export function parseCsv(input: string): string[][] {
   // A leading byte-order mark would otherwise become part of the first header,
-  // so column "name" would arrive as "﻿name" and match nothing.
+  // so column "name" would arrive as "<U+FEFF>name" and match nothing. The mark is
+  // named rather than typed: an invisible character in a comment is one nobody
+  // can see in a diff, and lint rejects it outright.
   const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
 
   const rows: string[][] = [];

@@ -33,7 +33,7 @@ describe('parseCsv', () => {
   });
 
   it('strips a byte-order mark so the first header still matches', () => {
-    // Without this the column reads as "﻿name" and silently matches nothing.
+    // Without this the column reads as "<U+FEFF>name" and silently matches nothing.
     expect(parseCsv('﻿name,country\nx,EG')[0]).toEqual(['name', 'country']);
   });
 
