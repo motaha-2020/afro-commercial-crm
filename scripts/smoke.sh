@@ -1246,45 +1246,64 @@ check "a tiny response is left alone" "$(enc $API/health/live)" ""
 
 echo "=== 25. Release 2/7 gaps: relationships, bid team and the clause register ==="
 
-# --- account relationships -------------------------------------------------
-# $ACC belongs to the account manager; $SCOPED was created by the CEO in
-# section 5 precisely because it is outside the account manager's scope. The
-# pair is what makes the visibility checks below mean anything.
+# This section builds its own fixtures. Section 22 soft-deletes the scoped
+# account and the opportunity it borrowed from earlier sections, to prove that
+# deletes are soft — so reusing those two here would test nothing but the 404
+# they now correctly return.
+#
+# Who creates each one is the whole point. The account manager holds an OWN
+# scope, so a record the CEO created is invisible to them by the scope rule,
+# not by any fault of these modules — the near end and the bid are therefore
+# made by the account manager, and only the far end by the CEO.
+NEAR=$(curl -s -X POST $API/accounts -H "Authorization: Bearer $AM" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Relationship Near Ltd","type":"VENDOR","country":"EG"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+FAR=$(curl -s -X POST $API/accounts -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Relationship Far Ltd","type":"VENDOR","country":"EG"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+TEAM_OPP=$(curl -s -X POST $API/opportunities -H "Authorization: Bearer $AM" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke Team Bid","accountId":"'$NEAR'","country":"EG","currency":"USD"}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
 
-REL=$(curl -s -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+# --- account relationships -------------------------------------------------
+# $NEAR belongs to the account manager; $FAR was created by the CEO just above
+# precisely because it is outside the account manager's scope. The pair is what
+# makes the visibility checks below mean anything.
+
+REL=$(curl -s -X POST $API/accounts/$NEAR/relationships -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
-  -d '{"toId":"'$SCOPED'","typeCode":"PARENT","notes":"smoke"}' \
+  -d '{"toId":"'$FAR'","typeCode":"PARENT","notes":"smoke"}' \
   | JQ "print(json.load(sys.stdin).get('id','NONE'))")
 [ "$REL" != "NONE" ] && ok "a relationship is recorded" || bad "relationship recorded" "$REL"
 
 check "an account cannot be related to itself" \
-  "$(code -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
-     -H 'Content-Type: application/json' -d '{"toId":"'$ACC'","typeCode":"JV_PARTNER"}')" "400"
+  "$(code -X POST $API/accounts/$NEAR/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$NEAR'","typeCode":"JV_PARTNER"}')" "400"
 
 # The whole security question in this module: naming an id you cannot see must
 # not read its legal name back out of the list.
 check "linking to an account outside your scope is refused as absent" \
-  "$(code -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $AM" \
-     -H 'Content-Type: application/json' -d '{"toId":"'$SCOPED'","typeCode":"PARENT"}')" "404"
+  "$(code -X POST $API/accounts/$NEAR/relationships -H "Authorization: Bearer $AM" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$FAR'","typeCode":"PARENT"}')" "404"
 
 check "the link reads as PARENT from the account it was recorded on" \
-  "$(curl -s $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+  "$(curl -s $API/accounts/$NEAR/relationships -H "Authorization: Bearer $CEO" \
      | JQ "print(next(r['typeCode'] for r in json.load(sys.stdin)['items'] if r['id']=='$REL'))")" "PARENT"
 
 # Stored once, read from both ends. Without the flip, a subsidiary's own file
 # would never mention its parent.
 check "and as SUBSIDIARY from the other end, from the same single row" \
-  "$(curl -s $API/accounts/$SCOPED/relationships -H "Authorization: Bearer $CEO" \
+  "$(curl -s $API/accounts/$FAR/relationships -H "Authorization: Bearer $CEO" \
      | JQ "print(next(r['typeCode'] for r in json.load(sys.stdin)['items'] if r['id']=='$REL'))")" "SUBSIDIARY"
 
 check "recording the same fact from the other side is refused as a duplicate" \
-  "$(code -X POST $API/accounts/$SCOPED/relationships -H "Authorization: Bearer $CEO" \
-     -H 'Content-Type: application/json' -d '{"toId":"'$ACC'","typeCode":"SUBSIDIARY"}')" "400"
+  "$(code -X POST $API/accounts/$FAR/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$NEAR'","typeCode":"SUBSIDIARY"}')" "400"
 
 # The counterparty is dropped whole rather than shown blank: a row naming a
 # customer you are not allowed to know exists is the leak this prevents.
 check "a link whose far end is out of scope disappears for that reader" \
-  "$(curl -s $API/accounts/$ACC/relationships -H "Authorization: Bearer $AM" \
+  "$(curl -s $API/accounts/$NEAR/relationships -H "Authorization: Bearer $AM" \
      | JQ "print(any(r['id']=='$REL' for r in json.load(sys.stdin)['items']))")" "False"
 
 curl -s -o /dev/null -X DELETE $API/relationships/$REL -H "Authorization: Bearer $CEO"
@@ -1292,8 +1311,8 @@ check "removing a relationship is a soft delete" \
   "$(psql_ "select (\"deletedAt\" is not null) from \"AccountRelationship\" where id='$REL';")" "t"
 
 check "and re-adding it revives the same row rather than colliding" \
-  "$(curl -s -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
-     -H 'Content-Type: application/json' -d '{"toId":"'$SCOPED'","typeCode":"PARENT"}' \
+  "$(curl -s -X POST $API/accounts/$NEAR/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$FAR'","typeCode":"PARENT"}' \
      | JQ "print(json.load(sys.stdin).get('id'))")" "$REL"
 
 # --- bid team --------------------------------------------------------------
@@ -1307,15 +1326,15 @@ TM_USER2=$(psql_ "select \"userId\" from \"UserRole\" where \"userId\" <> '$TM_U
 TM_ROLE2=$(psql_ "select role::text from \"UserRole\" where \"userId\"='$TM_USER2' order by role limit 1;")
 
 check "the candidate list is readable without being an administrator" \
-  "$(code $API/opportunities/$OPP/team/candidates -H "Authorization: Bearer $AM")" "200"
+  "$(code $API/opportunities/$TEAM_OPP/team/candidates -H "Authorization: Bearer $AM")" "200"
 
 # /users is SYSTEM_ADMIN only and carries emails and login history. Staffing a
 # bid needs neither, so the thin list must not start leaking them.
 check "and it carries no email addresses" \
-  "$(curl -s $API/opportunities/$OPP/team/candidates -H "Authorization: Bearer $CEO" \
+  "$(curl -s $API/opportunities/$TEAM_OPP/team/candidates -H "Authorization: Bearer $CEO" \
      | JQ "print(any('email' in u for u in json.load(sys.stdin)['items']))")" "False"
 
-TM=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+TM=$(curl -s -X POST $API/opportunities/$TEAM_OPP/team -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
   -d '{"userId":"'$TM_USER'","role":"'$TM_ROLE'","isLead":true}' \
   | JQ "print(json.load(sys.stdin).get('id','NONE'))")
@@ -1325,14 +1344,14 @@ TM=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO
 # A FINANCE line on the bid team that finance never granted reads as a control
 # and is not one.
 check "a role the person does not hold is refused" \
-  "$(code -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+  "$(code -X POST $API/opportunities/$TEAM_OPP/team -H "Authorization: Bearer $CEO" \
      -H 'Content-Type: application/json' -d '{"userId":"'$TM_USER'","role":"'$TM_BAD'"}')" "400"
 
 check "the team reports that it has a lead" \
-  "$(curl -s $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+  "$(curl -s $API/opportunities/$TEAM_OPP/team -H "Authorization: Bearer $CEO" \
      | JQ "print(json.load(sys.stdin)['hasLead'])")" "True"
 
-TM2=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+TM2=$(curl -s -X POST $API/opportunities/$TEAM_OPP/team -H "Authorization: Bearer $CEO" \
   -H 'Content-Type: application/json' \
   -d '{"userId":"'$TM_USER2'","role":"'$TM_ROLE2'","isLead":true}' \
   | JQ "print(json.load(sys.stdin).get('id','NONE'))")
@@ -1340,7 +1359,7 @@ TM2=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CE
 # "Lead" is a claim about the bid, not about the person, so it can only be true
 # once — the incumbent steps down in the same transaction.
 check "naming a new lead steps the previous one down" \
-  "$(curl -s $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+  "$(curl -s $API/opportunities/$TEAM_OPP/team -H "Authorization: Bearer $CEO" \
      | JQ "print(sum(1 for m in json.load(sys.stdin)['items'] if m['isLead']))")" "1"
 
 curl -s -o /dev/null -X DELETE $API/team-members/$TM2 -H "Authorization: Bearer $CEO"
