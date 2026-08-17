@@ -8,6 +8,9 @@ import {
   isBinding,
   signoffProgress,
   strongerAward,
+  CONTRACT_CLAUSE_TYPES,
+  RISK_LEVELS,
+  clauseNeedsMitigation,
   type ComparableTerms,
 } from './contract';
 
@@ -226,5 +229,32 @@ describe('who has to accept the handover', () => {
     ]);
 
     expect(progress.complete).toBe(true);
+  });
+});
+
+describe('contract clauses', () => {
+  it('demands a mitigation exactly where the risk is above routine', () => {
+    expect(clauseNeedsMitigation('HIGH')).toBe(true);
+    expect(clauseNeedsMitigation('CRITICAL')).toBe(true);
+    expect(clauseNeedsMitigation('MEDIUM')).toBe(false);
+    expect(clauseNeedsMitigation('LOW')).toBe(false);
+  });
+
+  it('answers for every risk level, so a new one cannot slip through unjudged', () => {
+    for (const risk of RISK_LEVELS) {
+      expect(typeof clauseNeedsMitigation(risk)).toBe('boolean');
+    }
+  });
+
+  it('names the areas a contract review actually walks through', () => {
+    // The two the deviation engine calls critical on their own must be
+    // registrable as clauses, or a review can flag them and then have nowhere
+    // to write down what was agreed.
+    expect(CONTRACT_CLAUSE_TYPES).toContain('LIABILITY_CAP');
+    expect(CONTRACT_CLAUSE_TYPES).toContain('PENALTIES');
+  });
+
+  it('keeps the list free of duplicates', () => {
+    expect(new Set(CONTRACT_CLAUSE_TYPES).size).toBe(CONTRACT_CLAUSE_TYPES.length);
   });
 });

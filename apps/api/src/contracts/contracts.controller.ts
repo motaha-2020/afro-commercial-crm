@@ -1,16 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
+import { ClausesService } from './clauses.service';
 import { HandoverService } from './handover.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
+  AddClauseDto,
   AddDeviationDto,
   AddHandoverItemDto,
+  ApproveClauseDto,
   CreateContractDto,
   CreateHandoverDto,
   DecideDeviationDto,
   RecordAwardDto,
   SignoffDto,
+  UpdateClauseDto,
   UpdateContractDto,
   UpdateHandoverDto,
   UpdateHandoverItemDto,
@@ -20,6 +24,7 @@ import {
 export class ContractsController {
   constructor(
     private readonly contracts: ContractsService,
+    private readonly clauses: ClausesService,
     private readonly handover: HandoverService,
   ) {}
 
@@ -90,6 +95,47 @@ export class ContractsController {
     @Body() dto: DecideDeviationDto,
   ) {
     return this.contracts.decideDeviation(user, id, dto);
+  }
+
+  // --- clauses -------------------------------------------------------------
+
+  @Get('contracts/:id/clauses')
+  listClauses(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.clauses.list(user, id);
+  }
+
+  @Post('contracts/:id/clauses')
+  addClause(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AddClauseDto,
+  ) {
+    return this.clauses.add(user, id, dto);
+  }
+
+  @Patch('clauses/:id')
+  updateClause(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateClauseDto,
+  ) {
+    return this.clauses.update(user, id, dto);
+  }
+
+  // Sign-off is its own route rather than a field on the edit above, so that
+  // correcting a typo can never approve a clause as a side effect.
+  @Post('clauses/:id/approve')
+  approveClause(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ApproveClauseDto,
+  ) {
+    return this.clauses.approve(user, id, dto);
+  }
+
+  @Delete('clauses/:id')
+  removeClause(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.clauses.remove(user, id);
   }
 
   // --- handover ------------------------------------------------------------

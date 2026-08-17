@@ -96,6 +96,52 @@ export type DeviationField = (typeof DEVIATION_FIELDS)[number];
 export const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
+/**
+ * The clause headings a contract review actually walks through.
+ *
+ * A managed list rather than free text, because the whole point of registering
+ * clauses is to be able to ask "what did we agree about liability across our
+ * live contracts?" — and that question cannot be answered over a column where
+ * one reviewer typed "Liability" and the next typed "Limitation of liability".
+ */
+export const CONTRACT_CLAUSE_TYPES = [
+  'SCOPE',
+  'PRICE',
+  'PAYMENT_TERMS',
+  'DURATION',
+  'DELIVERY',
+  'WARRANTY',
+  'PENALTIES',
+  'LIABILITY_CAP',
+  'INDEMNITY',
+  'INSURANCE',
+  'TAXES',
+  'VARIATIONS',
+  'TERMINATION',
+  'FORCE_MAJEURE',
+  'CONFIDENTIALITY',
+  'IP_RIGHTS',
+  'DISPUTE_RESOLUTION',
+  'GOVERNING_LAW',
+  'EXCLUSIONS',
+  'OTHER',
+] as const;
+export type ContractClauseType = (typeof CONTRACT_CLAUSE_TYPES)[number];
+
+/**
+ * Above medium risk, "approved" must be accompanied by what we intend to do
+ * about it.
+ *
+ * Signing off an uncapped liability with an empty mitigation field records a
+ * decision nobody can later explain, and the explanation is the only thing
+ * anyone will want when the clause is invoked. Below that line the note is
+ * optional: demanding one for every routine governing-law clause is how a
+ * required field becomes a field people paste "N/A" into.
+ */
+export function clauseNeedsMitigation(risk: RiskLevel): boolean {
+  return risk === 'HIGH' || risk === 'CRITICAL';
+}
+
 /** The proposal side and the contract side of the same terms. */
 export interface ComparableTerms {
   price?: number | null;

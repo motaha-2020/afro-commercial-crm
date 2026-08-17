@@ -6,6 +6,10 @@ import { shortDate } from '@/lib/format';
 import { BidScoreForm } from '@/components/BidScoreForm';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
+import {
+  OpportunityTeamPanel,
+  type TeamMemberRow,
+} from '@/components/OpportunityTeamPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,7 +136,7 @@ export default async function OpportunityDetailPage({
 
   // Four independent reads. Any one failing must not blank the page — a bid
   // team still needs the scope when the assessment service is unhappy.
-  const [opportunity, scope, bids, assessment, costing, activities, documents] = await Promise.all([
+  const [opportunity, scope, bids, assessment, costing, activities, documents, team] = await Promise.all([
     apiFetch<Opportunity>(`/opportunities/${id}`, { token }),
     apiFetch<ScopeOverview>(`/opportunities/${id}/scope`, { token }).catch(() => null),
     apiFetch<BidRow[]>(`/opportunities/${id}/bids`, { token }).catch(() => []),
@@ -158,6 +162,10 @@ export default async function OpportunityDetailPage({
       `/documents?entityType=Opportunity&entityId=${id}`,
       { token },
     ).catch(() => [] as DocumentRow[]),
+    apiFetch<{ items: TeamMemberRow[]; hasLead: boolean }>(
+      `/opportunities/${id}/team`,
+      { token },
+    ).catch(() => ({ items: [] as TeamMemberRow[], hasLead: false })),
   ]);
 
   const readiness = scope?.readiness;
@@ -477,6 +485,14 @@ export default async function OpportunityDetailPage({
             </table>
           </div>
         ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <OpportunityTeamPanel
+          opportunityId={id}
+          members={team.items}
+          hasLead={team.hasLead}
+        />
       </div>
 
       <div style={{ marginTop: 16 }}>

@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { HandoverGate, type Readiness, type SignoffRow } from '@/components/HandoverGate';
 import { RecordAwardForm } from '@/components/RecordAwardForm';
+import { ContractClauses, type ClauseRow } from '@/components/ContractClauses';
 import {
   NewContractForm,
   type AwardOption,
@@ -94,6 +95,20 @@ export default async function ContractPage({
         label: `v${v.versionNumber} — ${v.type}`,
         sellingPrice: v.sellingPrice,
       })),
+  );
+
+  // One read per contract, in parallel. A contract whose register fails to
+  // load still shows its deviations rather than taking the page down with it.
+  const clausesByContract = Object.fromEntries(
+    await Promise.all(
+      contracts.map(async (c) => {
+        const data = await apiFetch<{ items: ClauseRow[]; unapprovedHighRisk: number }>(
+          `/contracts/${c.id}/clauses`,
+          { token },
+        ).catch(() => ({ items: [] as ClauseRow[], unapprovedHighRisk: 0 }));
+        return [c.id, data] as const;
+      }),
+    ),
   );
 
   const handover = handovers.length
@@ -203,6 +218,14 @@ export default async function ContractPage({
               )}
             </tbody>
           </table>
+
+          <div style={{ marginTop: 14 }}>
+            <ContractClauses
+              contractId={c.id}
+              clauses={clausesByContract[c.id]?.items ?? []}
+              unapprovedHighRisk={clausesByContract[c.id]?.unapprovedHighRisk ?? 0}
+            />
+          </div>
         </div>
       ))}
 

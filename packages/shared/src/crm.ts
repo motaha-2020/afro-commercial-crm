@@ -107,3 +107,39 @@ export const ACCOUNT_RELATIONSHIP_TYPES = [
   'SUBCONTRACTOR',
 ] as const;
 export type AccountRelationshipType = (typeof ACCOUNT_RELATIONSHIP_TYPES)[number];
+
+/**
+ * How each link reads from the other end.
+ *
+ * The row is stored once and once only — recording "A is the parent of B" a
+ * second time as "B is a subsidiary of A" would be two rows saying one thing,
+ * and the day someone deletes one of them the group tree disagrees with itself.
+ * So the inverse is derived on read instead of stored.
+ *
+ * Three of the seven are their own inverse: a joint-venture partner, a
+ * consortium member and a competitor are that to each other, symmetrically.
+ * The remaining four are hierarchical and read differently from each side —
+ * and getting one of those backwards would draw a subsidiary as its own parent.
+ *
+ * Data, not a switch statement, and with an exhaustiveness test beside it: an
+ * eighth relationship type must state how it reads from the far end rather than
+ * quietly defaulting to symmetric and being drawn the wrong way round.
+ */
+export const INVERSE_ACCOUNT_RELATIONSHIP: Record<
+  AccountRelationshipType,
+  AccountRelationshipType
+> = {
+  PARENT: 'SUBSIDIARY',
+  SUBSIDIARY: 'PARENT',
+  JV_PARTNER: 'JV_PARTNER',
+  CONSORTIUM_MEMBER: 'CONSORTIUM_MEMBER',
+  COMPETITOR: 'COMPETITOR',
+  MAIN_CONTRACTOR: 'SUBCONTRACTOR',
+  SUBCONTRACTOR: 'MAIN_CONTRACTOR',
+};
+
+export function inverseAccountRelationship(
+  type: AccountRelationshipType,
+): AccountRelationshipType {
+  return INVERSE_ACCOUNT_RELATIONSHIP[type];
+}

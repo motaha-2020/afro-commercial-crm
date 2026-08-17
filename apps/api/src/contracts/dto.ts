@@ -9,7 +9,14 @@ import {
   MaxLength,
   Min,
   MinLength,
+  IsIn,
 } from 'class-validator';
+import {
+  CONTRACT_CLAUSE_TYPES,
+  RISK_LEVELS,
+  type ContractClauseType,
+  type RiskLevel,
+} from '@acms/shared';
 
 export enum AwardTypeDto {
   VERBAL_AWARD = 'VERBAL_AWARD',
@@ -277,4 +284,80 @@ export class SignoffDto {
   @IsString()
   @MaxLength(2000)
   comment?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Contract clauses
+//
+// The register of what the contract actually says, clause by clause, with the
+// risk each one carries and what we intend to do about it. Separate from
+// ContractDeviation on purpose: a deviation is a difference from what we
+// offered, while a clause can be a plain unwelcome term that was in the tender
+// from the first day and never differed from anything.
+// ---------------------------------------------------------------------------
+
+export class AddClauseDto {
+  @IsIn(CONTRACT_CLAUSE_TYPES)
+  clauseType!: ContractClauseType;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(8000)
+  clauseText!: string;
+
+  @IsOptional()
+  @IsIn(RISK_LEVELS)
+  riskLevel?: RiskLevel;
+
+  /** Who inside Afro carries this one — free text; not a system user. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  owner?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  mitigation?: string;
+}
+
+/**
+ * Notably absent: `isApproved`. Sign-off is its own endpoint, because folding
+ * it into a general save would make fixing a typo a way to approve a clause.
+ */
+export class UpdateClauseDto {
+  @IsOptional()
+  @IsIn(CONTRACT_CLAUSE_TYPES)
+  clauseType?: ContractClauseType;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(8000)
+  clauseText?: string;
+
+  @IsOptional()
+  @IsIn(RISK_LEVELS)
+  riskLevel?: RiskLevel;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  owner?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  mitigation?: string;
+}
+
+export class ApproveClauseDto {
+  /**
+   * Required above medium risk. Approving an uncapped liability with nothing
+   * written down records a decision nobody can explain later.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  mitigation?: string;
 }

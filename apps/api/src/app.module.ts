@@ -13,9 +13,11 @@ import { GovernanceModule } from './governance/governance.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { ContactsModule } from './contacts/contacts.module';
+import { RelationshipsModule } from './relationships/relationships.module';
 import { LeadsModule } from './leads/leads.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { OpportunityTeamModule } from './opportunity-team/opportunity-team.module';
 import { ImportsModule } from './imports/imports.module';
 import { ScopeModule } from './scope/scope.module';
 import { BidsModule } from './bids/bids.module';
@@ -43,9 +45,11 @@ import { AiModule } from './ai/ai.module';
     HealthModule,
     AccountsModule,
     ContactsModule,
+    RelationshipsModule,
     LeadsModule,
     ActivitiesModule,
     OpportunitiesModule,
+    OpportunityTeamModule,
     ImportsModule,
     ScopeModule,
     BidsModule,

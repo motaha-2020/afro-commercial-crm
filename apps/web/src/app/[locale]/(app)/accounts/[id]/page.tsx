@@ -4,6 +4,10 @@ import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { money } from '@/lib/format';
 import { ContactsPanel, type ContactRow } from '@/components/ContactsPanel';
+import {
+  RelationshipsPanel,
+  type RelationshipRow,
+} from '@/components/RelationshipsPanel';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 import { AccountEditForm } from '@/components/AccountEditForm';
@@ -79,6 +83,15 @@ export default async function AccountDetailPage({
     { token },
   ).catch(() => [] as DocumentRow[]);
 
+  // Links reach outwards to accounts this reader may not be allowed to see, so
+  // the endpoint drops those rows rather than naming them. Failing soft here
+  // for the same reason as the documents above: a group tree that cannot be
+  // read is no reason to blank the customer's file.
+  const relationships = await apiFetch<{ items: RelationshipRow[] }>(
+    `/accounts/${id}/relationships`,
+    { token },
+  ).catch(() => ({ items: [] as RelationshipRow[] }));
+
   const facts = [
     { label: t('code'), value: account.code },
     // Codes are stored as codes and translated at the display layer — the
@@ -119,6 +132,13 @@ export default async function AccountDetailPage({
 
       <div style={{ marginBottom: 16 }}>
         <ContactsPanel accountId={account.id} contacts={account.contacts} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <RelationshipsPanel
+          accountId={account.id}
+          relationships={relationships.items}
+        />
       </div>
 
       <div className="grid cols-2">
