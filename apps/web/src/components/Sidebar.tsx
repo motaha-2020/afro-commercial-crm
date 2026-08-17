@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const ITEMS: { key: string; href: string; icon: string; adminOnly?: boolean }[] = [
   { key: 'dashboard', href: 'dashboard', icon: '⌂' },
@@ -24,7 +24,12 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const app = useTranslations('app');
   const locale = useLocale();
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  // Which link is being navigated to, so the spinner sits on the item that was
+  // actually clicked. A pending flag alone could not tell them apart.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   // Read after mount, not during render: the server has no localStorage, and
   // rendering one state then correcting it would flash the wrong sidebar on
@@ -32,6 +37,13 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => {
     setCollapsed(localStorage.getItem(STORAGE_KEY) === 'true');
   }, []);
+
+  // The transition ends when the new screen commits; clearing the marker here
+  // rather than in the click keeps it up for the whole wait, not just the
+  // moment of the click.
+  useEffect(() => {
+    if (!pending) setPendingHref(null);
+  }, [pending]);
 
   function toggle() {
     setCollapsed((was) => {
@@ -73,8 +85,19 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             <Link
               key={item.key}
               href={href}
-              className={`nav-item${active ? ' active' : ''}`}
+              className={`nav-item${active ? ' active' : ''}${
+                pendingHref === href ? ' pending' : ''
+              }`}
               aria-current={active ? 'page' : undefined}
+              onClick={(e) => {
+                // Modified clicks belong to the browser — a new tab is not a
+                // navigation this sidebar is waiting for.
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                if (active) return;
+                e.preventDefault();
+                setPendingHref(href);
+                startTransition(() => router.push(href));
+              }}
               // Collapsed, the label is hidden and the icon is decorative, so
               // the link would otherwise have no accessible name at all.
               title={t(item.key)}

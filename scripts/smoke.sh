@@ -1208,6 +1208,209 @@ check "and lands on the login page" \
   "$(curl -sL $WEB/en/dashboard | grep -c 'type="password"')" "1"
 rm -f /tmp/acms_smoke.jar
 
+echo "=== 24. Response compression ==="
+# Asserted here rather than trusted, because compression is invisible when it
+# works and equally invisible when it silently stops working — a middleware
+# ordering change or a proxy stripping Accept-Encoding would cost bandwidth on
+# every request with nothing on any screen to show for it.
+enc()  { curl -s -D - -o /dev/null -H 'Accept-Encoding: gzip' "$@" \
+           | tr -d '\r' | awk 'tolower($1)=="content-encoding:"{print tolower($2)}'; }
+vary() { curl -s -D - -o /dev/null -H 'Accept-Encoding: gzip' "$@" \
+           | tr -d '\r' | awk 'tolower($1)=="vary:"{print tolower($0)}' | grep -c 'accept-encoding'; }
+size() { curl -s -o /dev/null -w '%{size_download}' "$@"; }
+
+RAW=$(size $API/accounts -H "Authorization: Bearer $CEO" -H 'Accept-Encoding: identity')
+GZ=$(size $API/accounts -H "Authorization: Bearer $CEO" -H 'Accept-Encoding: gzip')
+
+# If the seeded list were under the threshold the compression checks below
+# would pass for the wrong reason, so the fixture is asserted before it is used.
+[ "$RAW" -gt 1024 ] && ok "account list is large enough to be a real test (${RAW}B)" \
+  || bad "account list large enough to test" "only ${RAW}B, at or under the 1KB threshold"
+
+check "a JSON list is gzipped when the client accepts it" \
+  "$(enc $API/accounts -H "Authorization: Bearer $CEO")" "gzip"
+check "and says so in Vary, so a cache cannot serve it to a client that cannot read it" \
+  "$(vary $API/accounts -H "Authorization: Bearer $CEO")" "1"
+[ "$GZ" -lt "$RAW" ] && ok "compressed smaller than raw (${GZ}B vs ${RAW}B, $(( 100 - GZ * 100 / RAW ))% saved)" \
+  || bad "compressed smaller than raw" "gzip ${GZ}B vs raw ${RAW}B"
+
+# A client that did not ask must still get plain JSON. Compressing regardless
+# would break anything reading the body without a gzip decoder.
+check "a client that does not accept gzip still gets plain JSON" \
+  "$(curl -s -D - -o /dev/null -H 'Accept-Encoding: identity' $API/accounts -H "Authorization: Bearer $CEO" \
+     | tr -d '\r' | awk 'tolower($1)=="content-encoding:"{print tolower($2)}')" ""
+
+# Under the threshold nothing is gained: the gzip framing can make a short reply
+# longer than it started, and the liveness probe runs constantly.
+check "a tiny response is left alone" "$(enc $API/health/live)" ""
+
+echo "=== 25. Release 2/7 gaps: relationships, bid team and the clause register ==="
+
+# --- account relationships -------------------------------------------------
+# $ACC belongs to the account manager; $SCOPED was created by the CEO in
+# section 5 precisely because it is outside the account manager's scope. The
+# pair is what makes the visibility checks below mean anything.
+
+REL=$(curl -s -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"toId":"'$SCOPED'","typeCode":"PARENT","notes":"smoke"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$REL" != "NONE" ] && ok "a relationship is recorded" || bad "relationship recorded" "$REL"
+
+check "an account cannot be related to itself" \
+  "$(code -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$ACC'","typeCode":"JV_PARTNER"}')" "400"
+
+# The whole security question in this module: naming an id you cannot see must
+# not read its legal name back out of the list.
+check "linking to an account outside your scope is refused as absent" \
+  "$(code -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $AM" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$SCOPED'","typeCode":"PARENT"}')" "404"
+
+check "the link reads as PARENT from the account it was recorded on" \
+  "$(curl -s $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+     | JQ "print(next(r['typeCode'] for r in json.load(sys.stdin)['items'] if r['id']=='$REL'))")" "PARENT"
+
+# Stored once, read from both ends. Without the flip, a subsidiary's own file
+# would never mention its parent.
+check "and as SUBSIDIARY from the other end, from the same single row" \
+  "$(curl -s $API/accounts/$SCOPED/relationships -H "Authorization: Bearer $CEO" \
+     | JQ "print(next(r['typeCode'] for r in json.load(sys.stdin)['items'] if r['id']=='$REL'))")" "SUBSIDIARY"
+
+check "recording the same fact from the other side is refused as a duplicate" \
+  "$(code -X POST $API/accounts/$SCOPED/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$ACC'","typeCode":"SUBSIDIARY"}')" "400"
+
+# The counterparty is dropped whole rather than shown blank: a row naming a
+# customer you are not allowed to know exists is the leak this prevents.
+check "a link whose far end is out of scope disappears for that reader" \
+  "$(curl -s $API/accounts/$ACC/relationships -H "Authorization: Bearer $AM" \
+     | JQ "print(any(r['id']=='$REL' for r in json.load(sys.stdin)['items']))")" "False"
+
+curl -s -o /dev/null -X DELETE $API/relationships/$REL -H "Authorization: Bearer $CEO"
+check "removing a relationship is a soft delete" \
+  "$(psql_ "select (\"deletedAt\" is not null) from \"AccountRelationship\" where id='$REL';")" "t"
+
+check "and re-adding it revives the same row rather than colliding" \
+  "$(curl -s -X POST $API/accounts/$ACC/relationships -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"toId":"'$SCOPED'","typeCode":"PARENT"}' \
+     | JQ "print(json.load(sys.stdin).get('id'))")" "$REL"
+
+# --- bid team --------------------------------------------------------------
+
+TM_USER=$(psql_ "select \"userId\" from \"UserRole\" order by \"userId\" limit 1;")
+TM_ROLE=$(psql_ "select role::text from \"UserRole\" where \"userId\"='$TM_USER' order by role limit 1;")
+TM_BAD=$(psql_ "select r::text from unnest(enum_range(NULL::\"Role\")) r
+                where r::text not in (select role::text from \"UserRole\" where \"userId\"='$TM_USER')
+                order by r limit 1;")
+TM_USER2=$(psql_ "select \"userId\" from \"UserRole\" where \"userId\" <> '$TM_USER' order by \"userId\" limit 1;")
+TM_ROLE2=$(psql_ "select role::text from \"UserRole\" where \"userId\"='$TM_USER2' order by role limit 1;")
+
+check "the candidate list is readable without being an administrator" \
+  "$(code $API/opportunities/$OPP/team/candidates -H "Authorization: Bearer $AM")" "200"
+
+# /users is SYSTEM_ADMIN only and carries emails and login history. Staffing a
+# bid needs neither, so the thin list must not start leaking them.
+check "and it carries no email addresses" \
+  "$(curl -s $API/opportunities/$OPP/team/candidates -H "Authorization: Bearer $CEO" \
+     | JQ "print(any('email' in u for u in json.load(sys.stdin)['items']))")" "False"
+
+TM=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"'$TM_USER'","role":"'$TM_ROLE'","isLead":true}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$TM" != "NONE" ] && ok "somebody is put on the bid team under a role they hold" \
+  || bad "team member added" "$TM"
+
+# A FINANCE line on the bid team that finance never granted reads as a control
+# and is not one.
+check "a role the person does not hold is refused" \
+  "$(code -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"userId":"'$TM_USER'","role":"'$TM_BAD'"}')" "400"
+
+check "the team reports that it has a lead" \
+  "$(curl -s $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+     | JQ "print(json.load(sys.stdin)['hasLead'])")" "True"
+
+TM2=$(curl -s -X POST $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"'$TM_USER2'","role":"'$TM_ROLE2'","isLead":true}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+
+# "Lead" is a claim about the bid, not about the person, so it can only be true
+# once — the incumbent steps down in the same transaction.
+check "naming a new lead steps the previous one down" \
+  "$(curl -s $API/opportunities/$OPP/team -H "Authorization: Bearer $CEO" \
+     | JQ "print(sum(1 for m in json.load(sys.stdin)['items'] if m['isLead']))")" "1"
+
+curl -s -o /dev/null -X DELETE $API/team-members/$TM2 -H "Authorization: Bearer $CEO"
+check "removing a member is a soft delete, so who was on the bid survives" \
+  "$(psql_ "select (\"deletedAt\" is not null) from \"OpportunityTeam\" where id='$TM2';")" "t"
+
+# --- contract clauses ------------------------------------------------------
+# $R7_CNT is the reviewed contract from section 19.
+
+CL=$(curl -s -X POST $API/contracts/$R7_CNT/clauses -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' \
+  -d '{"clauseType":"LIABILITY_CAP","clauseText":"Liability is uncapped.","riskLevel":"CRITICAL"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$CL" != "NONE" ] && ok "a clause is registered" || bad "clause registered" "$CL"
+
+check "a clause never arrives approved, whoever registered it" \
+  "$(psql_ "select \"isApproved\" from \"ContractClause\" where id='$CL';")" "f"
+
+# Approving an uncapped liability with nothing written down records a decision
+# nobody can explain later.
+check "a critical clause cannot be approved with an empty mitigation" \
+  "$(code -X POST $API/clauses/$CL/approve -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{}')" "400"
+
+check "and the register says how many high-risk clauses are still owed" \
+  "$(curl -s $API/contracts/$R7_CNT/clauses -H "Authorization: Bearer $CEO" \
+     | JQ "print(json.load(sys.stdin)['unapprovedHighRisk'])")" "1"
+
+check "it goes through once a mitigation is written" \
+  "$(code -X POST $API/clauses/$CL/approve -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"mitigation":"Insured to 5M; board informed."}')" "201"
+
+check "approving twice is refused" \
+  "$(code -X POST $API/clauses/$CL/approve -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"mitigation":"again"}')" "400"
+
+# An approval is approval of a specific text. Letting the words move underneath
+# it would leave the register asserting somebody approved wording never read.
+curl -s -o /dev/null -X PATCH $API/clauses/$CL -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"clauseText":"Liability is capped at contract value."}'
+check "changing the wording re-opens the sign-off" \
+  "$(psql_ "select \"isApproved\" from \"ContractClause\" where id='$CL';")" "f"
+
+check "correcting only the owner leaves the sign-off standing" \
+  "$(curl -s -X POST $API/clauses/$CL/approve -H "Authorization: Bearer $CEO" \
+     -H 'Content-Type: application/json' -d '{"mitigation":"Capped; accepted."}' >/dev/null; \
+     curl -s -o /dev/null -X PATCH $API/clauses/$CL -H "Authorization: Bearer $CEO" \
+       -H 'Content-Type: application/json' -d '{"owner":"Legal - Cairo"}'; \
+     psql_ "select \"isApproved\" from \"ContractClause\" where id='$CL';")" "t"
+
+check "a clause on a contract outside your scope is absent, not forbidden" \
+  "$(code $API/contracts/$R7_CNT/clauses -H "Authorization: Bearer $AM")" "404"
+
+curl -s -o /dev/null -X DELETE $API/clauses/$CL -H "Authorization: Bearer $CEO"
+check "removing a clause is a soft delete" \
+  "$(psql_ "select (\"deletedAt\" is not null) from \"ContractClause\" where id='$CL';")" "t"
+
+# --- the three screens render ----------------------------------------------
+curl -s -c /tmp/acms_smoke2.jar -o /dev/null -X POST $WEB/api/auth/login \
+  -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
+for L in ar en fr; do
+  check "$L account file shows the relationships panel" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/accounts/$ACC | grep -c 'rel-type')" "0"
+  check "$L opportunity file renders with the bid team" \
+    "$(code -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$OPP)" "200"
+  check "$L contract screen renders with the clause register" \
+    "$(code -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$R7_OPP/contract)" "200"
+done
+rm -f /tmp/acms_smoke2.jar
+
 echo
 echo "==================== $PASS passed, $FAIL failed ===================="
 [ "$FAIL" -eq 0 ]

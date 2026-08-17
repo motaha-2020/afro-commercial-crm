@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/structured-logger';
@@ -16,6 +17,24 @@ async function bootstrap() {
     bufferLogs: true,
   });
   app.useLogger(new StructuredLogger());
+
+  // Before anything that writes a response, so every route is covered rather
+  // than the ones somebody remembered.
+  //
+  // JSON is the most repetitive payload we send — the same field names on every
+  // row of a costing screen or an opportunity page — which is exactly the shape
+  // gzip is best at. The link to the server is Tailscale, so the bytes saved are
+  // bytes that never cross it.
+  //
+  // The threshold is stated rather than left to the default: under a kilobyte
+  // the gzip header and the CPU cost buy nothing, and a compressed 200-byte
+  // reply can come out larger than the original.
+  //
+  // Document downloads are unaffected on purpose. The default filter consults
+  // the response Content-Type, and PDFs, images and Office files are already
+  // compressed formats — re-compressing them spends CPU to save nothing. The
+  // file body is piped straight through as before.
+  app.use(compression({ threshold: 1024 }));
 
   app.use(helmet());
 
