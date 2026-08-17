@@ -1421,13 +1421,65 @@ check "removing a clause is a soft delete" \
 curl -s -c /tmp/acms_smoke2.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"ceo@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
 for L in ar en fr; do
-  check "$L account file shows the relationships panel" \
-    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/accounts/$ACC | grep -c 'rel-type')" "0"
+  # Asserted on the data, not on a 200. The page returns 200 whether or not the
+  # panel found anything, so the counterparty's own name is the only evidence
+  # that the relationship was read, flipped and rendered.
+  check "$L account file shows the relationship it holds" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/accounts/$NEAR \
+       | grep -q 'Smoke Relationship Far Ltd' && echo yes || echo no)" "yes"
   check "$L opportunity file renders with the bid team" \
-    "$(code -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$OPP)" "200"
+    "$(code -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$TEAM_OPP)" "200"
   check "$L contract screen renders with the clause register" \
     "$(code -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$R7_OPP/contract)" "200"
 done
+
+echo "=== 26. The proposals screen ==="
+# $R7_OPP carries an approved costing and the "Smoke offer" proposal from
+# section 19, which is exactly the state this screen exists to work in.
+
+for L in ar en fr; do
+  check "$L proposals screen lists the proposal" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/opportunities/$R7_OPP/proposals \
+       | grep -q 'Smoke offer' && echo yes || echo no)" "yes"
+done
+
+# The writes below go through the web app's own routes with the session cookie,
+# not straight to the API with a bearer token. That is the path the screen
+# actually takes, and until now nothing proved it existed.
+wpost() { curl -s -b /tmp/acms_smoke2.jar -o /dev/null -w '%{http_code}' \
+  -X POST "$WEB$1" -H 'Content-Type: application/json' -d "$2"; }
+
+SPRP=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/opportunities/$R7_OPP/proposals \
+  -H 'Content-Type: application/json' -d '{"title":"Smoke screen offer"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$SPRP" != "NONE" ] && ok "a proposal is created from the screen" \
+  || bad "proposal created through the web route" "$SPRP"
+
+# A technical proposal quotes nothing, so it needs no costing behind it.
+check "a technical version needs no costing" \
+  "$(wpost /api/proposals/$SPRP/versions '{"type":"TECHNICAL"}')" "200"
+
+# The screen refuses to offer this combination at all, but the refusal has to
+# hold underneath it too: the form is a convenience, never the control.
+check "a commercial version with no costing is refused through the same route" \
+  "$(wpost /api/proposals/$SPRP/versions '{"type":"COMMERCIAL"}')" "400"
+
+check "and goes through against the approved costing" \
+  "$(wpost /api/proposals/$SPRP/versions \
+     '{"type":"COMMERCIAL","costingVersionId":"'$R7_VER'","sellingPrice":'$R7_PRICE'}')" "200"
+
+SPV=$(psql_ "select v.id from \"ProposalVersion\" v where v.\"proposalId\"='$SPRP'
+             and v.type='COMMERCIAL' limit 1;")
+check "sending it from the screen records who it went to" \
+  "$(wpost /api/proposal-versions/$SPV/submit '{"submittedTo":"Smoke Customer","submissionMethod":"EMAIL"}')" "200"
+check "the recipient is stored, not merely accepted" \
+  "$(psql_ "select \"submittedTo\" from \"ProposalVersion\" where id='$SPV';")" "Smoke Customer"
+
+# What the customer holds is a fact. The screen hides the send button on a sent
+# version; the API refuses regardless, which is the half that matters.
+check "and it cannot be sent twice" \
+  "$(wpost /api/proposal-versions/$SPV/submit '{"submittedTo":"Again"}')" "400"
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

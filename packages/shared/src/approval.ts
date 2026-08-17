@@ -342,3 +342,57 @@ export function requiredApprovers(evaluation: RuleEvaluation): string[] {
 export function needsApproval(evaluation: RuleEvaluation): boolean {
   return evaluation.fired.length > 0 || evaluation.undetermined.length > 0;
 }
+
+/**
+ * The eight kinds of proposal a deal can put in front of a customer.
+ */
+export const PROPOSAL_TYPES = [
+  'BUDGETARY',
+  'INITIAL',
+  'REVISED',
+  'BAFO',
+  'FINAL',
+  'TECHNICAL',
+  'COMMERCIAL',
+  'COMBINED',
+] as const;
+export type ProposalType = (typeof PROPOSAL_TYPES)[number];
+
+/**
+ * Whether this kind of proposal quotes the customer a price, and therefore may
+ * not exist without an approved costing behind it.
+ *
+ * The rule is the spec's, stated plainly in section 26: a commercial proposal
+ * must reference an approved costing version, and no arbitrary price may be
+ * typed in beside it. What lives here is only the question of which types the
+ * rule applies to — and it lives here because the screen has to ask it before
+ * the user submits. A screen that offered a price field the API would refuse
+ * would be teaching people to ignore the form.
+ *
+ * TECHNICAL carries no number at all, so the rule would be meaningless on it.
+ */
+export function isCommercialProposal(type: string): boolean {
+  return type !== 'TECHNICAL';
+}
+
+/** The statuses a proposal version moves through, in the order it moves. */
+export const PROPOSAL_VERSION_STATUSES = [
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'SUBMITTED',
+  'SUPERSEDED',
+  'WITHDRAWN',
+] as const;
+export type ProposalVersionStatus = (typeof PROPOSAL_VERSION_STATUSES)[number];
+
+/**
+ * Whether this version can still be sent.
+ *
+ * A sent version is a fact about what the customer is holding, so it is never
+ * re-sent or edited — it is superseded by a new one. Withdrawn and superseded
+ * versions are history for the same reason.
+ */
+export function canSubmitProposalVersion(status: string): boolean {
+  return status === 'DRAFT' || status === 'PENDING_APPROVAL' || status === 'APPROVED';
+}

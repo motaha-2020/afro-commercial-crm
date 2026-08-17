@@ -1,11 +1,14 @@
 import {
   APPROVAL_POLICY_KEYS,
+  canSubmitProposalVersion,
   compare,
   evaluateRules,
+  isCommercialProposal,
   isTerminalDecision,
   needsApproval,
   policySnapshot,
   policySpecificity,
+  PROPOSAL_TYPES,
   requiredApprovers,
   resolvePolicy,
   type PolicyRow,
@@ -255,5 +258,40 @@ describe('what a decision does to the request', () => {
     expect(isTerminalDecision('APPROVE')).toBe(true);
     expect(isTerminalDecision('REJECT')).toBe(true);
     expect(isTerminalDecision('APPROVE_WITH_CONDITIONS')).toBe(true);
+  });
+});
+
+describe('which proposals carry a price', () => {
+  it('only the purely technical one escapes the costing rule', () => {
+    // Stated as an exhaustive sweep rather than a list of examples: a ninth
+    // type added later would otherwise inherit "no costing needed" silently,
+    // which is the one direction this rule must never fail in.
+    const priced = PROPOSAL_TYPES.filter(isCommercialProposal);
+    expect(priced).toEqual([
+      'BUDGETARY',
+      'INITIAL',
+      'REVISED',
+      'BAFO',
+      'FINAL',
+      'COMMERCIAL',
+      'COMBINED',
+    ]);
+    expect(isCommercialProposal('TECHNICAL')).toBe(false);
+  });
+});
+
+describe('when a version can still be sent', () => {
+  it('a sent version is never sent again', () => {
+    // What the customer holds is a fact, not a draft: it is superseded, never
+    // replaced.
+    expect(canSubmitProposalVersion('SUBMITTED')).toBe(false);
+    expect(canSubmitProposalVersion('SUPERSEDED')).toBe(false);
+    expect(canSubmitProposalVersion('WITHDRAWN')).toBe(false);
+  });
+
+  it('anything still in preparation can go out', () => {
+    expect(canSubmitProposalVersion('DRAFT')).toBe(true);
+    expect(canSubmitProposalVersion('PENDING_APPROVAL')).toBe(true);
+    expect(canSubmitProposalVersion('APPROVED')).toBe(true);
   });
 });

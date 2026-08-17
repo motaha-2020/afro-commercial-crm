@@ -517,6 +517,12 @@ export default async function OpportunityDetailPage({
         <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/quotations`}>
           {t('supplierComparison')} →
         </Link>
+        {/* Between the supplier comparison and the award, because that is
+            where it sits in the work: the costing is approved, the offer goes
+            out, and only then is there an award to record. */}
+        <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/proposals`}>
+          {t('proposals')} →
+        </Link>
         <Link className="btn btn-sm" href={`/${locale}/opportunities/${id}/contract`}>
           {t('awardAndContract')} →
         </Link>

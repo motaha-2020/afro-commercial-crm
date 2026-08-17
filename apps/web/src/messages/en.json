@@ -551,7 +551,8 @@
     "sentBy": "Sent by",
     "receivedOn": "Received on",
     "closesOn": "Expected close",
-    "nextAction": "Next action"
+    "nextAction": "Next action",
+    "proposals": "Proposals"
   },
   "bid": {
     "title": "Bid / No-Bid assessment",
@@ -1485,5 +1486,61 @@
     "MEDIUM": "Medium",
     "HIGH": "High",
     "CRITICAL": "Critical"
+  },
+  "proposals": {
+    "title": "Proposals to the customer",
+    "newProposal": "New proposal",
+    "proposalTitle": "Title",
+    "againstBid": "Against tender",
+    "noBid": "Not tied to a tender",
+    "addVersion": "Add version",
+    "version": "Version",
+    "type": "Type",
+    "price": "Price",
+    "sellingPrice": "Selling price",
+    "priceFromCosting": "Taken from the approved costing, not typed",
+    "costingVersion": "Approved costing",
+    "chooseCosting": "Choose a costing",
+    "noApprovedCosting": "No approved costing on this opportunity yet. A price may only come from one, so approve a costing version first.",
+    "fromCosting": "from costing v{n}",
+    "validUntil": "Valid until",
+    "paymentTerms": "Payment terms",
+    "durationDays": "Duration (days)",
+    "warrantyMonths": "Warranty (months)",
+    "ldPercent": "Liquidated damages %",
+    "liabilityCap": "Liability cap",
+    "termsHint": "The terms recorded here are the ones a contract is later compared against, one by one.",
+    "status": "Status",
+    "sentTo": "Sent to",
+    "send": "Send",
+    "confirmSend": "Confirm",
+    "sentAlready": "Sent — supersede with a revision",
+    "sentToPlaceholder": "Recipient",
+    "methodPlaceholder": "How it was sent",
+    "noVersions": "No versions yet — a proposal with no version has been offered to nobody",
+    "empty": "No proposals yet",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "failed": "Could not save",
+    "backToOpportunity": "Back to the opportunity"
+  },
+  "proposalType": {
+    "BUDGETARY": "Budgetary",
+    "INITIAL": "Initial",
+    "REVISED": "Revised",
+    "BAFO": "Best and final",
+    "FINAL": "Final",
+    "TECHNICAL": "Technical only",
+    "COMMERCIAL": "Commercial",
+    "COMBINED": "Technical and commercial"
+  },
+  "proposalStatus": {
+    "DRAFT": "Draft",
+    "PENDING_APPROVAL": "Awaiting approval",
+    "APPROVED": "Approved",
+    "SUBMITTED": "Sent",
+    "SUPERSEDED": "Superseded",
+    "WITHDRAWN": "Withdrawn"
   }
 }

@@ -551,7 +551,8 @@
     "sentBy": "أرسلها",
     "receivedOn": "تاريخ الوصول",
     "closesOn": "تاريخ الحسم المتوقع",
-    "nextAction": "الإجراء التالي"
+    "nextAction": "الإجراء التالي",
+    "proposals": "العروض"
   },
   "bid": {
     "title": "تقييم Bid / No-Bid",
@@ -1485,5 +1486,61 @@
     "MEDIUM": "متوسطة",
     "HIGH": "عالية",
     "CRITICAL": "حرجة"
+  },
+  "proposals": {
+    "title": "العروض المقدَّمة للعميل",
+    "newProposal": "عرض جديد",
+    "proposalTitle": "العنوان",
+    "againstBid": "مقابل مناقصة",
+    "noBid": "غير مرتبط بمناقصة",
+    "addVersion": "إضافة نسخة",
+    "version": "النسخة",
+    "type": "النوع",
+    "price": "السعر",
+    "sellingPrice": "سعر البيع",
+    "priceFromCosting": "مأخوذ من التكلفة المعتمدة، لا يُكتب يدويًا",
+    "costingVersion": "نسخة التكلفة المعتمدة",
+    "chooseCosting": "اختر نسخة تكلفة",
+    "noApprovedCosting": "لا توجد نسخة تكلفة معتمدة على هذه الفرصة بعد. السعر لا يأتي إلا منها، فاعتمد نسخة تكلفة أولًا.",
+    "fromCosting": "من تكلفة نسخة {n}",
+    "validUntil": "سارٍ حتى",
+    "paymentTerms": "شروط السداد",
+    "durationDays": "المدة (أيام)",
+    "warrantyMonths": "الضمان (أشهر)",
+    "ldPercent": "غرامة التأخير ٪",
+    "liabilityCap": "حدّ المسؤولية",
+    "termsHint": "الشروط المسجَّلة هنا هي التي يُقارَن بها العقد لاحقًا بندًا بندًا.",
+    "status": "الحالة",
+    "sentTo": "أُرسل إلى",
+    "send": "إرسال",
+    "confirmSend": "تأكيد",
+    "sentAlready": "أُرسل — يُستبدل بنسخة مراجَعة",
+    "sentToPlaceholder": "جهة الاستلام",
+    "methodPlaceholder": "طريقة الإرسال",
+    "noVersions": "لا نسخ بعد — عرض بلا نسخة لم يُقدَّم لأحد",
+    "empty": "لا توجد عروض بعد",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "failed": "تعذّر الحفظ",
+    "backToOpportunity": "العودة إلى الفرصة"
+  },
+  "proposalType": {
+    "BUDGETARY": "استرشادي",
+    "INITIAL": "مبدئي",
+    "REVISED": "مراجَع",
+    "BAFO": "أفضل عرض نهائي",
+    "FINAL": "نهائي",
+    "TECHNICAL": "فني فقط",
+    "COMMERCIAL": "تجاري",
+    "COMBINED": "فني وتجاري"
+  },
+  "proposalStatus": {
+    "DRAFT": "مسودة",
+    "PENDING_APPROVAL": "بانتظار الاعتماد",
+    "APPROVED": "معتمَد",
+    "SUBMITTED": "مُرسَل",
+    "SUPERSEDED": "مستبدَل",
+    "WITHDRAWN": "مسحوب"
   }
 }

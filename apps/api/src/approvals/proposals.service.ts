@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isCommercialProposal } from '@acms/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../common/code-generator.service';
@@ -10,21 +11,6 @@ import type {
   CreateProposalVersionDto,
   SubmitProposalVersionDto,
 } from './dto';
-
-/**
- * Proposal types that quote the customer a price, and therefore may not exist
- * without an approved costing behind them. A purely technical proposal carries
- * no number, so the rule would be meaningless there.
- */
-const COMMERCIAL_TYPES = [
-  'COMMERCIAL',
-  'COMBINED',
-  'BUDGETARY',
-  'INITIAL',
-  'REVISED',
-  'BAFO',
-  'FINAL',
-];
 
 @Injectable()
 export class ProposalsService {
@@ -96,7 +82,10 @@ export class ProposalsService {
   async addVersion(user: AuthenticatedUser, proposalId: string, dto: CreateProposalVersionDto) {
     const proposal = await this.proposalOr404(user, proposalId);
     const type = dto.type ?? 'INITIAL';
-    const isCommercial = COMMERCIAL_TYPES.includes(type);
+    // The screen asks the same question before it draws the form, from the
+    // same function: a price field the API would refuse teaches people to
+    // ignore the form.
+    const isCommercial = isCommercialProposal(type);
 
     if (isCommercial) {
       if (!dto.costingVersionId) {

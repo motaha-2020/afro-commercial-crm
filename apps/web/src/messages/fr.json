@@ -551,7 +551,8 @@
     "sentBy": "Envoyée par",
     "receivedOn": "Reçue le",
     "closesOn": "Clôture prévue",
-    "nextAction": "Prochaine action"
+    "nextAction": "Prochaine action",
+    "proposals": "Offres"
   },
   "bid": {
     "title": "Évaluation Bid / No-Bid",
@@ -1485,5 +1486,61 @@
     "MEDIUM": "Moyen",
     "HIGH": "Élevé",
     "CRITICAL": "Critique"
+  },
+  "proposals": {
+    "title": "Offres remises au client",
+    "newProposal": "Nouvelle offre",
+    "proposalTitle": "Intitulé",
+    "againstBid": "Rattachée à un appel d'offres",
+    "noBid": "Sans appel d'offres",
+    "addVersion": "Ajouter une version",
+    "version": "Version",
+    "type": "Type",
+    "price": "Prix",
+    "sellingPrice": "Prix de vente",
+    "priceFromCosting": "Repris du chiffrage approuvé, jamais saisi",
+    "costingVersion": "Chiffrage approuvé",
+    "chooseCosting": "Choisir un chiffrage",
+    "noApprovedCosting": "Aucun chiffrage approuvé sur cette affaire. Un prix ne peut venir que de là : approuvez d'abord une version de chiffrage.",
+    "fromCosting": "du chiffrage v{n}",
+    "validUntil": "Valable jusqu'au",
+    "paymentTerms": "Conditions de paiement",
+    "durationDays": "Délai (jours)",
+    "warrantyMonths": "Garantie (mois)",
+    "ldPercent": "Pénalités de retard %",
+    "liabilityCap": "Plafond de responsabilité",
+    "termsHint": "Les conditions saisies ici sont celles auxquelles le contrat sera comparé, une à une.",
+    "status": "Statut",
+    "sentTo": "Envoyée à",
+    "send": "Envoyer",
+    "confirmSend": "Confirmer",
+    "sentAlready": "Envoyée — remplacer par une révision",
+    "sentToPlaceholder": "Destinataire",
+    "methodPlaceholder": "Mode d'envoi",
+    "noVersions": "Aucune version — une offre sans version n'a été remise à personne",
+    "empty": "Aucune offre",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "failed": "Enregistrement impossible",
+    "backToOpportunity": "Retour à l'affaire"
+  },
+  "proposalType": {
+    "BUDGETARY": "Budgétaire",
+    "INITIAL": "Initiale",
+    "REVISED": "Révisée",
+    "BAFO": "Meilleure offre finale",
+    "FINAL": "Finale",
+    "TECHNICAL": "Technique seule",
+    "COMMERCIAL": "Commerciale",
+    "COMBINED": "Technique et commerciale"
+  },
+  "proposalStatus": {
+    "DRAFT": "Brouillon",
+    "PENDING_APPROVAL": "En attente d'approbation",
+    "APPROVED": "Approuvée",
+    "SUBMITTED": "Envoyée",
+    "SUPERSEDED": "Remplacée",
+    "WITHDRAWN": "Retirée"
   }
 }
