@@ -1508,7 +1508,11 @@ curl -s -o /dev/null -X DELETE $API/opportunities/$SOPP -H "Authorization: Beare
 
 echo "=== 28. Governance and the trail, on screen ==="
 for L in ar en fr; do
-  check "$L governance screen lists the eight rules"     "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/governance | grep -c 'SOD_0')" "8"
+  # Distinct codes: each appears once in the markup and again in the streamed
+  # payload, so a raw count reads 25 and means 8.
+  check "$L governance screen lists the eight rules" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/governance \
+       | grep -o 'SOD_0[1-8]' | sort -u | wc -l | tr -d ' ')" "8"
 done
 
 # The trail is read per record and only by a governance role. Both halves are

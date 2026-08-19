@@ -64,6 +64,8 @@ const shots = [
   { n: '15', name: 'clause-register', url: `/opportunities/${OPP}/contract`, find: 'clause' },
   { n: '16', name: 'import', url: '/import/accounts', full: true },
   { n: '17', name: 'ref-lists', url: '/ref-lists', full: true },
+  { n: '17b', name: 'governance-sod', url: '/governance', full: true },
+  { n: '17c', name: 'audit-trail', url: `/opportunities/${OPP}`, trail: true },
   { n: '18', name: 'settings-approval-limits', url: '/settings', full: true },
   { n: '19', name: 'users-and-roles', url: '/users', full: true },
 ];
@@ -105,6 +107,18 @@ for (const shot of shots) {
       btn?.click();
     });
     await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  if (shot.trail) {
+    // The history is collapsed until it is asked for, so the shot has to ask.
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find((b) =>
+        /history/i.test(b.textContent ?? ''),
+      );
+      btn?.scrollIntoView({ block: 'center' });
+      btn?.click();
+    });
+    await new Promise((r) => setTimeout(r, 1800));
   }
 
   if (shot.find) {
