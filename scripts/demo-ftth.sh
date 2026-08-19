@@ -43,9 +43,9 @@ echo "=== 0. Clearing the test residue and any previous demo run ==="
 # deleted). They are harmless to the system and fatal to a screenshot, so they
 # are soft-deleted here exactly as the API would: the row stays, the screen does
 # not show it.
-psql_ "update \"Opportunity\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'FTTH %' or name like 'Headquarters network%' or name like 'Fibre to 40%' or name like 'Transmission towers%');" >/dev/null
+psql_ "update \"Opportunity\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'FTTH %' or name like 'Headquarters network%' or name like 'Fibre to 40%' or name like 'Transmission towers%' or name like 'مشروع FTTH%' or name like 'مناقصة FTTH%' or name like 'توسعة شبكة%' or name like 'ربط ٤٠%' or name like 'أبراج نقل%');" >/dev/null
 psql_ "update \"Lead\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'FTTH tender%');" >/dev/null
-psql_ "update \"Account\" set \"deletedAt\"=now() where \"deletedAt\" is null and (\"legalName\" like 'Smoke%' or \"legalName\" like 'Nile Telecom%' or \"legalName\" like 'Egyptian Network%' or \"legalName\" like 'Telecom Development%' or \"legalName\" like 'Madagascar Telecom%');" >/dev/null
+psql_ "update \"Account\" set \"deletedAt\"=now() where \"deletedAt\" is null and (\"legalName\" like 'Smoke%' or \"legalName\" like 'Nile Telecom%' or \"legalName\" like 'Egyptian Network%' or \"legalName\" like 'Telecom Development%' or \"legalName\" like 'Madagascar Telecom%' or \"legalName\" like 'شركة النيل%' or \"legalName\" like 'النيل للاتصالات%' or \"legalName\" like 'الشركة المصرية%' or \"legalName\" like 'هيئة تنمية%' or \"legalName\" like 'مدغشقر تليكوم%');" >/dev/null
 psql_ "update \"BusinessPartner\" set \"deletedAt\"=now() where \"deletedAt\" is null and (\"legalName\" like 'Smoke%' or \"legalName\" like 'Egypt Cables%' or \"legalName\" like 'Delta Cable%' or \"legalName\" like 'Sharq Contracting%');" >/dev/null
 # Cost rules are global and apply to every costing, so a stray "Smoke G&A 10%"
 # would quietly sit on top of the demo numbers.

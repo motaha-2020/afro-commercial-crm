@@ -82,6 +82,17 @@ export function LineChart({
   points: string[];
   series: { key: string; label: string; values: number[] }[];
 }) {
+  // One month is not a trend. Drawing a line through a single point invites the
+  // eye to read a direction out of it, and the reader cannot tell that the
+  // slope is an artefact of having one measurement.
+  if (points.length < 2) {
+    return (
+      <p className="muted">
+        {points.length === 0 ? '—' : `${points[0]} · ${series.map((s) => `${s.label} ${s.values[0]}`).join(' · ')}`}
+      </p>
+    );
+  }
+
   const width = 720;
   const height = 220;
   const pad = { top: 16, right: 16, bottom: 28, left: 40 };

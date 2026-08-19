@@ -497,7 +497,9 @@
     "EG": "Égypte",
     "MG": "Madagascar",
     "KM": "Comores",
-    "KE": "Kenya"
+    "KE": "Kenya",
+    "TZ": "Tanzanie",
+    "DJ": "Djibouti"
   },
   "industry": {
     "FTTH": "FTTH — fibre jusqu'au domicile",
@@ -509,7 +511,13 @@
     "ELV": "ELV — courants faibles",
     "CORE_NETWORK": "Réseau cœur",
     "IT": "Informatique",
-    "SUPPLY": "Fournitures"
+    "SUPPLY": "Fournitures",
+    "ICT": "TIC",
+    "DC": "Centres de donnees",
+    "TELE": "Telecom",
+    "TELEIF": "Infrastructure telecom",
+    "SMIF": "Infrastructure intelligente",
+    "TQ": "Services techniques"
   },
   "opportunityDetail": {
     "scope": "Périmètre",
