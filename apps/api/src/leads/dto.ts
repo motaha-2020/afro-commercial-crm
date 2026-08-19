@@ -11,7 +11,6 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { Transform, Type } from 'class-transformer';
 import { IsRefCode } from '../master-data/is-ref-code.validator';
 import { LeadStatus } from '@prisma/client';
