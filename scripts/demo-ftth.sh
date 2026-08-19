@@ -49,6 +49,9 @@ psql_ "update \"Account\" set \"deletedAt\"=now() where \"deletedAt\" is null an
 psql_ "update \"BusinessPartner\" set \"deletedAt\"=now() where \"deletedAt\" is null and (\"legalName\" like 'Smoke%' or \"legalName\" like 'Egypt Cables%' or \"legalName\" like 'Delta Cable%' or \"legalName\" like 'Sharq Contracting%');" >/dev/null
 # Cost rules are global and apply to every costing, so a stray "Smoke G&A 10%"
 # would quietly sit on top of the demo numbers.
+# The smoke suite creates its own approval cycle each run; it belongs in the
+# test residue rather than in a screenshot of the settings screen.
+psql_ "update \"WorkflowDefinition\" set \"deletedAt\"=now() where \"deletedAt\" is null and code like 'SMOKE-%';" >/dev/null
 psql_ "update \"CostRule\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'General and administrative%' or name like 'Risk provision%');" >/dev/null
 say "test rows hidden"
 

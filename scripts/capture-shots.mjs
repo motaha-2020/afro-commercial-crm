@@ -67,6 +67,7 @@ const shots = [
   { n: '17b', name: 'governance-sod', url: '/governance', full: true },
   { n: '17c', name: 'audit-trail', url: `/opportunities/${OPP}`, trail: true },
   { n: '18', name: 'settings-approval-limits', url: '/settings', full: true },
+  { n: '18b', name: 'workflow-editor', url: '/settings', full: true },
   { n: '19', name: 'users-and-roles', url: '/users', full: true },
 ];
 
