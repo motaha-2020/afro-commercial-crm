@@ -228,24 +228,55 @@ export class LeadsService {
       throw new ConflictException('Lead has already been converted');
     }
 
-    const accountId = dto.accountId ?? lead.accountId;
-    if (!accountId) {
+    if (dto.accountId && dto.newAccount) {
       throw new BadRequestException(
-        'The lead names no account; supply one to convert it',
+        'Name an existing customer or describe a new one, not both — two answers to one question',
       );
     }
-    await this.accounts.assert(user, accountId);
+
+    let accountId = dto.accountId ?? lead.accountId;
+    if (!accountId && !dto.newAccount) {
+      throw new BadRequestException(
+        'The lead names no account; supply one or describe the customer to create',
+      );
+    }
+    if (accountId) await this.accounts.assert(user, accountId);
 
     const year = new Date().getFullYear();
     const code = await this.codes.next('OPP', 'opportunity', year);
 
+    // Created inside the same transaction as the opportunity when it is new, so
+    // a conversion that fails half-way leaves nothing behind rather than an
+    // orphan customer nobody recognises.
+    const accountCode = dto.newAccount
+      ? await this.codes.next('ACC', 'account', new Date().getFullYear())
+      : null;
+
     const { opportunity, updatedLead } = await this.prisma.$transaction(async (tx) => {
+      if (dto.newAccount && accountCode) {
+        const created = await tx.account.create({
+          data: {
+            code: accountCode,
+            legalName: dto.newAccount.legalName,
+            type: dto.newAccount.type as never,
+            country: dto.newAccount.country,
+            industry: dto.newAccount.industry,
+            // The lead's owner keeps the customer they found, and the credit
+            // standing is left at its default: SoD rule 5 says whoever creates
+            // the customer does not decide what it is worth.
+            ownerId: lead.ownerId,
+            orgUnitId: lead.orgUnitId,
+          },
+        });
+        accountId = created.id;
+      }
+
       const opportunity = await tx.opportunity.create({
         data: {
           code,
           name: dto.opportunityName ?? lead.name,
           description: lead.description,
-          accountId,
+          accountId: accountId as string,
           primaryContactId: lead.contactId,
           country: lead.country,
           industry: lead.industry,

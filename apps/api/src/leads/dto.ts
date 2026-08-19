@@ -9,7 +9,9 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Transform, Type } from 'class-transformer';
 import { IsRefCode } from '../master-data/is-ref-code.validator';
 import { LeadStatus } from '@prisma/client';
@@ -124,6 +126,33 @@ export class ChangeLeadStatusDto {
   reason?: string;
 }
 
+/**
+ * The company a lead turns out to belong to, when it is not one we already
+ * hold.
+ *
+ * Carried on the conversion rather than created first and referenced second,
+ * so the account and the opportunity are one transaction. Created separately,
+ * a conversion that then fails leaves an account nobody asked for and nobody
+ * will recognise a week later.
+ */
+export class ConvertNewAccountDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  legalName!: string;
+
+  @IsString()
+  type!: string;
+
+  @IsString()
+  @MaxLength(2)
+  country!: string;
+
+  @IsOptional()
+  @IsString()
+  industry?: string;
+}
+
 export class ConvertLeadDto {
   /**
    * Required when the lead never named a company: an opportunity without an
@@ -132,6 +161,15 @@ export class ConvertLeadDto {
   @IsOptional()
   @IsString()
   accountId?: string;
+
+  /**
+   * An account to create as part of the conversion. Mutually exclusive with
+   * accountId: two answers to "which customer is this?" is not an answer.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ConvertNewAccountDto)
+  newAccount?: ConvertNewAccountDto;
 
   /** Defaults to the lead's own name when omitted. */
   @IsOptional()

@@ -1590,6 +1590,70 @@ rm -f /tmp/acms_smoke4.jar
 
 curl -s -o /dev/null -X DELETE $API/approval-rules/$WRULE -H "Authorization: Bearer $CEO"
 
+echo "=== 30. Converting a lead into a customer we did not have ==="
+# The old path demanded an existing account, so a genuinely new customer meant
+# leaving the conversion screen, creating them, and coming back.
+
+NLEAD=$(curl -s -X POST $API/leads -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke unknown-company enquiry","source":"REFERRAL","country":"EG","estimatedValue":75000}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+curl -s -o /dev/null -X PATCH $API/leads/$NLEAD/status -H "Authorization: Bearer $CEO" \
+  -H 'Content-Type: application/json' -d '{"status":"QUALIFIED"}'
+
+check "naming an existing customer AND describing a new one is refused" \
+  "$(code -X POST $API/leads/$NLEAD/convert -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+     -d '{"accountId":"'$NEAR'","newAccount":{"legalName":"Two answers Ltd","type":"VENDOR","country":"EG"}}')" "400"
+
+CONV2=$(curl -s -X POST $API/leads/$NLEAD/convert -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"newAccount":{"legalName":"Smoke Newly Found Ltd","type":"VENDOR","country":"EG"}}')
+NOPP=$(echo "$CONV2" | JQ "print(json.load(sys.stdin).get('opportunity',{}).get('id','NONE'))")
+[ "$NOPP" != "NONE" ] && ok "a lead converts and creates its customer in one act" \
+  || bad "convert with new account" "$CONV2"
+
+check "the customer exists with the code the system generates" \
+  "$(psql_ "select count(*) from \"Account\" where \"legalName\"='Smoke Newly Found Ltd' and code like 'ACC-%';")" "1"
+# SoD rule 5: whoever creates the customer does not decide what it is worth.
+check "and its credit standing is left at the default, not chosen on the way in" \
+  "$(psql_ "select \"creditStatus\" from \"Account\" where \"legalName\"='Smoke Newly Found Ltd';")" "GOOD"
+check "the opportunity hangs off the customer that was just created" \
+  "$(psql_ "select (o.\"accountId\" = a.id) from \"Opportunity\" o, \"Account\" a
+            where o.id='$NOPP' and a.\"legalName\"='Smoke Newly Found Ltd';")" "t"
+
+echo "=== 31. Warning before a supplier offer lapses ==="
+# The expired offer already refuses to be selected. What was missing is the
+# part before that: nobody was told it was about to happen.
+
+EXP_PARTNER=$(curl -s -X POST $API/partners -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"legalName":"Smoke Expiring Supplies","country":"EG","types":["SUPPLIER"]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+SOON=$(python3 -c "
+import datetime
+print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3, hours=6)).isoformat().replace('+00:00','Z'))")
+EXP_QUO=$(curl -s -X POST $API/opportunities/$R7_OPP/quotations -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+  -d '{"partnerId":"'$EXP_PARTNER'","validUntil":"'$SOON'","deliveryDays":20,
+       "items":[{"description":"Cable drum","quantity":10,"unitPrice":100}]}' \
+  | JQ "print(json.load(sys.stdin)['id'])")
+
+BEFORE_N=$(psql_ "select count(*) from \"Notification\" where type='QUOTATION_EXPIRING';")
+check "the sweep runs on demand rather than only on a calendar" \
+  "$(code -X POST $API/quotations/expiry-scan -H "Authorization: Bearer $CEO")" "201"
+check "and it finds the offer that lapses in three days" \
+  "$(psql_ "select (count(*) > $BEFORE_N) from \"Notification\" where type='QUOTATION_EXPIRING';")" "t"
+check "the notification points at the offer itself" \
+  "$(psql_ "select count(*) > 0 from \"Notification\" where type='QUOTATION_EXPIRING' and \"entityId\"='$EXP_QUO';")" "t"
+
+# Two fixed warning points, not a window: a daily sweep over "anything within a
+# week" would say the same thing seven times.
+check "an offer with a month left is not warned about" \
+  "$(FAR=$(python3 -c "
+import datetime
+print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)).isoformat().replace('+00:00','Z'))"); \
+     FARQ=$(curl -s -X POST $API/opportunities/$R7_OPP/quotations -H "Authorization: Bearer $CEO" -H 'Content-Type: application/json' \
+       -d '{"partnerId":"'$EXP_PARTNER'","validUntil":"'$FAR'","deliveryDays":20,
+            "items":[{"description":"Cable drum","quantity":10,"unitPrice":100}]}' | JQ "print(json.load(sys.stdin)['id'])"); \
+     curl -s -o /dev/null -X POST $API/quotations/expiry-scan -H "Authorization: Bearer $CEO"; \
+     psql_ "select count(*) from \"Notification\" where type='QUOTATION_EXPIRING' and \"entityId\"='$FARQ';")" "0"
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

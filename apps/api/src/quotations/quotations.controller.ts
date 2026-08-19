@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { QuotationsService } from './quotations.service';
+import { QuotationExpiryService } from './expiry.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { RequireRoles } from '../auth/guards';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
   AddRfqRecipientsDto,
@@ -20,7 +22,10 @@ import {
  */
 @Controller()
 export class QuotationsController {
-  constructor(private readonly quotations: QuotationsService) {}
+  constructor(
+    private readonly quotations: QuotationsService,
+    private readonly expiry: QuotationExpiryService,
+  ) {}
 
   @Get('opportunities/:opportunityId/rfqs')
   listRfqs(
@@ -137,4 +142,19 @@ export class QuotationsController {
   removeQuotation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.quotations.removeQuotation(user, id);
   }
+
+  /**
+   * Run the expiry sweep now.
+   *
+   * The job runs daily, and a job whose only trigger is the calendar is one
+   * nobody ever sees fail. This is how it is proven on the server after a
+   * deploy — and how procurement can ask "what lapses this week?" without
+   * waiting for tomorrow morning.
+   */
+  @Post('quotations/expiry-scan')
+  @RequireRoles('CEO', 'OWNER_BOARD', 'FINANCE', 'PROCUREMENT', 'SYSTEM_ADMIN')
+  scanExpiring() {
+    return this.expiry.warnExpiring();
+  }
+
 }

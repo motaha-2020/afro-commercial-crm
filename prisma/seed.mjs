@@ -162,6 +162,10 @@ async function main() {
     { eventType: 'RFQ_ISSUED', roleTarget: 'PROCUREMENT' },
     { eventType: 'QUOTATION_SELECTED', roleTarget: 'PROCUREMENT' },
     { eventType: 'QUOTATION_SELECTED', roleTarget: 'ESTIMATION' },
+    // Before it lapses, not after: an offer that expires unnoticed takes a
+    // column out of the comparison and nobody is told why.
+    { eventType: 'QUOTATION_EXPIRING', roleTarget: 'PROCUREMENT' },
+    { eventType: 'QUOTATION_EXPIRING', roleTarget: 'ESTIMATION' },
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'CEO' },
     { eventType: 'BID_DECISION_RECORDED', roleTarget: 'SALES_DIRECTOR' },
     { eventType: 'BID_STATUS_CHANGED', roleTarget: 'SALES_DIRECTOR' },
