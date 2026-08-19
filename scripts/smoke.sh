@@ -1524,6 +1524,72 @@ curl -s -c /tmp/acms_smoke3.jar -o /dev/null -X POST $WEB/api/auth/login   -H 'C
 check "an account manager cannot read who did what"   "$(curl -s -b /tmp/acms_smoke3.jar -o /dev/null -w '%{http_code}' $WEB/api/audit/Opportunity/$R7_OPP)" "403"
 rm -f /tmp/acms_smoke3.jar
 
+echo "=== 29. Editing the approval cycle ==="
+# Until now the steps and rules were seeded and then changed in the database.
+# Every check here goes through the web routes the settings screen calls.
+
+WF=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows -H 'Content-Type: application/json' \
+  -d '{"code":"SMOKE-WF","name":"Smoke cycle","businessProcess":"OPPORTUNITY_PRICING","country":"EG"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$WF" != "NONE" ] && ok "an approval cycle is created from the screen" \
+  || bad "workflow create" "$WF"
+
+WSTEP=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/steps -H 'Content-Type: application/json' \
+  -d '{"sequence":1,"name":"Finance review","approverRole":"FINANCE","slaHours":48}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$WSTEP" != "NONE" ] && ok "a step is added" || bad "step create" "$WSTEP"
+
+check "two steps cannot share a position — that has no defined order" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/steps -H 'Content-Type: application/json' \
+     -d '{"sequence":1,"name":"Second at one","approverRole":"CEO"}')" "400"
+
+# A workflow with no steps does not approve nothing — it approves everything.
+check "the last step cannot be removed" \
+  "$(code -b /tmp/acms_smoke2.jar -X DELETE $WEB/api/workflow-steps/$WSTEP)" "400"
+
+curl -s -b /tmp/acms_smoke2.jar -o /dev/null -X POST $WEB/api/workflows/$WF/steps \
+  -H 'Content-Type: application/json' -d '{"sequence":2,"name":"CEO sign-off","approverRole":"CEO"}'
+check "and can once a second step exists" \
+  "$(code -b /tmp/acms_smoke2.jar -X DELETE $WEB/api/workflow-steps/$WSTEP)" "200"
+
+# One source for the number: a fixed threshold or a policy key, never both and
+# never neither.
+check "a rule with no number at all is refused" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/rules -H 'Content-Type: application/json' \
+     -d '{"conditionField":"OPPORTUNITY_VALUE","operator":"GREATER_THAN","requiredRole":"CEO"}')" "400"
+check "a rule with two sources for one number is refused" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/rules -H 'Content-Type: application/json' \
+     -d '{"conditionField":"OPPORTUNITY_VALUE","operator":"GREATER_THAN","requiredRole":"CEO","threshold":100,"thresholdPolicyKey":"APPROVAL_VALUE_LIMIT"}')" "400"
+
+WRULE=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/rules -H 'Content-Type: application/json' \
+  -d '{"conditionField":"OPPORTUNITY_VALUE","operator":"GREATER_THAN","requiredRole":"CEO","thresholdPolicyKey":"APPROVAL_VALUE_LIMIT","reason":"smoke"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$WRULE" != "NONE" ] && ok "a rule reading its number from a limit is accepted" \
+  || bad "rule create" "$WRULE"
+
+# A yes/no condition needs no threshold, and demanding one would be demanding a
+# number for a fact.
+check "a yes-or-no condition needs no number" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows/$WF/rules -H 'Content-Type: application/json' \
+     -d '{"conditionField":"COUNTRY_IS_NEW","operator":"IS_TRUE","requiredRole":"CEO"}')" "200"
+
+check "switching a rule off is recorded, not deleted" \
+  "$(code -b /tmp/acms_smoke2.jar -X PATCH $WEB/api/approval-rules/$WRULE -H 'Content-Type: application/json' \
+     -d '{"isActive":false}')" "200"
+check "and the change is in the trail with who made it" \
+  "$(psql_ "select action from \"AuditLog\" where \"entityType\"='ApprovalRule' and \"entityId\"='$WRULE' order by \"createdAt\" desc limit 1;")" "UPDATE"
+
+# Editing the cycle is not for whoever approves deals under it — SOD_08 by
+# another route.
+curl -s -c /tmp/acms_smoke4.jar -o /dev/null -X POST $WEB/api/auth/login \
+  -H 'Content-Type: application/json' -d "{\"email\":\"sales.director@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
+check "a sales director cannot edit the cycle that approves their deals" \
+  "$(code -b /tmp/acms_smoke4.jar -X POST $WEB/api/workflows/$WF/steps -H 'Content-Type: application/json' \
+     -d '{"sequence":9,"name":"Self-serve","approverRole":"SALES_DIRECTOR"}')" "403"
+rm -f /tmp/acms_smoke4.jar
+
+curl -s -o /dev/null -X DELETE $API/approval-rules/$WRULE -H "Authorization: Bearer $CEO"
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

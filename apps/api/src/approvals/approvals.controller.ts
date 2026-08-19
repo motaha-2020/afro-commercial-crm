@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApprovalsService } from './approvals.service';
 import { DiscountsService } from './discounts.service';
 import { PoliciesService } from './policies.service';
 import { ProposalsService } from './proposals.service';
+import { WorkflowsService } from './workflows.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import type { ApprovalPolicyKey } from '@acms/shared';
@@ -17,6 +18,12 @@ import {
   RaiseApprovalDto,
   SetPolicyDto,
   SubmitProposalVersionDto,
+  CreateWorkflowDto,
+  CreateRuleDto,
+  CreateWorkflowStepDto,
+  UpdateWorkflowDto,
+  UpdateRuleDto,
+  UpdateWorkflowStepDto,
 } from './dto';
 
 /**
@@ -154,5 +161,86 @@ export class ApprovalsController {
     @Body() dto: SubmitProposalVersionDto,
   ) {
     return this.proposals.submit(user, id, dto);
+  }
+}
+
+
+/**
+ * Editing the approval cycle itself.
+ *
+ * Until now the steps and the rules were seeded and then changed in the
+ * database, which meant every ordinary administrative decision — a new country
+ * with its own cycle, a threshold moved, an approver replaced — needed a
+ * developer with production access. That is not a missing screen; it is a
+ * governance decision taken outside the system that records governance
+ * decisions, which is why every write here is audited.
+ */
+@Controller()
+export class WorkflowsController {
+  constructor(private readonly workflows: WorkflowsService) {}
+
+  @Get('workflows')
+  list(@CurrentUser() user: AuthenticatedUser) {
+    return this.workflows.list(user);
+  }
+
+  @Post('workflows')
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateWorkflowDto) {
+    return this.workflows.create(user, dto);
+  }
+
+  @Patch('workflows/:id')
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkflowDto,
+  ) {
+    return this.workflows.update(user, id, dto);
+  }
+
+  @Post('workflows/:id/steps')
+  addStep(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: CreateWorkflowStepDto,
+  ) {
+    return this.workflows.addStep(user, id, dto);
+  }
+
+  @Patch('workflow-steps/:id')
+  updateStep(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkflowStepDto,
+  ) {
+    return this.workflows.updateStep(user, id, dto);
+  }
+
+  @Delete('workflow-steps/:id')
+  removeStep(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.workflows.removeStep(user, id);
+  }
+
+  @Post('workflows/:id/rules')
+  addRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: CreateRuleDto,
+  ) {
+    return this.workflows.addRule(user, id, dto);
+  }
+
+  @Patch('approval-rules/:id')
+  updateRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateRuleDto,
+  ) {
+    return this.workflows.updateRule(user, id, dto);
+  }
+
+  @Delete('approval-rules/:id')
+  removeRule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.workflows.removeRule(user, id);
   }
 }

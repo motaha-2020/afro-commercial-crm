@@ -6,6 +6,7 @@ import {
   type PolicyKeyRow,
 } from '@/components/ApprovalPolicySettings';
 import { CostRuleSettings, type CostRuleRow } from '@/components/CostRuleSettings';
+import { WorkflowEditor, type WorkflowRow } from '@/components/WorkflowEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,13 @@ export default async function SettingsPage({
     ).catch(() => ({ rules: [] as CostRuleRow[], canApprove: false })),
   ]);
 
+  // Only the three roles that own the limits may read this, and the API says so
+  // with a 403. The editor simply does not appear for anyone else rather than
+  // appearing and refusing every click.
+  const workflows = await apiFetch<{ workflows: WorkflowRow[] }>('/workflows', { token }).catch(
+    () => null,
+  );
+
   return (
     <>
       <div className="page-head">
@@ -58,6 +66,16 @@ export default async function SettingsPage({
       />
 
       <CostRuleSettings rules={costRules.rules} canApprove={costRules.canApprove} />
+
+      {workflows && (
+        <>
+          <h2 style={{ marginTop: 24, fontSize: 16 }}>{t('workflowsTitle')}</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t('workflowsSubtitle')}
+          </p>
+          <WorkflowEditor workflows={workflows.workflows} />
+        </>
+      )}
     </>
   );
 }

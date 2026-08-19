@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -11,6 +12,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApprovalRequestStatus } from '@prisma/client';
+import { ROLES } from '@acms/shared';
 
 export enum ApprovalPolicyKeyDto {
   MIN_GROSS_MARGIN_PERCENT = 'MIN_GROSS_MARGIN_PERCENT',
@@ -44,6 +46,36 @@ export enum ProposalTypeDto {
  * Setting a limit. Note there is no "value is optional" case: a policy row
  * exists to carry a number somebody chose.
  */
+export enum ApprovalProcessDto {
+  OPPORTUNITY_PRICING = 'OPPORTUNITY_PRICING',
+  DISCOUNT = 'DISCOUNT',
+  PROPOSAL_SUBMISSION = 'PROPOSAL_SUBMISSION',
+  CONTRACT = 'CONTRACT',
+}
+export enum ApprovalTypeDto {
+  SINGLE = 'SINGLE',
+  ALL_OF = 'ALL_OF',
+  ANY_OF = 'ANY_OF',
+}
+export enum ApprovalConditionFieldDto {
+  GROSS_MARGIN_PERCENT = 'GROSS_MARGIN_PERCENT',
+  OPPORTUNITY_VALUE = 'OPPORTUNITY_VALUE',
+  PAYMENT_TERM_DAYS = 'PAYMENT_TERM_DAYS',
+  DISCOUNT_PERCENT = 'DISCOUNT_PERCENT',
+  COUNTRY_IS_NEW = 'COUNTRY_IS_NEW',
+  SINGLE_SOURCE_SUPPLIER = 'SINGLE_SOURCE_SUPPLIER',
+  FOREIGN_CURRENCY = 'FOREIGN_CURRENCY',
+  SCOPE_NOT_READY = 'SCOPE_NOT_READY',
+}
+export enum ApprovalOperatorDto {
+  LESS_THAN = 'LESS_THAN',
+  LESS_OR_EQUAL = 'LESS_OR_EQUAL',
+  GREATER_THAN = 'GREATER_THAN',
+  GREATER_OR_EQUAL = 'GREATER_OR_EQUAL',
+  EQUALS = 'EQUALS',
+  IS_TRUE = 'IS_TRUE',
+}
+
 export class SetPolicyDto {
   @IsEnum(ApprovalPolicyKeyDto)
   key!: ApprovalPolicyKeyDto;
@@ -108,13 +140,19 @@ export class ListPoliciesQuery {
 }
 
 export class CreateWorkflowDto {
+  /** Short stable handle, e.g. PRICING-KE. Unique, and what a person quotes. */
+  @IsString()
+  @MinLength(2)
+  @MaxLength(40)
+  code!: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(120)
   name!: string;
 
-  @IsString()
-  businessProcess!: string;
+  @IsEnum(ApprovalProcessDto)
+  businessProcess!: ApprovalProcessDto;
 
   @IsOptional()
   @IsString()
@@ -136,12 +174,12 @@ export class CreateWorkflowStepDto {
   @MaxLength(120)
   name!: string;
 
-  @IsString()
+  @IsIn(ROLES)
   approverRole!: string;
 
   @IsOptional()
-  @IsString()
-  approvalType?: string;
+  @IsEnum(ApprovalTypeDto)
+  approvalType?: ApprovalTypeDto;
 
   @IsOptional()
   @IsInt()
@@ -153,16 +191,16 @@ export class CreateWorkflowStepDto {
   isMandatory?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsIn(ROLES)
   escalationRole?: string;
 }
 
 export class CreateRuleDto {
-  @IsString()
-  conditionField!: string;
+  @IsEnum(ApprovalConditionFieldDto)
+  conditionField!: ApprovalConditionFieldDto;
 
-  @IsString()
-  operator!: string;
+  @IsEnum(ApprovalOperatorDto)
+  operator!: ApprovalOperatorDto;
 
   @IsOptional()
   @IsNumber()
@@ -347,4 +385,96 @@ export class SubmitProposalVersionDto {
   @IsString()
   @MaxLength(200)
   submittedTo?: string;
+}
+
+// --- workflow editing --------------------------------------------------------
+
+
+
+
+/** Editing an existing workflow: the name, the country it serves, or whether it runs at all. */
+export class UpdateWorkflowDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  country?: string;
+}
+
+export class UpdateWorkflowStepDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  sequence?: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name?: string;
+
+  @IsOptional()
+  @IsIn(ROLES)
+  approverRole?: string;
+
+  @IsOptional()
+  @IsEnum(ApprovalTypeDto)
+  approvalType?: ApprovalTypeDto;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  slaHours?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isMandatory?: boolean;
+
+  @IsOptional()
+  @IsIn(ROLES)
+  escalationRole?: string;
+}
+
+export class UpdateRuleDto {
+  @IsOptional()
+  @IsEnum(ApprovalConditionFieldDto)
+  conditionField?: ApprovalConditionFieldDto;
+
+  @IsOptional()
+  @IsEnum(ApprovalOperatorDto)
+  operator?: ApprovalOperatorDto;
+
+  @IsOptional()
+  @IsNumber()
+  threshold?: number;
+
+  @IsOptional()
+  @IsEnum(ApprovalPolicyKeyDto)
+  thresholdPolicyKey?: ApprovalPolicyKeyDto;
+
+  @IsOptional()
+  @IsIn(ROLES)
+  requiredRole?: string;
+
+  @IsOptional()
+  @IsInt()
+  priority?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
 }
