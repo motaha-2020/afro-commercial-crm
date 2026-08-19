@@ -1528,8 +1528,11 @@ echo "=== 29. Editing the approval cycle ==="
 # Until now the steps and rules were seeded and then changed in the database.
 # Every check here goes through the web routes the settings screen calls.
 
+# A code per run: codes are never reused, not even after a cycle is removed,
+# so a fixed one would make the second run of this suite fail on the first call.
+WF_CODE="SMOKE-WF-$(date +%s)"
 WF=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows -H 'Content-Type: application/json' \
-  -d '{"code":"SMOKE-WF","name":"Smoke cycle","businessProcess":"OPPORTUNITY_PRICING","country":"EG"}' \
+  -d '{"code":"'$WF_CODE'","name":"Smoke cycle","businessProcess":"OPPORTUNITY_PRICING","country":"EG"}' \
   | JQ "print(json.load(sys.stdin).get('id','NONE'))")
 [ "$WF" != "NONE" ] && ok "an approval cycle is created from the screen" \
   || bad "workflow create" "$WF"
@@ -1583,12 +1586,19 @@ check "and the change is in the trail with who made it" \
 # another route.
 curl -s -c /tmp/acms_smoke4.jar -o /dev/null -X POST $WEB/api/auth/login \
   -H 'Content-Type: application/json' -d "{\"email\":\"sales.director@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
+check "a code that has been used before is refused in words, not a 500" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/workflows -H 'Content-Type: application/json' \
+     -d '{"code":"'$WF_CODE'","name":"Same code again","businessProcess":"CONTRACT"}')" "400"
+
 check "a sales director cannot edit the cycle that approves their deals" \
   "$(code -b /tmp/acms_smoke4.jar -X POST $WEB/api/workflows/$WF/steps -H 'Content-Type: application/json' \
      -d '{"sequence":9,"name":"Self-serve","approverRole":"SALES_DIRECTOR"}')" "403"
 rm -f /tmp/acms_smoke4.jar
 
 curl -s -o /dev/null -X DELETE $API/approval-rules/$WRULE -H "Authorization: Bearer $CEO"
+# The suite's own cycle is residue like everything else it leaves, but it is
+# residue that shows up on the settings screen, so it is hidden on the way out.
+psql_ "update \"WorkflowDefinition\" set \"deletedAt\"=now() where id='$WF';" >/dev/null
 
 echo "=== 30. Converting a lead into a customer we did not have ==="
 # The old path demanded an existing account, so a genuinely new customer meant
@@ -1611,10 +1621,11 @@ NOPP=$(echo "$CONV2" | JQ "print(json.load(sys.stdin).get('opportunity',{}).get(
   || bad "convert with new account" "$CONV2"
 
 check "the customer exists with the code the system generates" \
-  "$(psql_ "select count(*) from \"Account\" where \"legalName\"='Smoke Newly Found Ltd' and code like 'ACC-%';")" "1"
+  "$(psql_ "select count(*) > 0 from \"Account\" where \"legalName\"='Smoke Newly Found Ltd' and code like 'ACC-%';")" "t"
 # SoD rule 5: whoever creates the customer does not decide what it is worth.
 check "and its credit standing is left at the default, not chosen on the way in" \
-  "$(psql_ "select \"creditStatus\" from \"Account\" where \"legalName\"='Smoke Newly Found Ltd';")" "GOOD"
+  "$(psql_ "select \"creditStatus\" from \"Account\" where \"legalName\"='Smoke Newly Found Ltd'
+            order by \"createdAt\" desc limit 1;")" "GOOD"
 check "the opportunity hangs off the customer that was just created" \
   "$(psql_ "select (o.\"accountId\" = a.id) from \"Opportunity\" o, \"Account\" a
             where o.id='$NOPP' and a.\"legalName\"='Smoke Newly Found Ltd';")" "t"

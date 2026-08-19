@@ -87,6 +87,22 @@ export class WorkflowsService {
   async create(user: AuthenticatedUser, dto: CreateWorkflowDto) {
     this.assertAuthority(user);
 
+    // The code is unique across every row, including the ones that were
+    // deactivated or removed — nothing is hard deleted here, so a code is spent
+    // the first time it is used. Answering that with a 500 would leave the
+    // caller guessing at a conflict the system knows about precisely.
+    const taken = await this.prisma.workflowDefinition.findUnique({
+      where: { code: dto.code },
+      select: { id: true, deletedAt: true, isActive: true },
+    });
+    if (taken) {
+      throw new BadRequestException(
+        taken.deletedAt
+          ? `Code ${dto.code} belonged to a cycle that was removed. Codes are not reused, so give this one its own.`
+          : `Code ${dto.code} is already in use by another approval cycle`,
+      );
+    }
+
     const workflow = await this.prisma.workflowDefinition.create({
       data: {
         code: dto.code,
