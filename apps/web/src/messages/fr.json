@@ -19,7 +19,8 @@
     "users": "Utilisateurs",
     "refLists": "Listes et valeurs",
     "collapseNav": "Replier la navigation",
-    "expandNav": "Déplier la navigation"
+    "expandNav": "Déplier la navigation",
+    "governance": "Gouvernance"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -1574,5 +1575,47 @@
     "marginPercent": "Marge",
     "submissionDate": "Date de remise",
     "awardedValue": "Valeur attribuee"
+  },
+  "governance": {
+    "title": "Gouvernance",
+    "subtitle": "Les regles de separation des taches, telles que le systeme les detient",
+    "code": "Regle",
+    "rule": "Enonce",
+    "whoIsBlocked": "Action bloquante",
+    "appliesTo": "Porte sur",
+    "state": "Etat",
+    "enforced": "Appliquee",
+    "awaiting": "En attente de la version {release}",
+    "enforcedCount": "{n} regles sur {total} appliquees aujourd hui",
+    "enforcedHint": "Une regle est appliquee des que les deux moities qu elle separe existent dans le systeme. Les autres sont listees avec la version qui apporte la moitie manquante.",
+    "empty": "Aucune regle publiee",
+    "trailTitle": "La piste d audit",
+    "trailBody": "Chaque action est ecrite dans une piste inalterable. Elle se lit par enregistrement : ouvrez une affaire ou un client et depliez Historique pour voir qui a change quoi et quand. Meme un administrateur ne peut la modifier."
+  },
+  "audit": {
+    "title": "Historique",
+    "show": "Afficher l historique",
+    "hide": "Masquer l historique",
+    "when": "Quand",
+    "who": "Qui",
+    "action": "Action",
+    "changed": "Champs touches",
+    "system": "Systeme",
+    "loading": "Chargement...",
+    "empty": "Rien d enregistre",
+    "failed": "Lecture impossible",
+    "notPermitted": "La lecture de la piste exige un role de gouvernance",
+    "appendOnly": "Ajout seul : aucune entree n est modifiee ni supprimee, par personne."
+  },
+  "auditAction": {
+    "CREATE": "Creation",
+    "UPDATE": "Modification",
+    "DELETE": "Suppression",
+    "STATUS_CHANGE": "Changement de statut",
+    "APPROVE": "Approbation",
+    "REJECT": "Rejet",
+    "SUBMIT": "Soumission",
+    "LOGIN": "Connexion",
+    "EXPORT": "Export"
   }
 }

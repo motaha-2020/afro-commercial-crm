@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/session';
 import { shortDate } from '@/lib/format';
 import { BidScoreForm } from '@/components/BidScoreForm';
 import { StageAdvance } from '@/components/StageAdvance';
+import { AuditTrail } from '@/components/AuditTrail';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 import {
@@ -506,6 +507,8 @@ export default async function OpportunityDetailPage({
       <div style={{ marginTop: 16 }}>
         <DocumentsPanel entityType="Opportunity" entityId={id} documents={documents} />
       </div>
+
+      <AuditTrail entityType="Opportunity" entityId={id} />
 
       <p style={{ marginTop: 16 }} className="btn-row">
         <Link href={`/${locale}/opportunities`}>← {t('backToBoard')}</Link>

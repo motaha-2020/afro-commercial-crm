@@ -54,6 +54,16 @@ export default tseslint.config(
     },
   },
 
+  // Scripts that drive a browser. The bodies of `page.evaluate` callbacks are
+  // serialised and run in the page, so `document` and `window` are legitimate
+  // there even though the file itself runs under Node — and a script whose
+  // whole job is to report progress needs to print it.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+    rules: { 'no-console': 'off' },
+  },
+
   // Browser code.
   {
     files: ['apps/web/**/*.{ts,tsx}'],

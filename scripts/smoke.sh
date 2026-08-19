@@ -1506,6 +1506,20 @@ check "the move is recorded with who moved it and why"   "$(psql_ "select reason
 
 curl -s -o /dev/null -X DELETE $API/opportunities/$SOPP -H "Authorization: Bearer $CEO"
 
+echo "=== 28. Governance and the trail, on screen ==="
+for L in ar en fr; do
+  check "$L governance screen lists the eight rules"     "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/governance | grep -c 'SOD_0')" "8"
+done
+
+# The trail is read per record and only by a governance role. Both halves are
+# the behaviour: the CEO reads it, the account manager is refused.
+check "the trail is readable through the web route"   "$(curl -s -b /tmp/acms_smoke2.jar -o /dev/null -w '%{http_code}' $WEB/api/audit/Opportunity/$R7_OPP)" "200"
+check "and it carries what was recorded rather than an empty envelope"   "$(curl -s -b /tmp/acms_smoke2.jar $WEB/api/audit/Opportunity/$R7_OPP      | JQ "print(len(json.load(sys.stdin)['items'])>0)")" "True"
+
+curl -s -c /tmp/acms_smoke3.jar -o /dev/null -X POST $WEB/api/auth/login   -H 'Content-Type: application/json' -d "{\"email\":\"am@afro.example\",\"password\":\"$SEED_PASSWORD\"}"
+check "an account manager cannot read who did what"   "$(curl -s -b /tmp/acms_smoke3.jar -o /dev/null -w '%{http_code}' $WEB/api/audit/Opportunity/$R7_OPP)" "403"
+rm -f /tmp/acms_smoke3.jar
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

@@ -19,7 +19,8 @@
     "users": "Users",
     "refLists": "Lists & values",
     "collapseNav": "Collapse the navigation",
-    "expandNav": "Expand the navigation"
+    "expandNav": "Expand the navigation",
+    "governance": "Governance"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1574,5 +1575,47 @@
     "marginPercent": "Margin",
     "submissionDate": "Submission date",
     "awardedValue": "Awarded value"
+  },
+  "governance": {
+    "title": "Governance",
+    "subtitle": "The segregation-of-duties rules, as the system holds them",
+    "code": "Rule",
+    "rule": "What it says",
+    "whoIsBlocked": "Originating action blocks",
+    "appliesTo": "Applies to",
+    "state": "State",
+    "enforced": "Enforced",
+    "awaiting": "Waiting on release {release}",
+    "enforcedCount": "{n} of {total} rules enforced today",
+    "enforcedHint": "A rule is enforced the moment both halves it separates exist in the system. The rest are listed with the release that brings the missing half.",
+    "empty": "No rules published",
+    "trailTitle": "The audit trail",
+    "trailBody": "Every action is written to an append-only trail. It is read per record: open an opportunity or a customer and expand “History” to see who changed what and when. Not even a system administrator can edit it."
+  },
+  "audit": {
+    "title": "History",
+    "show": "Show history",
+    "hide": "Hide history",
+    "when": "When",
+    "who": "Who",
+    "action": "Action",
+    "changed": "Fields touched",
+    "system": "System",
+    "loading": "Loading...",
+    "empty": "Nothing recorded yet",
+    "failed": "Could not read the history",
+    "notPermitted": "Reading the trail needs a governance role",
+    "appendOnly": "Append-only: entries are never edited or deleted, by anyone."
+  },
+  "auditAction": {
+    "CREATE": "Created",
+    "UPDATE": "Updated",
+    "DELETE": "Deleted",
+    "STATUS_CHANGE": "Status changed",
+    "APPROVE": "Approved",
+    "REJECT": "Rejected",
+    "SUBMIT": "Submitted",
+    "LOGIN": "Signed in",
+    "EXPORT": "Exported"
   }
 }

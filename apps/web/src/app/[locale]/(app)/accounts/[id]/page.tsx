@@ -9,6 +9,7 @@ import {
   type RelationshipRow,
 } from '@/components/RelationshipsPanel';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
+import { AuditTrail } from '@/components/AuditTrail';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 import { AccountEditForm } from '@/components/AccountEditForm';
 import { buildRefLabels, type RefListPayload } from '@/lib/ref-labels';
@@ -174,6 +175,10 @@ export default async function AccountDetailPage({
 
       <div style={{ marginTop: 16 }}>
         <DocumentsPanel entityType="Account" entityId={account.id} documents={documents} />
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <AuditTrail entityType="Account" entityId={account.id} />
       </div>
     </>
   );
