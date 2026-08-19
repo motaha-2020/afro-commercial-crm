@@ -20,7 +20,8 @@
     "refLists": "Lists & values",
     "collapseNav": "Collapse the navigation",
     "expandNav": "Expand the navigation",
-    "governance": "Governance"
+    "governance": "Governance",
+    "reports": "Reports"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1728,5 +1729,23 @@
     "DIRECT_COST": "Direct cost",
     "SUBCONTRACTOR_PAYMENTS": "Subcontractor payments",
     "IMPORTED_MATERIALS": "Imported materials"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Pick the measures, read them over the same facts, take the table away.",
+    "choose": "Measures",
+    "run": "Run",
+    "running": "Running...",
+    "download": "Download CSV",
+    "metric": "Measure",
+    "value": "Value",
+    "unit": "Unit",
+    "basis": "Records behind it",
+    "formula": "How it is computed",
+    "owner": "Owned by",
+    "notYet": "Not yet",
+    "empty": "Nothing selected yet",
+    "failed": "Could not run the report",
+    "withheld": "Left out, because your role does not cover them: {list}"
   }
 }

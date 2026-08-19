@@ -1714,6 +1714,25 @@ done
 # Scoped to a country nobody trades in, so it cannot alter a demo costing.
 psql_ "update \"TaxRule\" set \"deletedAt\"=now() where id='$TAX';" >/dev/null
 
+echo "=== 33. Reports over the measures the system defines ==="
+# Built on the metric definitions rather than free SQL: a report writer that can
+# express anything can express a win rate computed a second way, and then two
+# departments arrive at a meeting with two numbers and one name for them.
+
+REP=$(curl -s -b /tmp/acms_smoke2.jar "$WEB/api/reports?codes=WIN_RATE,GROSS_MARGIN")
+check "a report answers only what was asked for"   "$(echo "$REP" | JQ "print(sorted(m['code'] for m in json.load(sys.stdin)['metrics']))")"   "['GROSS_MARGIN', 'WIN_RATE']"
+
+check "and every line carries the formula that produced it"   "$(echo "$REP" | JQ "print(all(m['definition']['formula'] for m in json.load(sys.stdin)['metrics']))")" "True"
+
+# Dropped rather than refused: a report that fails as a whole because one line
+# was out of reach teaches people to ask for less than they need.
+REP_AM=$(curl -s -b /tmp/acms_smoke3.jar "$WEB/api/reports?codes=WIN_RATE,SUPPLIER_DEPENDENCY" 2>/dev/null)
+check "an unknown code is not answered as a number"   "$(curl -s -b /tmp/acms_smoke2.jar "$WEB/api/reports?codes=NOT_A_METRIC"      | JQ "print(len(json.load(sys.stdin)['metrics']))")" "0"
+
+for L in ar en fr; do
+  check "$L reports screen renders"     "$(code -b /tmp/acms_smoke2.jar $WEB/$L/reports)" "200"
+done
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

@@ -20,7 +20,8 @@
     "refLists": "Listes et valeurs",
     "collapseNav": "Replier la navigation",
     "expandNav": "Déplier la navigation",
-    "governance": "Gouvernance"
+    "governance": "Gouvernance",
+    "reports": "Rapports"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -1728,5 +1729,23 @@
     "DIRECT_COST": "Cout direct",
     "SUBCONTRACTOR_PAYMENTS": "Paiements sous-traitants",
     "IMPORTED_MATERIALS": "Materiaux importes"
+  },
+  "reports": {
+    "title": "Rapports",
+    "subtitle": "Choisissez les mesures, lisez-les sur les memes faits, emportez le tableau.",
+    "choose": "Mesures",
+    "run": "Executer",
+    "running": "En cours...",
+    "download": "Telecharger CSV",
+    "metric": "Mesure",
+    "value": "Valeur",
+    "unit": "Unite",
+    "basis": "Enregistrements",
+    "formula": "Mode de calcul",
+    "owner": "Responsable",
+    "notYet": "Pas encore",
+    "empty": "Aucune mesure selectionnee",
+    "failed": "Execution impossible",
+    "withheld": "Ecartees car votre role ne les couvre pas : {list}"
   }
 }

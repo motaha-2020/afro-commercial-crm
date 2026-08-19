@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -11,6 +11,18 @@ export class MetricsController {
   @Get('dashboard')
   dashboard(@CurrentUser() user: AuthenticatedUser) {
     return this.metrics.dashboard(user);
+  }
+
+  /**
+   * A report over chosen metrics: ?codes=WIN_RATE,GROSS_MARGIN
+   *
+   * Declared before the :code route, or Express would read "report" as a metric
+   * code and answer with a definition nobody asked for.
+   */
+  @Get('report')
+  report(@CurrentUser() user: AuthenticatedUser, @Query('codes') codes?: string) {
+    const requested = (codes ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+    return this.metrics.report(user, requested as MetricCode[]);
   }
 
   @Get(':code')

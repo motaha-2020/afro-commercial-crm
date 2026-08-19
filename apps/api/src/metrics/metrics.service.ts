@@ -47,6 +47,40 @@ export class MetricsService {
     };
   }
 
+  /**
+   * A report: any set of metrics the reader chose, over the same facts.
+   *
+   * One gather for the whole selection rather than one per metric — the reason
+   * the dashboard is a single call applies with more force here, where a reader
+   * can pick fourteen at once.
+   *
+   * Codes the reader is not entitled to are dropped rather than refused. The
+   * alternative is a report that fails as a whole because one line was out of
+   * reach, which teaches people to ask for less than they need; what they get
+   * back names what was left out.
+   */
+  async report(user: AuthenticatedUser, codes: MetricCode[], asOf = new Date()) {
+    const allowed = new Set(dashboardFor(user.roles.map((r) => r.role as string)));
+    const requested = [...new Set(codes)];
+    const permitted = requested.filter((c) => allowed.has(c));
+    const withheld = requested.filter((c) => !allowed.has(c));
+
+    const inputs = await this.gather(user, asOf);
+    const values = computeMetrics(permitted, inputs);
+
+    return {
+      asOf,
+      metrics: values.map((v) => ({ ...v, definition: METRIC_DEFINITIONS[v.code] })),
+      // Named, so a reader knows the report is short rather than the number
+      // being zero.
+      withheld,
+      scope: {
+        opportunities: inputs.opportunities.length,
+        approvedCostings: inputs.approvedCostings?.length ?? 0,
+      },
+    };
+  }
+
   /** A single metric, for a screen that wants one number. */
   async metric(user: AuthenticatedUser, code: MetricCode, asOf = new Date()) {
     const inputs = await this.gather(user, asOf);
