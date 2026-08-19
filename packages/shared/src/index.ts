@@ -15,3 +15,4 @@ export * from './contract';
 export * from './costing-warnings';
 export * from './metrics';
 export * from './cost-rules';
+export * from './tax-rules';

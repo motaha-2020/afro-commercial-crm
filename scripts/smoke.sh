@@ -1665,6 +1665,55 @@ print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30
      curl -s -o /dev/null -X POST $API/quotations/expiry-scan -H "Authorization: Bearer $CEO"; \
      psql_ "select count(*) from \"Notification\" where type='QUOTATION_EXPIRING' and \"entityId\"='$FARQ';")" "0"
 
+echo "=== 32. Tax rules, approved like cost rules ==="
+# Section 19 governs here too: the system applies rates Finance approved, it
+# does not decide them.
+
+TAX=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/tax-rules -H 'Content-Type: application/json' \
+  -d '{"name":"Smoke VAT","taxType":"VAT","base":"SELLING_PRICE","ratePercent":14,
+       "effectiveFrom":"2026-01-01T00:00:00.000Z","country":"ZZ"}' \
+  | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+[ "$TAX" != "NONE" ] && ok "a tax rate is proposed" || bad "tax rule create" "$TAX"
+
+check "and it arrives as a draft, never approved by whoever proposed it" \
+  "$(psql_ "select \"approvalStatus\" from \"TaxRule\" where id='$TAX';")" "DRAFT"
+
+# Two rules of the same type on the same base in the same scope is a question
+# with two answers; the loser would simply vanish from the total.
+check "a second rule on the same base and scope is refused" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/tax-rules -H 'Content-Type: application/json' \
+     -d '{"name":"Smoke VAT again","taxType":"VAT","base":"SELLING_PRICE","ratePercent":10,
+          "effectiveFrom":"2026-02-01T00:00:00.000Z","country":"ZZ"}')" "400"
+
+check "the proposer cannot approve their own rate" \
+  "$(code -b /tmp/acms_smoke2.jar -X POST $WEB/api/tax-rules/$TAX/decision -H 'Content-Type: application/json' \
+     -d '{"approve":true}')" "403"
+
+check "a rejection without a reason is refused" \
+  "$(code -X POST $API/tax-rules/$TAX/decision -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' -d '{"approve":false}')" "400"
+
+check "finance approves it" \
+  "$(code -X POST $API/tax-rules/$TAX/decision -H "Authorization: Bearer $FIN" \
+     -H 'Content-Type: application/json' -d '{"approve":true}')" "201"
+
+# An approved, open rule has priced bids. Closing it keeps those explainable;
+# deleting it pretends they were never taxed.
+check "an approved rule that is still open cannot be deleted" \
+  "$(code -X DELETE $API/tax-rules/$TAX -H "Authorization: Bearer $FIN")" "400"
+
+check "the decision is in the trail" \
+  "$(psql_ "select action from \"AuditLog\" where \"entityType\"='TaxRule' and \"entityId\"='$TAX'
+            order by \"createdAt\" desc limit 1;")" "STATUS_CHANGE"
+
+for L in ar en fr; do
+  check "$L settings screen carries the tax rules" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/settings | grep -q 'Smoke VAT' && echo yes || echo no)" "yes"
+done
+
+# Scoped to a country nobody trades in, so it cannot alter a demo costing.
+psql_ "update \"TaxRule\" set \"deletedAt\"=now() where id='$TAX';" >/dev/null
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

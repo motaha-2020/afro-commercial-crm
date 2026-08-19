@@ -27,7 +27,8 @@ export type CodedTable =
   | 'proposal'
   | 'award'
   | 'contract'
-  | 'handover';
+  | 'handover'
+  | 'taxRule';
 
 @Injectable()
 export class CodeGeneratorService {
@@ -98,6 +99,8 @@ export class CodeGeneratorService {
         return 'DiscountRequest';
       case 'proposal':
         return 'Proposal';
+      case 'taxRule':
+        return 'TaxRule';
       case 'award':
         return 'Award';
       case 'contract':

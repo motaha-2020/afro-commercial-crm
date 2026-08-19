@@ -1,10 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CostingService } from './costing.service';
 import { CostRulesService } from './cost-rules.service';
+import { TaxRulesService } from './tax-rules.service';
 import { LibraryService } from './library.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
+  ApproveTaxRuleDto,
+  CreateTaxRuleDto,
   ApproveCostRuleDto,
   CreateCostRuleDto,
   ListCostRulesQuery,
@@ -28,6 +31,7 @@ export class CostingController {
     private readonly costing: CostingService,
     private readonly costRules: CostRulesService,
     private readonly library: LibraryService,
+    private readonly taxRules: TaxRulesService,
   ) {}
 
   // --- scenarios ------------------------------------------------------------
@@ -222,4 +226,35 @@ export class CostingController {
   removeCostRule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.costRules.remove(user, id);
   }
+
+  // --- tax rules -------------------------------------------------------------
+
+  @Get('tax-rules')
+  listTaxRules(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('country') country?: string,
+    @Query('orgUnitId') orgUnitId?: string,
+  ) {
+    return this.taxRules.list(user, { country, orgUnitId });
+  }
+
+  @Post('tax-rules')
+  createTaxRule(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateTaxRuleDto) {
+    return this.taxRules.create(user, dto);
+  }
+
+  @Post('tax-rules/:id/decision')
+  decideTaxRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ApproveTaxRuleDto,
+  ) {
+    return this.taxRules.decide(user, id, dto);
+  }
+
+  @Delete('tax-rules/:id')
+  removeTaxRule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.taxRules.remove(user, id);
+  }
+
 }

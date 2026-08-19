@@ -7,6 +7,7 @@ import {
 } from '@/components/ApprovalPolicySettings';
 import { CostRuleSettings, type CostRuleRow } from '@/components/CostRuleSettings';
 import { WorkflowEditor, type WorkflowRow } from '@/components/WorkflowEditor';
+import { TaxRuleSettings, type TaxRuleRow } from '@/components/TaxRuleSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,11 @@ export default async function SettingsPage({
     () => null,
   );
 
+  const taxRules = await apiFetch<{ rules: TaxRuleRow[]; canApprove: boolean }>(
+    `/tax-rules${query.toString() ? `?${query}` : ''}`,
+    { token },
+  ).catch(() => ({ rules: [] as TaxRuleRow[], canApprove: false }));
+
   return (
     <>
       <div className="page-head">
@@ -66,6 +72,8 @@ export default async function SettingsPage({
       />
 
       <CostRuleSettings rules={costRules.rules} canApprove={costRules.canApprove} />
+
+      <TaxRuleSettings rules={taxRules.rules} canApprove={taxRules.canApprove} />
 
       {workflows && (
         <>

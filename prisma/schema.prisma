@@ -156,6 +156,7 @@ model OrganizationUnit {
   approvalPolicies    ApprovalPolicy[]
   workflowDefinitions WorkflowDefinition[]
   costRules           CostRule[]
+  taxRules            TaxRule[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -243,6 +244,8 @@ model User {
   handoverSignoffs    HandoverSignoff[]   @relation("HandoverSigner")
   costRulesAuthored   CostRule[]          @relation("CostRuleAuthor")
   costRulesApproved   CostRule[]          @relation("CostRuleApprover")
+  taxRulesAuthored    TaxRule[]           @relation("TaxRuleAuthor")
+  taxRulesApproved    TaxRule[]           @relation("TaxRuleApprover")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -2698,4 +2701,67 @@ model RefListItem {
 
   @@unique([listKey, code])
   @@index([listKey, isActive, sortOrder])
+}
+
+/// Tax rules, approved by Finance exactly as cost rules are.
+///
+/// Separate from CostRule because a tax is not an overhead in the respect that
+/// matters to the arithmetic: an overhead is money the company spends and must
+/// earn back, while VAT is money that passes through it. One total for both
+/// would make a healthy margin look thin.
+model TaxRule {
+  id      String  @id @default(uuid())
+  code    String  @unique
+  name    String
+  taxType TaxType
+  base    TaxBase
+
+  /// Percent. A tax expressed as a flat sum is a cost rule, not a tax rule.
+  ratePercent Decimal @db.Decimal(9, 4)
+
+  /// True when the company reclaims it, so it is charged but never borne.
+  isRecoverable Boolean @default(false)
+
+  /// Scope, narrowest wins within a (type, base) pair.
+  country   String?
+  orgUnitId String?
+  orgUnit   OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  approvalStatus  CostRuleApprovalStatus @default(DRAFT)
+  approvedById    String?
+  approvedBy      User?                  @relation("TaxRuleApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  note String?
+
+  createdById String
+  createdBy   User   @relation("TaxRuleAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([taxType, country])
+  @@index([approvalStatus])
+  @@index([effectiveFrom])
+}
+
+enum TaxType {
+  VAT
+  WITHHOLDING
+  CUSTOMS_DUTY
+  STAMP_DUTY
+  SOCIAL_INSURANCE
+  OTHER
+}
+
+enum TaxBase {
+  SELLING_PRICE
+  DIRECT_COST
+  SUBCONTRACTOR_PAYMENTS
+  IMPORTED_MATERIALS
 }

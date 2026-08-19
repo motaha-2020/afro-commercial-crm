@@ -346,3 +346,78 @@ export class ListCostRulesQuery {
   @IsString()
   orgUnitId?: string;
 }
+
+
+// --- tax rules ---------------------------------------------------------------
+
+export enum TaxTypeDto {
+  VAT = 'VAT',
+  WITHHOLDING = 'WITHHOLDING',
+  CUSTOMS_DUTY = 'CUSTOMS_DUTY',
+  STAMP_DUTY = 'STAMP_DUTY',
+  SOCIAL_INSURANCE = 'SOCIAL_INSURANCE',
+  OTHER = 'OTHER',
+}
+
+export enum TaxBaseDto {
+  SELLING_PRICE = 'SELLING_PRICE',
+  DIRECT_COST = 'DIRECT_COST',
+  SUBCONTRACTOR_PAYMENTS = 'SUBCONTRACTOR_PAYMENTS',
+  IMPORTED_MATERIALS = 'IMPORTED_MATERIALS',
+}
+
+export class CreateTaxRuleDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsEnum(TaxTypeDto)
+  taxType!: TaxTypeDto;
+
+  /** What the rate is charged on — the whole reason this is not one number. */
+  @IsEnum(TaxBaseDto)
+  base!: TaxBaseDto;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  ratePercent!: number;
+
+  /** True when the company reclaims it, so it is charged but never borne. */
+  @IsOptional()
+  @IsBoolean()
+  isRecoverable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string;
+
+  @IsDateString()
+  effectiveFrom!: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveTo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class ApproveTaxRuleDto {
+  @IsBoolean()
+  approve!: boolean;
+
+  /** Required on a rejection: "rejected" alone tells the next person nothing. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  rejectionReason?: string;
+}
