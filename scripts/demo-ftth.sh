@@ -52,7 +52,8 @@ psql_ "update \"BusinessPartner\" set \"deletedAt\"=now() where \"deletedAt\" is
 # The smoke suite creates its own approval cycle each run; it belongs in the
 # test residue rather than in a screenshot of the settings screen.
 psql_ "update \"WorkflowDefinition\" set \"deletedAt\"=now() where \"deletedAt\" is null and code like 'SMOKE-%';" >/dev/null
-psql_ "update \"CostRule\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'General and administrative%' or name like 'Risk provision%');" >/dev/null
+psql_ "update \"CostRule\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'To reject%' or name like 'General and administrative%' or name like 'Risk provision%');" >/dev/null
+psql_ "update \"TaxRule\" set \"deletedAt\"=now() where \"deletedAt\" is null and (name like 'Smoke%' or name like 'Egyptian VAT%' or name like 'Withholding%');" >/dev/null
 say "test rows hidden"
 
 echo "=== 1. The customer, its group and its people ==="
@@ -153,6 +154,15 @@ RULE_A=$(post /cost-rules "$EST" '{"name":"General and administrative overhead",
 RULE_B=$(post /cost-rules "$EST" '{"name":"Risk provision","category":"RISK_PROVISION","method":"PERCENT_OF_DIRECT_COST","value":3,"note":"Soil risk and permit delays"}' | id_of)
 post /cost-rules/$RULE_A/decision "$FIN" '{"approve":true}' >/dev/null
 post /cost-rules/$RULE_B/decision "$FIN" '{"approve":true}' >/dev/null
+
+# Two tax rules, proposed by estimation and approved by finance — the same
+# separation the cost rules have, and the reason neither is a field somebody
+# types into a costing.
+TAX_A=$(post /tax-rules "$EST" '{"name":"Egyptian VAT","taxType":"VAT","base":"SELLING_PRICE","ratePercent":14,"country":"EG","effectiveFrom":"2026-01-01T00:00:00.000Z","note":"Charged to the customer on the invoice"}' | id_of)
+TAX_B=$(post /tax-rules "$EST" '{"name":"Withholding on subcontractors","taxType":"WITHHOLDING","base":"SUBCONTRACTOR_PAYMENTS","ratePercent":5,"country":"EG","effectiveFrom":"2026-01-01T00:00:00.000Z","note":"Deducted from what the subcontractor is paid"}' | id_of)
+post /tax-rules/$TAX_A/decision "$FIN" '{"approve":true}' >/dev/null
+post /tax-rules/$TAX_B/decision "$FIN" '{"approve":true}' >/dev/null
+say "two tax rates approved by finance"
 
 post /costing/versions/$VER/submit "$EST" '{}' >/dev/null
 post /costing/versions/$VER/approve "$FIN" '{}' >/dev/null
