@@ -22,7 +22,8 @@
     "expandNav": "Expand the navigation",
     "governance": "Governance",
     "reports": "Reports",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "ai": "AI Assistant"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1789,5 +1790,14 @@
     "byIndustry": "By sector",
     "deals": "{n} deals",
     "failed": "Could not read the analytics"
+  },
+  "aiPlaceholder": {
+    "title": "AI Assistant",
+    "subtitle": "Built, and deliberately switched off.",
+    "waitingTitle": "Waiting on one decision, not on more code",
+    "waitingBody": "Content may not leave the network for a cloud provider until Afro decides what is allowed to. That decision — cloud or on-premises — is what this screen is waiting on.",
+    "built": "The provider interface, request router, memory and suggestion services are already written in the API.",
+    "blocked": "No provider is configured, so every AI feature answers with silence rather than a result — nothing here can leak by accident.",
+    "next": "Once the cloud/on-premises decision is made, the provider is switched on and this page is replaced by the real assistant."
   }
 }

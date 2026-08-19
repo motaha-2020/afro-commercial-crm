@@ -17,6 +17,7 @@ const ITEMS: { key: string; href: string; icon: string; adminOnly?: boolean }[] 
   { key: 'governance', href: 'governance', icon: '⚖' },
   { key: 'users', href: 'users', icon: '◉', adminOnly: true },
   { key: 'refLists', href: 'ref-lists', icon: '☰', adminOnly: true },
+  { key: 'ai', href: 'ai', icon: '✦' },
   { key: 'settings', href: 'settings', icon: '⚙' },
 ];
 
