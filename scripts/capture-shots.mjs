@@ -22,6 +22,8 @@ const EMAIL = process.env.EMAIL ?? 'ceo@afro.example';
 const PASSWORD = process.env.SEED_PASSWORD ?? 'ChangeMe#2026';
 
 const OPP = process.env.OPP;
+// A deal that is one field short of its next stage, so the refusal is real.
+const STUCK = process.env.STUCK;
 const ARM = process.env.ARM;
 const HOLDING = process.env.HOLDING;
 const VER = process.env.VER;
@@ -46,6 +48,9 @@ const shots = [
   { n: '02', name: 'pipeline', url: '/opportunities', full: true },
   { n: '03', name: 'opportunity', url: `/opportunities/${OPP}` },
   { n: '04', name: 'opportunity-team', url: `/opportunities/${OPP}`, find: 'team' },
+  ...(STUCK
+    ? [{ n: '04b', name: 'stage-refused', url: `/opportunities/${STUCK}`, refuse: true }]
+    : []),
   { n: '05', name: 'account-360', url: `/accounts/${ARM}`, full: true },
   { n: '06', name: 'account-relationship-inverse', url: `/accounts/${HOLDING}`, find: 'relationship' },
   { n: '07', name: 'bid-workspace', url: `/opportunities/${OPP}/bids`, full: true },
@@ -81,6 +86,26 @@ for (const shot of shots) {
   // The panels stream in after the first paint; a fixed pause beats a selector
   // per screen, and these are screenshots rather than assertions.
   await new Promise((r) => setTimeout(r, 1200));
+
+  if (shot.refuse) {
+    // Click the control the way a person would, then wait for the answer: the
+    // shot is of the refusal, so a screenshot before the round trip is a
+    // screenshot of nothing.
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find((b) =>
+        /move/i.test(b.textContent ?? ''),
+      );
+      btn?.click();
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('form button[type="submit"]')].find((b) =>
+        /move/i.test(b.textContent ?? ''),
+      );
+      btn?.click();
+    });
+    await new Promise((r) => setTimeout(r, 2000));
+  }
 
   if (shot.find) {
     // Scroll the named panel to the top of the frame so the shot is of that

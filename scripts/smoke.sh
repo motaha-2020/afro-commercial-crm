@@ -1092,8 +1092,14 @@ d=json.load(sys.stdin); print(all(m['definition']['decision'] and m['definition'
 check "win rate is won over won plus lost, exactly as the spec writes it" \
   "$(curl -s $API/metrics/WIN_RATE -H "Authorization: Bearer $CEO" | JQ "
 d=json.load(sys.stdin); print(d['definition']['formula'].startswith('Won'))")" "True"
+# The probe metric has to be one that demo data cannot accidentally fill.
+# This used supplier dependency read as the account manager, and it passed
+# only while that user happened to own nothing — the moment a demo deal was
+# created under them with a selected supplier the metric had an honest
+# number, and the check called that a regression. Forecast accuracy needs
+# closed deals carrying a forecast, which only a real closed quarter makes.
 check "a metric with nothing behind it says so instead of showing zero" \
-  "$(curl -s $API/metrics/SUPPLIER_DEPENDENCY -H "Authorization: Bearer $AM" | JQ "
+  "$(curl -s $API/metrics/FORECAST_ACCURACY -H "Authorization: Bearer $CEO" | JQ "
 d=json.load(sys.stdin); print(str(d['value'])+'/'+str(d.get('unavailableReason')))")" "None/NO_DATA"
 check "every number reports how many records it rests on" \
   "$(echo "$DASH" | JQ "
