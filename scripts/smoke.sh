@@ -1627,8 +1627,8 @@ check "and its credit standing is left at the default, not chosen on the way in"
   "$(psql_ "select \"creditStatus\" from \"Account\" where \"legalName\"='Smoke Newly Found Ltd'
             order by \"createdAt\" desc limit 1;")" "GOOD"
 check "the opportunity hangs off the customer that was just created" \
-  "$(psql_ "select (o.\"accountId\" = a.id) from \"Opportunity\" o, \"Account\" a
-            where o.id='$NOPP' and a.\"legalName\"='Smoke Newly Found Ltd';")" "t"
+  "$(psql_ "select (a.\"legalName\" = 'Smoke Newly Found Ltd') from \"Opportunity\" o
+            join \"Account\" a on a.id = o.\"accountId\" where o.id='$NOPP';")" "t"
 
 echo "=== 31. Warning before a supplier offer lapses ==="
 # The expired offer already refuses to be selected. What was missing is the
