@@ -21,7 +21,8 @@
     "collapseNav": "Replier la navigation",
     "expandNav": "Déplier la navigation",
     "governance": "Gouvernance",
-    "reports": "Rapports"
+    "reports": "Rapports",
+    "analytics": "Analytique"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -1747,5 +1748,38 @@
     "empty": "Aucune mesure selectionnee",
     "failed": "Execution impossible",
     "withheld": "Ecartees car votre role ne les couvre pas : {list}"
+  },
+  "analytics": {
+    "title": "Analytique",
+    "subtitle": "Les memes affaires, regroupees - et chaque filtre est un lien partageable.",
+    "from": "Du",
+    "to": "Au",
+    "country": "Pays",
+    "industry": "Secteur",
+    "stage": "Etape",
+    "allCountries": "Tous les pays",
+    "allIndustries": "Tous les secteurs",
+    "allStages": "Toutes les etapes",
+    "openValue": "Pipeline ouvert",
+    "weighted": "Pipeline pondere",
+    "weightedHint": "Valeur multipliee par la probabilite inscrite sur chaque affaire",
+    "winRate": "Taux de reussite",
+    "wonValue": "Gagne sur la periode",
+    "wonLost": "{won} gagnees, {lost} perdues",
+    "records": "{n} affaires",
+    "inRange": "Selon les filtres ci-dessus",
+    "notYet": "Pas encore",
+    "byStage": "Pipeline par etape",
+    "byStageHint": "Les etapes vides sont affichees - le trou dans un pipeline est ce qui merite d etre vu.",
+    "overTime": "Creees, gagnees et perdues par mois",
+    "created": "Creees",
+    "won": "Gagnees",
+    "lost": "Perdues",
+    "concentration": "Concentration client",
+    "concentrationHint": "Quelle part du portefeuille repose sur un seul client. Une part, pas un classement.",
+    "byCountry": "Par pays",
+    "byIndustry": "Par secteur",
+    "deals": "{n} affaires",
+    "failed": "Lecture impossible"
   }
 }

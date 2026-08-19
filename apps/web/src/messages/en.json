@@ -21,7 +21,8 @@
     "collapseNav": "Collapse the navigation",
     "expandNav": "Expand the navigation",
     "governance": "Governance",
-    "reports": "Reports"
+    "reports": "Reports",
+    "analytics": "Analytics"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1747,5 +1748,38 @@
     "empty": "Nothing selected yet",
     "failed": "Could not run the report",
     "withheld": "Left out, because your role does not cover them: {list}"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "The same deals, grouped — and every filter is a link you can send to somebody.",
+    "from": "From",
+    "to": "To",
+    "country": "Country",
+    "industry": "Industry",
+    "stage": "Stage",
+    "allCountries": "All countries",
+    "allIndustries": "All industries",
+    "allStages": "All stages",
+    "openValue": "Open pipeline",
+    "weighted": "Weighted pipeline",
+    "weightedHint": "Value multiplied by the probability recorded on each deal",
+    "winRate": "Win rate",
+    "wonValue": "Won in this range",
+    "wonLost": "{won} won, {lost} lost",
+    "records": "{n} deals in range",
+    "inRange": "Within the filters above",
+    "notYet": "Not yet",
+    "byStage": "Pipeline by stage",
+    "byStageHint": "Empty stages are shown too — the gap in a pipeline is the part worth seeing.",
+    "overTime": "Created, won and lost by month",
+    "created": "Created",
+    "won": "Won",
+    "lost": "Lost",
+    "concentration": "Customer concentration",
+    "concentrationHint": "How much of the book rests on one customer. A share, not a ranking.",
+    "byCountry": "By country",
+    "byIndustry": "By sector",
+    "deals": "{n} deals",
+    "failed": "Could not read the analytics"
   }
 }

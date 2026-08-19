@@ -8,6 +8,7 @@ import {
   type MetricInputs,
   type MetricOpportunity,
 } from './metrics';
+import { OPPORTUNITY_STATUSES } from './opportunity';
 
 const NOW = new Date('2026-08-01');
 
@@ -57,8 +58,8 @@ describe('win rate — the spec\'s worked example', () => {
       'WIN_RATE',
       at({
         opportunities: [
-          opp({ status: 'WON' }),
-          opp({ status: 'WON' }),
+          opp({ status: 'CLOSED' }),
+          opp({ status: 'CLOSED' }),
           opp({ status: 'LOST' }),
           opp({ status: 'LOST' }),
         ],
@@ -74,7 +75,7 @@ describe('win rate — the spec\'s worked example', () => {
     // salesperson finds work.
     const result = computeMetric(
       'WIN_RATE',
-      at({ opportunities: [opp({ status: 'WON' }), opp({ status: 'ACTIVE' })] }),
+      at({ opportunities: [opp({ status: 'CLOSED' }), opp({ status: 'ACTIVE' })] }),
     );
 
     expect(result.value).toBe(100);
@@ -97,7 +98,7 @@ describe('pipeline', () => {
       at({
         opportunities: [
           opp({ estimatedValue: 100 }),
-          opp({ status: 'WON', estimatedValue: 900 }),
+          opp({ status: 'CLOSED', estimatedValue: 900 }),
         ],
       }),
     );
@@ -152,8 +153,8 @@ describe('concentration', () => {
       'CUSTOMER_CONCENTRATION',
       at({
         opportunities: [
-          opp({ status: 'WON', accountId: 'a', estimatedValue: 750 }),
-          opp({ status: 'WON', accountId: 'b', estimatedValue: 250 }),
+          opp({ status: 'CLOSED', accountId: 'a', estimatedValue: 750 }),
+          opp({ status: 'CLOSED', accountId: 'b', estimatedValue: 250 }),
         ],
       }),
     );
@@ -237,7 +238,7 @@ describe('forecast accuracy', () => {
       'FORECAST_ACCURACY',
       at({
         opportunities: [
-          opp({ status: 'WON', forecastCategory: 'COMMIT', estimatedValue: 700 }),
+          opp({ status: 'CLOSED', forecastCategory: 'COMMIT', estimatedValue: 700 }),
           opp({ status: 'LOST', forecastCategory: 'COMMIT', estimatedValue: 300 }),
           // Never committed, so it belongs to neither side of the question.
           opp({ status: 'LOST', forecastCategory: 'PIPELINE', estimatedValue: 999 }),
@@ -253,7 +254,7 @@ describe('forecast accuracy', () => {
     // Forecasting nothing makes accuracy meaningless, not perfect.
     const result = computeMetric(
       'FORECAST_ACCURACY',
-      at({ opportunities: [opp({ status: 'WON', forecastCategory: 'PIPELINE' })] }),
+      at({ opportunities: [opp({ status: 'CLOSED', forecastCategory: 'PIPELINE' })] }),
     );
 
     expect(result.value).toBeNull();
@@ -282,5 +283,26 @@ describe('which dashboard a person sees', () => {
 
   it('falls back to a usable default for an unlisted role', () => {
     expect(dashboardFor(['SYSTEM_ADMIN'])).toEqual(DEFAULT_DASHBOARD);
+  });
+});
+
+
+describe('the vocabulary the metrics read', () => {
+  it('every status the metrics test for is a status the system can actually hold', () => {
+    // The bug this pins: WON was read for three releases and never existed.
+    // Win rate, average deal size and forecast accuracy were all null, and the
+    // tests passed because the fixtures invented the same value.
+    const statusesUsedByMetrics = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'LOST'];
+    for (const status of statusesUsedByMetrics) {
+      expect(OPPORTUNITY_STATUSES).toContain(status);
+    }
+  });
+
+  it('and a closed deal counts as won', () => {
+    const result = computeMetric(
+      'WIN_RATE',
+      at({ opportunities: [opp({ status: 'CLOSED' }), opp({ status: 'LOST' })] }),
+    );
+    expect(result.value).toBe(50);
   });
 });

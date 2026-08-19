@@ -1733,6 +1733,40 @@ for L in ar en fr; do
   check "$L reports screen renders"     "$(code -b /tmp/acms_smoke2.jar $WEB/$L/reports)" "200"
 done
 
+echo "=== 34. The analytical dashboard ==="
+AN=$(curl -s -b /tmp/acms_smoke2.jar "$WEB/api/analytics")
+check "the overview groups the pipeline by stage, all thirteen of them" \
+  "$(echo "$AN" | JQ "print(len(json.load(sys.stdin)['byStage']))")" "13"
+
+check "and reports customer concentration as a share" \
+  "$(echo "$AN" | JQ "d=json.load(sys.stdin); print(all('share' in a for a in d['topAccounts']))")" "True"
+
+# A filter narrows. If one ever widened, it would be a second way past the scope
+# rules the whole system rests on.
+FILTERED=$(curl -s -b /tmp/acms_smoke2.jar "$WEB/api/analytics?country=EG")
+check "a country filter narrows the set" \
+  "$(echo "$FILTERED" | JQ "
+d=json.load(sys.stdin); print(all(c['key']=='EG' for c in d['byCountry']))")" "True"
+
+TOTAL_ALL=$(echo "$AN" | JQ "print(json.load(sys.stdin)['totals']['opportunities'])")
+TOTAL_EG=$(echo "$FILTERED" | JQ "print(json.load(sys.stdin)['totals']['opportunities'])")
+check "and never returns more than the unfiltered view" \
+  "$([ "$TOTAL_EG" -le "$TOTAL_ALL" ] && echo yes || echo no)" "yes"
+
+# The mistake this suite missed for three releases: the metrics read a status the
+# schema cannot hold, so every win-based number was permanently null.
+psql_ "update \"Opportunity\" set status='CLOSED' where id='$TEAM_OPP';" >/dev/null
+check "a closed deal counts as won" \
+  "$(curl -s -b /tmp/acms_smoke2.jar "$WEB/api/analytics" \
+     | JQ "print(json.load(sys.stdin)['totals']['won']>=1)")" "True"
+psql_ "update \"Opportunity\" set status='ACTIVE' where id='$TEAM_OPP';" >/dev/null
+
+for L in ar en fr; do
+  check "$L analytics screen renders with its charts" \
+    "$(curl -s -b /tmp/acms_smoke2.jar $WEB/$L/analytics \
+       | grep -q 'chart-bar-track' && echo yes || echo no)" "yes"
+done
+
 rm -f /tmp/acms_smoke2.jar
 
 echo

@@ -12,6 +12,7 @@ const ITEMS: { key: string; href: string; icon: string; adminOnly?: boolean }[] 
   { key: 'opportunities', href: 'opportunities', icon: '◆' },
   { key: 'suppliers', href: 'partners', icon: '⬡' },
   { key: 'approvals', href: 'approvals', icon: '✓' },
+  { key: 'analytics', href: 'analytics', icon: '◈' },
   { key: 'reports', href: 'reports', icon: '▤' },
   { key: 'governance', href: 'governance', icon: '⚖' },
   { key: 'users', href: 'users', icon: '◉', adminOnly: true },

@@ -659,3 +659,40 @@ table.data tr:hover td { background: rgba(90, 53, 199, .035); }
 @media (prefers-reduced-motion: reduce) {
   .nav-item.pending .nav-icon::after { animation: none; opacity: .5; }
 }
+
+/* --- charts ---------------------------------------------------------------
+   Drawn from CSS variables so the palette is one decision, and so a chart
+   never carries colours the rest of the interface does not use. The order is
+   chosen for distinguishability rather than prettiness: adjacent series must
+   stay apart for a reader who cannot separate red from green. */
+:root {
+  --chart-1: #4f46e5;
+  --chart-2: #0891b2;
+  --chart-3: #ca8a04;
+  --chart-4: #be123c;
+  --chart-5: #15803d;
+  --chart-6: #7c3aed;
+}
+
+.chart-bars { display: flex; flex-direction: column; gap: 8px; }
+.chart-bar-row { display: grid; grid-template-columns: minmax(90px, 190px) 1fr minmax(90px, auto); align-items: center; gap: 10px; }
+.chart-bar-label { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-bar-track { background: var(--panel-2); border-radius: 6px; height: 16px; overflow: hidden; }
+.chart-bar-fill { display: block; height: 100%; border-radius: 6px; }
+.chart-bar-value { font-size: 13px; font-weight: 600; text-align: end; }
+.chart-bar-hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+.chart-line svg { width: 100%; height: auto; }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-axis { fill: var(--muted); font-size: 10px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.chart-legend i, .chart-share-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 6px; }
+
+.chart-share-track { display: flex; height: 20px; border-radius: 7px; overflow: hidden; background: var(--panel-2); }
+.chart-share-seg { display: block; }
+.chart-share-legend { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.chart-share-legend li { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 8px; }
+.chart-share-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.filter-bar .field { min-width: 150px; }

@@ -244,7 +244,18 @@ export interface MetricValue {
 const round = (n: number) => Math.round(n * 100) / 100;
 
 const OPEN = (o: MetricOpportunity) => o.status === 'ACTIVE' || o.status === 'ON_HOLD';
-const WON = (o: MetricOpportunity) => o.status === 'WON';
+/**
+ * A won deal.
+ *
+ * The status is CLOSED, not "WON": the schema has no WON, and the service that
+ * closes a deal writes CLOSED with a forecast category of CLOSED_WON. This read
+ * 'WON' for three releases, so win rate, average deal size and forecast
+ * accuracy were all permanently null — and the unit tests agreed with the code
+ * because their fixtures used the same status the database cannot hold. The
+ * exhaustiveness test beside this one now ties the predicate to the published
+ * list, so the two cannot drift apart again in silence.
+ */
+const WON = (o: MetricOpportunity) => o.status === 'CLOSED';
 const LOST = (o: MetricOpportunity) => o.status === 'LOST';
 
 function value(o: MetricOpportunity): number {
