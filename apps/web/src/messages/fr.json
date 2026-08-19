@@ -1542,5 +1542,37 @@
     "SUBMITTED": "Envoyée",
     "SUPERSEDED": "Remplacée",
     "WITHDRAWN": "Retirée"
+  },
+  "stageMove": {
+    "move": "Changer d etape",
+    "moveTo": "Passer a {stage}",
+    "targetStage": "Etape cible",
+    "reasonPlaceholder": "Motif du passage (facultatif)",
+    "confirm": "Passer",
+    "moving": "En cours...",
+    "cancel": "Annuler",
+    "refused": "L etape n a pas change",
+    "failed": "Passage impossible"
+  },
+  "stageField": {
+    "accountId": "Client",
+    "name": "Nom de l affaire",
+    "source": "Source",
+    "country": "Pays",
+    "industry": "Secteur",
+    "estimatedValue": "Valeur estimee",
+    "ownerId": "Responsable",
+    "nextStep": "Prochaine etape",
+    "primaryContactId": "Contact principal",
+    "expectedCloseDate": "Date de cloture prevue",
+    "bidNoBidScore": "Score Bid / No-Bid",
+    "currency": "Devise",
+    "scopeSummary": "Synthese du perimetre",
+    "solutionStrategy": "Strategie de solution",
+    "estimatedCost": "Cout estime",
+    "proposedPrice": "Prix propose",
+    "marginPercent": "Marge",
+    "submissionDate": "Date de remise",
+    "awardedValue": "Valeur attribuee"
   }
 }

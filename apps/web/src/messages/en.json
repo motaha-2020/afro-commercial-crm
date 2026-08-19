@@ -1542,5 +1542,37 @@
     "SUBMITTED": "Sent",
     "SUPERSEDED": "Superseded",
     "WITHDRAWN": "Withdrawn"
+  },
+  "stageMove": {
+    "move": "Move stage",
+    "moveTo": "Move to {stage}",
+    "targetStage": "Target stage",
+    "reasonPlaceholder": "Why it is moving (optional)",
+    "confirm": "Move",
+    "moving": "Moving...",
+    "cancel": "Cancel",
+    "refused": "The stage did not change",
+    "failed": "Could not move the stage"
+  },
+  "stageField": {
+    "accountId": "Customer",
+    "name": "Opportunity name",
+    "source": "Source",
+    "country": "Country",
+    "industry": "Industry",
+    "estimatedValue": "Estimated value",
+    "ownerId": "Owner",
+    "nextStep": "Next step",
+    "primaryContactId": "Primary contact",
+    "expectedCloseDate": "Expected close date",
+    "bidNoBidScore": "Bid / No-Bid score",
+    "currency": "Currency",
+    "scopeSummary": "Scope summary",
+    "solutionStrategy": "Solution strategy",
+    "estimatedCost": "Estimated cost",
+    "proposedPrice": "Proposed price",
+    "marginPercent": "Margin",
+    "submissionDate": "Submission date",
+    "awardedValue": "Awarded value"
   }
 }

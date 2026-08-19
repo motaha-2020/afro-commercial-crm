@@ -1542,5 +1542,37 @@
     "SUBMITTED": "مُرسَل",
     "SUPERSEDED": "مستبدَل",
     "WITHDRAWN": "مسحوب"
+  },
+  "stageMove": {
+    "move": "نقل المرحلة",
+    "moveTo": "الانتقال إلى {stage}",
+    "targetStage": "المرحلة المستهدفة",
+    "reasonPlaceholder": "سبب الانتقال (اختياري)",
+    "confirm": "نقل",
+    "moving": "جارٍ النقل…",
+    "cancel": "إلغاء",
+    "refused": "لم تتغيّر المرحلة",
+    "failed": "تعذّر نقل المرحلة"
+  },
+  "stageField": {
+    "accountId": "العميل",
+    "name": "اسم الفرصة",
+    "source": "المصدر",
+    "country": "الدولة",
+    "industry": "القطاع",
+    "estimatedValue": "القيمة التقديرية",
+    "ownerId": "المسؤول",
+    "nextStep": "الخطوة التالية",
+    "primaryContactId": "جهة الاتصال الرئيسية",
+    "expectedCloseDate": "تاريخ الإغلاق المتوقع",
+    "bidNoBidScore": "نتيجة Bid / No-Bid",
+    "currency": "العملة",
+    "scopeSummary": "ملخّص النطاق",
+    "solutionStrategy": "استراتيجية الحل",
+    "estimatedCost": "التكلفة التقديرية",
+    "proposedPrice": "السعر المقترح",
+    "marginPercent": "الهامش",
+    "submissionDate": "تاريخ التقديم",
+    "awardedValue": "قيمة الترسية"
   }
 }

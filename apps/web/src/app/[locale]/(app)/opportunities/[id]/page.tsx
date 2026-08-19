@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import { shortDate } from '@/lib/format';
 import { BidScoreForm } from '@/components/BidScoreForm';
+import { StageAdvance } from '@/components/StageAdvance';
 import { ActivityTimeline, type ActivityRow } from '@/components/ActivityTimeline';
 import { DocumentsPanel, type DocumentRow } from '@/components/DocumentsPanel';
 import {
@@ -218,6 +219,9 @@ export default async function OpportunityDetailPage({
           </span>
         </div>
       </div>
+
+      {/* Beside the stage badge, because the badge is the thing being changed. */}
+      <StageAdvance opportunityId={id} stage={opportunity.stage} />
 
       {/* The four questions asked of every pipeline row in every review: who
           sent it, when it came, when it must be decided, and what happens next.

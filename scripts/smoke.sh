@@ -1480,6 +1480,26 @@ check "the recipient is stored, not merely accepted" \
 check "and it cannot be sent twice" \
   "$(wpost /api/proposal-versions/$SPV/submit '{"submittedTo":"Again"}')" "400"
 
+echo "=== 27. Moving a deal from the screen ==="
+# The stage is the journey the whole system is built on, and until now it could
+# only be moved from an API client. These go through the web route the button
+# calls, because that is the part that was missing.
+
+SOPP=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/opportunities -H 'Content-Type: application/json'   -d '{"name":"Smoke stage move","accountId":"'$NEAR'","country":"EG","currency":"USD"}'   | JQ "print(json.load(sys.stdin).get('id','NONE'))")
+
+# A deal one field short of the next stage: the refusal is the feature.
+REFUSED=$(curl -s -b /tmp/acms_smoke2.jar -X POST $WEB/api/opportunities/$SOPP/stage   -H 'Content-Type: application/json' -d '{"toStage":"LEAD_QUALIFICATION"}')
+check "an incomplete stage move is refused through the web route"   "$(echo "$REFUSED" | JQ "print(json.load(sys.stdin).get('statusCode'))")" "400"
+check "and the refusal names the missing fields rather than counting them"   "$(echo "$REFUSED" | JQ "print(len(json.load(sys.stdin).get('missingFields',[]))>0)")" "True"
+
+# Supplying the fields is not what is under test here, so it goes straight to
+# the API — the web route being proven is the stage move itself.
+curl -s -o /dev/null -X PATCH $API/opportunities/$SOPP -H "Authorization: Bearer $CEO"   -H 'Content-Type: application/json'   -d '{"source":"TENDER_PORTAL","industry":"FTTH","estimatedValue":100000,"nextStep":"Site survey"}'
+check "and goes through once they are supplied"   "$(curl -s -b /tmp/acms_smoke2.jar -o /dev/null -w '%{http_code}' -X POST $WEB/api/opportunities/$SOPP/stage      -H 'Content-Type: application/json' -d '{"toStage":"LEAD_QUALIFICATION","reason":"smoke"}')" "200"
+check "the move is recorded with who moved it and why"   "$(psql_ "select reason from \"OpportunityStageHistory\" where \"opportunityId\"='$SOPP' order by \"createdAt\" desc limit 1;")" "smoke"
+
+curl -s -o /dev/null -X DELETE $API/opportunities/$SOPP -H "Authorization: Bearer $CEO"
+
 rm -f /tmp/acms_smoke2.jar
 
 echo
