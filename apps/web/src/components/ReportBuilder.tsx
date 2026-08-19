@@ -7,7 +7,8 @@ export interface ReportMetric {
   code: string;
   value: number | null;
   unit: string;
-  basis?: { count: number; label?: string } | null;
+  /** How many records the number rests on. Zero is a fact, not a blank. */
+  basis: number;
   unavailableReason?: string | null;
   definition: { formula: string; decision: string; owner: string };
 }
@@ -73,7 +74,7 @@ export function ReportBuilder({
       metricT(r.code),
       r.value ?? t('notYet'),
       r.unit,
-      r.basis?.count ?? '',
+      r.basis,
       r.definition.formula,
     ]);
     const csv = [header, ...lines]
@@ -153,7 +154,7 @@ export function ReportBuilder({
                     </strong>
                   )}
                 </td>
-                <td className="muted">{r.basis?.count ?? '—'}</td>
+                <td className="muted">{r.basis}</td>
                 <td style={{ maxWidth: 380, fontSize: 12 }}>{r.definition.formula}</td>
                 <td className="muted" style={{ fontSize: 12 }}>
                   {r.definition.owner}
