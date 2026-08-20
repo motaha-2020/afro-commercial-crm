@@ -1245,7 +1245,10 @@
     "PERCENT_OF_DIRECT_COST": "٪ من التكلفة المباشرة",
     "PERCENT_OF_REVENUE": "٪ من الإيراد",
     "FIXED_AMOUNT": "مبلغ ثابت",
-    "MONTHLY_RATE": "تكلفة شهرية × المدة"
+    "MONTHLY_RATE": "تكلفة شهرية × المدة",
+    "opportunityCode": "كود الفرصة (اختياري)",
+    "opportunityPlaceholder": "OPP-2026-000289",
+    "opportunityHint": "اتركه فارغًا لقاعدة عامة. بكود فرصة تصبح خاصة بهذه المناقصة وحدها وتتقدّم على قاعدة الدولة والوحدة."
   },
   "users": {
     "title": "المستخدمون والصلاحيات",

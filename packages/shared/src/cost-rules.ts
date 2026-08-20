@@ -60,6 +60,8 @@ export interface CostRule {
   value: number;
   country?: string | null;
   orgUnitId?: string | null;
+  /** Narrowest scope of all: this one bid and no other. */
+  opportunityId?: string | null;
   effectiveFrom: Date;
   effectiveTo?: Date | null;
   approvalStatus: CostRuleApprovalStatus;
@@ -68,6 +70,7 @@ export interface CostRule {
 export interface CostRuleContext {
   country?: string | null;
   orgUnitId?: string | null;
+  opportunityId?: string | null;
   asOf?: Date;
 }
 
@@ -102,9 +105,17 @@ export interface IndirectCostResult {
   skipped: { ruleId: string; name: string; reason: 'NO_DURATION' | 'NO_SELLING_PRICE' }[];
 }
 
-/** How specific a rule is; the narrowest wins within a category. */
-export function ruleSpecificity(rule: Pick<CostRule, 'country' | 'orgUnitId'>): number {
-  return (rule.orgUnitId ? 2 : 0) + (rule.country ? 1 : 0);
+/**
+ * How specific a rule is; the narrowest wins within a category.
+ *
+ * The weights are powers of two so that a narrower dimension always outranks
+ * every combination of wider ones: an opportunity rule beats a rule scoped to
+ * both an org unit and a country, which is the whole point of writing one.
+ */
+export function ruleSpecificity(
+  rule: Pick<CostRule, 'country' | 'orgUnitId' | 'opportunityId'>,
+): number {
+  return (rule.opportunityId ? 4 : 0) + (rule.orgUnitId ? 2 : 0) + (rule.country ? 1 : 0);
 }
 
 /**
@@ -115,9 +126,10 @@ export function ruleSpecificity(rule: Pick<CostRule, 'country' | 'orgUnitId'>): 
  * overhead policy after the fact.
  *
  * Within a category the narrowest scope wins: a rule set for Egypt replaces
- * the group default rather than stacking on top of it. Across categories they
- * accumulate, because G&A and financing are different costs, not two opinions
- * about the same one.
+ * the group default rather than stacking on top of it, and a rule written for
+ * a single opportunity replaces both. Across categories they accumulate,
+ * because G&A and financing are different costs, not two opinions about the
+ * same one.
  */
 export function applicableRules(
   rules: readonly CostRule[],
@@ -131,6 +143,9 @@ export function applicableRules(
     if (r.effectiveTo && r.effectiveTo <= asOf) return false;
     if (r.country && r.country !== ctx.country) return false;
     if (r.orgUnitId && r.orgUnitId !== ctx.orgUnitId) return false;
+    // A rule written for one bid never leaks onto another, and never applies
+    // at all when the caller is costing nothing in particular.
+    if (r.opportunityId && r.opportunityId !== ctx.opportunityId) return false;
     return true;
   });
 

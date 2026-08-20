@@ -133,6 +133,11 @@ describe('scope', () => {
   it('ranks a business unit above a country above the group', () => {
     expect(ruleSpecificity({ orgUnitId: 'u' })).toBeGreaterThan(ruleSpecificity({ country: 'EG' }));
     expect(ruleSpecificity({ country: 'EG' })).toBeGreaterThan(ruleSpecificity({}));
+    // One bid outranks every combination of wider scopes. A rule written for
+    // a single tender that a country rule could overrule would be pointless.
+    expect(ruleSpecificity({ opportunityId: 'o' })).toBeGreaterThan(
+      ruleSpecificity({ orgUnitId: 'u', country: 'EG' }),
+    );
   });
 
   it('replaces the group default rather than stacking on it', () => {
@@ -221,5 +226,60 @@ describe('the summary the costing screen shows', () => {
 
     expect(totals.totalCost).toBe(100_000);
     expect(totals.marginPercent).toBe(20);
+  });
+});
+
+describe('a rule written for one opportunity', () => {
+  const groupRule = rule({ id: 'group', value: 10 });
+  const countryRule = rule({ id: 'country', value: 9, country: 'EG' });
+  const bidRule = rule({ id: 'bid', value: 4, opportunityId: 'opp-1' });
+
+  it('replaces the wider rules when costing that opportunity', () => {
+    const applied = applicableRules([groupRule, countryRule, bidRule], {
+      asOf: NOW,
+      country: 'EG',
+      opportunityId: 'opp-1',
+    });
+
+    // Replaces, not stacks: one G&A percentage applies to a bid, and adding
+    // 4% on top of 9% is a different number nobody approved.
+    expect(applied).toHaveLength(1);
+    expect(applied[0].id).toBe('bid');
+  });
+
+  it('never leaks onto a different opportunity', () => {
+    const applied = applicableRules([groupRule, bidRule], {
+      asOf: NOW,
+      opportunityId: 'opp-2',
+    });
+
+    expect(applied.map((r) => r.id)).toEqual(['group']);
+  });
+
+  it('does not apply when nothing in particular is being costed', () => {
+    const applied = applicableRules([groupRule, bidRule], { asOf: NOW });
+
+    expect(applied.map((r) => r.id)).toEqual(['group']);
+  });
+
+  it('is still ignored while it is only a draft', () => {
+    // The narrowest scope does not buy a way around Finance's approval.
+    const applied = applicableRules(
+      [groupRule, rule({ id: 'bid', value: 4, opportunityId: 'opp-1', approvalStatus: 'DRAFT' })],
+      { asOf: NOW, opportunityId: 'opp-1' },
+    );
+
+    expect(applied.map((r) => r.id)).toEqual(['group']);
+  });
+
+  it('changes the money the bid carries', () => {
+    const withoutBidRule = computeIndirectCosts([groupRule], base, { asOf: NOW });
+    const withBidRule = computeIndirectCosts([groupRule, bidRule], base, {
+      asOf: NOW,
+      opportunityId: 'opp-1',
+    });
+
+    expect(withoutBidRule.total).toBe(10_000);
+    expect(withBidRule.total).toBe(4_000);
   });
 });

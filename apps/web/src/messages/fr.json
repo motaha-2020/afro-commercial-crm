@@ -1245,7 +1245,10 @@
     "PERCENT_OF_DIRECT_COST": "% du coût direct",
     "PERCENT_OF_REVENUE": "% du chiffre d'affaires",
     "FIXED_AMOUNT": "Montant fixe",
-    "MONTHLY_RATE": "Taux mensuel × durée"
+    "MONTHLY_RATE": "Taux mensuel × durée",
+    "opportunityCode": "Code d'opportunité (facultatif)",
+    "opportunityPlaceholder": "OPP-2026-000289",
+    "opportunityHint": "Laissez vide pour une règle générale. Avec un code, elle ne s'applique qu'à cette offre et prime sur les règles pays et unité."
   },
   "users": {
     "title": "Utilisateurs et autorisations",

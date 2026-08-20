@@ -312,6 +312,17 @@ export class CreateCostRuleDto {
   @IsString()
   orgUnitId?: string;
 
+  /**
+   * Narrowest scope: this one bid, named by its code.
+   *
+   * A code rather than an id because a code is what is on the screen and in
+   * the tender file; asking a user to find a UUID to scope a rate is asking
+   * them to paste the wrong one.
+   */
+  @IsOptional()
+  @IsString()
+  opportunityCode?: string;
+
   @IsOptional()
   @IsDateString()
   effectiveFrom?: string;
@@ -345,6 +356,11 @@ export class ListCostRulesQuery {
   @IsOptional()
   @IsString()
   orgUnitId?: string;
+
+  /** Ask what applies to one bid, including any rule written for it alone. */
+  @IsOptional()
+  @IsString()
+  opportunityId?: string;
 }
 
 
