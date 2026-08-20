@@ -7,5 +7,8 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [ActivitiesController],
   providers: [ActivitiesService],
+  // Exported so the AI agents can read through the same service, and
+  // therefore the same permission scoping, that the HTTP routes use.
+  exports: [ActivitiesService],
 })
 export class ActivitiesModule {}

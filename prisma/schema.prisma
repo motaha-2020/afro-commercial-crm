@@ -207,6 +207,7 @@ model User {
   aiConversations     AiConversation[]
   aiSuggestionsMade   AiSuggestion[] @relation("AiSuggestionRequester")
   aiSuggestionsSigned AiSuggestion[] @relation("AiSuggestionApprover")
+  aiPendingActions    PendingAction[]
 
   ownedAssumptions     Assumption[]     @relation("AssumptionOwner")
   raisedClarifications Clarification[]  @relation("ClarificationRaiser")
@@ -2636,6 +2637,44 @@ model AiSuggestion {
   @@index([status])
   @@index([userId])
   @@index([agentKey, entityType])
+}
+
+/// A change the agent proposed in chat and that is waiting for the person who
+/// asked for it to type a four-digit code back.
+///
+/// Distinct from AiSuggestion, which is a manager approving someone else's
+/// proposal asynchronously. This one is the same person, in the same
+/// conversation, within ten minutes — so it carries a code and an expiry that
+/// an approval queue has no use for.
+///
+/// Nothing here is a promise that the change is valid: every id was resolved
+/// through a real read under the asking user's own permissions before the row
+/// was written, and the row is deleted the moment it is claimed.
+model PendingAction {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  conversationId String?
+
+  /// SHA-256 of the code. Storing it raw would put a working confirmation
+  /// token in every backup and log dump of this table.
+  codeHash String
+
+  /// Which service method runs on claim, e.g. "opportunity.changeStage".
+  action     String
+  resource   String
+  targetId   String
+  /// Shown to the user and checked against the model's claim; the id alone
+  /// proves nothing to a reader.
+  targetCode String
+  body       Json
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
 }
 
 // ---------------------------------------------------------------------------

@@ -28,3 +28,6 @@ Thumbs.db
 # tree in one repository leaves nobody sure which one is real.
 acms-agent/
 ACMS · AI Agent.json
+
+# Incremental build cache — regenerated on every build.
+*.tsbuildinfo

@@ -26,6 +26,25 @@ export class AuditService {
    * log line is a monitoring problem, not a reason to reject a user's work.
    * Failures are logged loudly rather than thrown.
    */
+  /**
+   * The history of one record, newest first.
+   *
+   * Callers are responsible for the role check -- see AUDIT_READER_ROLES. This
+   * method deliberately does not enforce it, because the HTTP route enforces
+   * it through a guard and the in-process callers enforce it themselves; a
+   * check in two places that disagree is worse than one that is explicit.
+   */
+  forEntity(entityType: string, entityId: string, take = 100) {
+    return this.prisma.auditLog.findMany({
+      where: { entityType, entityId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(take, 500),
+      include: {
+        user: { select: { id: true, fullNameEn: true, fullNameAr: true, email: true } },
+      },
+    });
+  }
+
   async record(entry: AuditEntry): Promise<void> {
     // Fill actor, address and request id from the ambient request context when
     // the caller did not supply them — so every call site stays terse and no

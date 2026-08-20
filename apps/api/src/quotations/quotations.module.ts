@@ -9,5 +9,8 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [QuotationsController],
   providers: [QuotationsService, QuotationExpiryService, QuotationExpiryJob],
+  // Exported so the AI agents read through the same service, and therefore
+  // the same permission scoping, that the HTTP routes use.
+  exports: [QuotationsService],
 })
 export class QuotationsModule {}

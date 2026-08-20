@@ -22,8 +22,7 @@
     "expandNav": "Expand the navigation",
     "governance": "Governance",
     "reports": "Reports",
-    "analytics": "Analytics",
-    "ai": "AI Assistant"
+    "analytics": "Analytics"
   },
   "login": {
     "subtitle": "Sign in to access the system",
@@ -1791,13 +1790,15 @@
     "deals": "{n} deals",
     "failed": "Could not read the analytics"
   },
-  "aiPlaceholder": {
-    "title": "AI Assistant",
-    "subtitle": "Built, and deliberately switched off.",
-    "waitingTitle": "Waiting on one decision, not on more code",
-    "waitingBody": "Content may not leave the network for a cloud provider until Afro decides what is allowed to. That decision — cloud or on-premises — is what this screen is waiting on.",
-    "built": "The provider interface, request router, memory and suggestion services are already written in the API.",
-    "blocked": "No provider is configured, so every AI feature answers with silence rather than a result — nothing here can leak by accident.",
-    "next": "Once the cloud/on-premises decision is made, the provider is switched on and this page is replaced by the real assistant."
+  "ai": {
+    "title": "Assistant",
+    "open": "Ask the assistant",
+    "close": "Close",
+    "send": "Send",
+    "placeholder": "Ask about opportunities, accounts or activities…",
+    "empty": "Ask about what is on your screen. The assistant reads with your own permissions, so it sees only what you see.",
+    "thinking": "Reading…",
+    "failed": "The request could not be completed. Nothing was changed.",
+    "flagged": "⚠️ Reviewed: the answer contained something no tool delivered."
   }
 }

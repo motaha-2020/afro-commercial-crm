@@ -10,5 +10,8 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [CostingController],
   providers: [CostingService, CostRulesService, LibraryService, TaxRulesService],
+  // Exported so the AI agents read through the same service, and therefore
+  // the same permission scoping, that the HTTP routes use.
+  exports: [CostingService],
 })
 export class CostingModule {}
