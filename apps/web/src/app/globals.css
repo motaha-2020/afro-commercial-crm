@@ -661,37 +661,113 @@ table.data tr:hover td { background: rgba(90, 53, 199, .035); }
 }
 
 /* --- charts ---------------------------------------------------------------
-   Drawn from CSS variables so the palette is one decision, and so a chart
-   never carries colours the rest of the interface does not use. The order is
-   chosen for distinguishability rather than prettiness: adjacent series must
-   stay apart for a reader who cannot separate red from green. */
+   Colour does one job per chart, and which job is a property of the data, not
+   a matter of taste. Values are the validated default palette, checked with a
+   script rather than by eye.
+
+   Categorical (created / won / lost) passes every gate on the adjacent
+   pairlist: worst CVD dE 9.1, worst normal-vision dE 19.6. Three slots sit
+   below 3:1 on this surface, which is legal here because every chart writes
+   its values as text beside the marks -- that is the relief, not an oversight.
+
+   Ordinal (pipeline stages, account ranks) is one hue, light to dark. Five
+   steps rather than one per stage: ten steps failed the step-gap check at
+   dL 0.047, meaning the reader could not see the difference the extra colours
+   claimed to make.
+
+   Dark steps are validated and recorded here for the day this app grows a dark
+   mode -- ordinal 200..600 (#9ec5f4 #6da7ec #3987e5 #256abf #184f95), series
+   #3987e5 #d95926 #199e70. They are not wired up: half a dark mode is worse
+   than none. */
 :root {
-  --chart-1: #4f46e5;
-  --chart-2: #0891b2;
-  --chart-3: #ca8a04;
-  --chart-4: #be123c;
-  --chart-5: #15803d;
-  --chart-6: #7c3aed;
+  /* Categorical slots, in the fixed order that is the CVD-safety mechanism. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+
+  /* Ordinal ramp, light to dark. Blue steps 250, 350, 450, 550, 650. */
+  --ordinal-1: #86b6ef;
+  --ordinal-2: #5598e7;
+  --ordinal-3: #2a78d6;
+  --ordinal-4: #1c5cab;
+  --ordinal-5: #104281;
 }
 
 .chart-bars { display: flex; flex-direction: column; gap: 8px; }
-.chart-bar-row { display: grid; grid-template-columns: minmax(90px, 190px) 1fr minmax(90px, auto); align-items: center; gap: 10px; }
+.chart-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 200px) 1fr minmax(96px, auto);
+  align-items: center;
+  gap: 12px;
+}
 .chart-bar-label { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chart-bar-track { background: var(--panel-2); border-radius: 6px; height: 16px; overflow: hidden; }
-.chart-bar-fill { display: block; height: 100%; border-radius: 6px; }
-.chart-bar-value { font-size: 13px; font-weight: 600; text-align: end; }
+.chart-bar-track { background: var(--panel-2); border-radius: 5px; height: 14px; overflow: hidden; }
+.chart-bar-fill {
+  display: block;
+  height: 100%;
+  /* Rounded at the data end only, so the bar stays anchored to its baseline
+     and a short bar is not read as longer than it is. */
+  border-radius: 0 4px 4px 0;
+  transition: width .25s ease;
+}
+[dir="rtl"] .chart-bar-fill { border-radius: 4px 0 0 4px; }
+/* An empty row keeps its label and its zero and loses its bar. A hairline of
+   colour at zero was reading as a small amount rather than as none. */
+.chart-bar-fill.is-empty { background: none !important; }
+.chart-bar-row:hover .chart-bar-track { background: var(--border); }
+.chart-bar-value { font-size: 13px; font-weight: 600; text-align: end; font-variant-numeric: tabular-nums; }
 .chart-bar-hint { font-weight: 400; color: var(--muted); font-size: 12px; }
 
-.chart-line svg { width: 100%; height: auto; }
+.chart-line svg { width: 100%; height: auto; display: block; }
 .chart-grid { stroke: var(--border); stroke-width: 1; }
-.chart-axis { fill: var(--muted); font-size: 10px; }
-.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
-.chart-legend i, .chart-share-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 6px; }
+.chart-crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart-axis { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 
-.chart-share-track { display: flex; height: 20px; border-radius: 7px; overflow: hidden; background: var(--panel-2); }
-.chart-share-seg { display: block; }
-.chart-share-legend { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.chart-share-legend li { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 8px; }
+/* The hovered reading, as selectable text rather than an SVG tooltip a screen
+   reader cannot reach. Fixed height so the chart does not jump on hover. */
+.chart-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  min-height: 22px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-readout strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.chart-readout i, .chart-share-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-inline-end: 6px;
+  vertical-align: -1px;
+}
+
+.chart-share-track {
+  display: flex;
+  height: 18px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--panel-2);
+  /* A 2px surface gap between segments, so two adjacent shares never read as
+     one longer one. */
+  gap: 2px;
+}
+.chart-share-seg { display: block; transition: opacity .15s ease; }
+.chart-share-seg.is-hover { opacity: .75; }
+.chart-share-legend { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.chart-share-legend li {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+.chart-share-legend li.is-hover { background: var(--panel-2); }
+.chart-share-legend strong { font-variant-numeric: tabular-nums; }
 .chart-share-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
