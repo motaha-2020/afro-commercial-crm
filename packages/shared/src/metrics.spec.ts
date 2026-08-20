@@ -17,6 +17,7 @@ function opp(over: Partial<MetricOpportunity> = {}): MetricOpportunity {
     id: 'o1',
     accountId: 'acc-1',
     status: 'ACTIVE',
+    currency: 'USD',
     estimatedValue: 100_000,
     probability: 0.5,
     forecastCategory: 'PIPELINE',
@@ -136,7 +137,7 @@ describe('gross margin', () => {
     // exists to keep.
     const result = computeMetric(
       'GROSS_MARGIN',
-      at({ opportunities: [], approvedCostings: [{ totalCost: 100, totalPrice: 125 }] }),
+      at({ opportunities: [], approvedCostings: [{ currency: 'USD', totalCost: 100, totalPrice: 125 }] }),
     );
 
     expect(result.value).toBe(20);
@@ -304,5 +305,86 @@ describe('the vocabulary the metrics read', () => {
       at({ opportunities: [opp({ status: 'CLOSED' }), opp({ status: 'LOST' })] }),
     );
     expect(result.value).toBe(50);
+  });
+});
+
+describe('money is never summed across currencies', () => {
+  // The production Reports screen showed "Open pipeline 28465000" for a book
+  // holding 8,465,000 USD and 20,000,000 EGP. Nothing owns that number.
+  const mixed = [
+    opp({ id: 'usd', currency: 'USD', estimatedValue: 8_465_000, probability: 0.5 }),
+    opp({ id: 'egp', currency: 'EGP', estimatedValue: 20_000_000, probability: 0.5 }),
+  ];
+
+  it('refuses a single pipeline figure and splits it instead', () => {
+    const value = computeMetric('PIPELINE_VALUE', at({ opportunities: mixed }));
+
+    expect(value.value).toBeNull();
+    expect(value.unavailableReason).toBe('MIXED_CURRENCY');
+    expect(value.byCurrency).toEqual({ USD: 8_465_000, EGP: 20_000_000 });
+    // The count of records behind it is still true and still useful.
+    expect(value.basis).toBe(2);
+  });
+
+  it('still gives one number when one currency is in play', () => {
+    const value = computeMetric(
+      'PIPELINE_VALUE',
+      at({ opportunities: [mixed[0], opp({ id: 'usd2', currency: 'USD', estimatedValue: 1_000 })] }),
+    );
+
+    expect(value.value).toBe(8_466_000);
+    expect(value.unavailableReason).toBeUndefined();
+  });
+
+  it('weights each currency on its own', () => {
+    const value = computeMetric('WEIGHTED_PIPELINE', at({ opportunities: mixed }));
+
+    expect(value.value).toBeNull();
+    expect(value.byCurrency).toEqual({ USD: 4_232_500, EGP: 10_000_000 });
+  });
+
+  it('keeps at-risk value apart by currency', () => {
+    const red = mixed.map((o) => ({ ...o, health: 'RED' }));
+    const value = computeMetric('AT_RISK_VALUE', at({ opportunities: red }));
+
+    expect(value.byCurrency).toEqual({ USD: 8_465_000, EGP: 20_000_000 });
+    expect(value.value).toBeNull();
+  });
+
+  it('averages a deal size within each currency, not across them', () => {
+    const won = [
+      opp({ id: 'w1', status: 'CLOSED', currency: 'USD', estimatedValue: 100 }),
+      opp({ id: 'w2', status: 'CLOSED', currency: 'USD', estimatedValue: 300 }),
+      opp({ id: 'w3', status: 'CLOSED', currency: 'EGP', estimatedValue: 9_000 }),
+    ];
+    const value = computeMetric('AVERAGE_DEAL_SIZE', at({ opportunities: won }));
+
+    // An average over mixed currencies is the same error divided by a count.
+    expect(value.byCurrency).toEqual({ USD: 200, EGP: 9_000 });
+    expect(value.unavailableReason).toBe('MIXED_CURRENCY');
+  });
+
+  it('computes a margin per currency rather than over a corrupted ratio', () => {
+    const value = computeMetric(
+      'GROSS_MARGIN',
+      at({
+        opportunities: [],
+        approvedCostings: [
+          { currency: 'USD', totalCost: 80, totalPrice: 100 },
+          { currency: 'EGP', totalCost: 900, totalPrice: 1_000 },
+        ],
+      }),
+    );
+
+    expect(value.byCurrency).toEqual({ USD: 20, EGP: 10 });
+    expect(value.value).toBeNull();
+    expect(value.unavailableReason).toBe('MIXED_CURRENCY');
+  });
+
+  it('says no data rather than mixed when there is nothing at all', () => {
+    const value = computeMetric('PIPELINE_VALUE', at({ opportunities: [] }));
+
+    expect(value.unavailableReason).toBe('NO_DATA');
+    expect(value.value).toBeNull();
   });
 });

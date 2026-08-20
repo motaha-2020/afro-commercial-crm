@@ -881,3 +881,8 @@ a.ai-code:hover { text-decoration: underline; }
   letter-spacing: .35em;
   font-variant-numeric: tabular-nums;
 }
+
+/* A measure that has no single figure. The currencies stack rather than sit
+   side by side, so neither reads as a subtotal of the other. */
+.measure-split { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.measure-split .muted { font-size: 11.5px; }

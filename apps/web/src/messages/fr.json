@@ -1758,7 +1758,9 @@
     "notYet": "Pas encore",
     "empty": "Aucune mesure selectionnee",
     "failed": "Execution impossible",
-    "withheld": "Ecartees car votre role ne les couvre pas : {list}"
+    "withheld": "Ecartees car votre role ne les couvre pas : {list}",
+    "currency": "Devise",
+    "mixedCurrency": "Deux devises — aucun chiffre unique ne les couvre"
   },
   "analytics": {
     "title": "Analytique",
@@ -1791,7 +1793,9 @@
     "byCountry": "Par pays",
     "byIndustry": "Par secteur",
     "deals": "{n} affaires",
-    "failed": "Lecture impossible"
+    "failed": "Lecture impossible",
+    "currency": "Devise",
+    "recordsInCurrency": "{n} sur {total} opportunités — en {currency}"
   },
   "ai": {
     "title": "Assistant",

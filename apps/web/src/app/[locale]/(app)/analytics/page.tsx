@@ -15,8 +15,13 @@ interface Grouped {
 
 interface Analytics {
   filters: Record<string, string | null>;
+  /** Every currency in the caller's book — what the reader may switch to. */
+  currencies: string[];
+  /** The one this screen is answering in. Null only when there is no data. */
+  currency: string | null;
   totals: {
     opportunities: number;
+    opportunitiesInCurrency: number;
     openValue: number;
     weightedValue: number;
     wonValue: number;
@@ -57,7 +62,7 @@ export default async function AnalyticsPage({
   const token = await getAccessToken();
 
   const query = new URLSearchParams();
-  for (const key of ['from', 'to', 'country', 'industry', 'stage'] as const) {
+  for (const key of ['from', 'to', 'country', 'industry', 'stage', 'currency'] as const) {
     if (params[key]) query.set(key, params[key] as string);
   }
 
@@ -75,7 +80,10 @@ export default async function AnalyticsPage({
   }
 
   const { totals } = data;
-  const currency = 'USD';
+  // The currency the server actually answered in, not an assumption. This read
+  // 'USD' unconditionally while the book held EGP too, so every figure on the
+  // screen wore a label that was wrong for part of it.
+  const currency = data.currency ?? 'USD';
 
   // Read from the reference data rather than from the filtered response: once
   // Kenya is selected the response contains only Kenya, and a filter whose
@@ -108,6 +116,7 @@ export default async function AnalyticsPage({
           country: params.country ?? '',
           industry: params.industry ?? '',
           stage: params.stage ?? '',
+          currency: params.currency ?? '',
         }}
         fields={[
           { kind: 'date', name: 'from', label: t('from') },
@@ -133,6 +142,19 @@ export default async function AnalyticsPage({
             anyLabel: t('allStages'),
             options: stages.map((s) => ({ value: s, label: stageT(s) })),
           },
+          // Only offered when there is a choice to make. A currency selector
+          // over a single-currency book is a control that does nothing.
+          ...(data.currencies.length > 1
+            ? [
+                {
+                  kind: 'select' as const,
+                  name: 'currency',
+                  label: t('currency'),
+                  anyLabel: currency,
+                  options: data.currencies.map((c) => ({ value: c, label: c })),
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -140,7 +162,17 @@ export default async function AnalyticsPage({
         <div className="kpi">
           <div className="label">{t('openValue')}</div>
           <div className="value">{money(totals.openValue, currency)}</div>
-          <div className="trend">{t('records', { n: totals.opportunities })}</div>
+          {/* Says how much of the book this figure covers. Without it, a
+              screen showing one currency reads as the whole pipeline. */}
+          <div className="trend">
+            {totals.opportunitiesInCurrency === totals.opportunities
+              ? t('records', { n: totals.opportunities })
+              : t('recordsInCurrency', {
+                  n: totals.opportunitiesInCurrency,
+                  total: totals.opportunities,
+                  currency,
+                })}
+          </div>
         </div>
         <div className="kpi">
           <div className="label">{t('weighted')}</div>

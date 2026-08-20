@@ -193,6 +193,8 @@ export interface MetricOpportunity {
   id: string;
   accountId: string;
   status: string;
+  /** Every amount on this record is in this currency and no other. */
+  currency: string;
   estimatedValue: number | null;
   /** 0..1, from the stage's own probability. */
   probability: number | null;
@@ -206,6 +208,7 @@ export interface MetricOpportunity {
 }
 
 export interface MetricCosting {
+  currency: string;
   totalCost: number;
   totalPrice: number;
 }
@@ -229,6 +232,13 @@ export interface MetricInputs {
 
 export interface MetricValue {
   code: MetricCode;
+  /**
+   * Present for a money metric only when every record behind it shares one
+   * currency. Otherwise it is null and `byCurrency` carries the answer --
+   * adding EGP to USD produces a number that is not money in any currency,
+   * and a screen showing 28,465,000 for 8.4M USD plus 20M EGP is not rounding
+   * badly, it is stating something untrue.
+   */
   value: number | null;
   unit: MetricDefinition['unit'];
   /** How many records the number rests on, so a 100% from one deal is visible. */
@@ -238,7 +248,9 @@ export interface MetricValue {
    * zero. Reporting zero would read as "we won nothing" when the truth is
    * "nothing has closed yet".
    */
-  unavailableReason?: 'NO_DATA' | 'NOT_SUPPORTED';
+  unavailableReason?: 'NO_DATA' | 'NOT_SUPPORTED' | 'MIXED_CURRENCY';
+  /** Money metrics only: the amount per currency, never summed across them. */
+  byCurrency?: Record<string, number>;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -299,15 +311,51 @@ export function computeMetric(code: MetricCode, input: MetricInputs): MetricValu
     ...(v === null ? { unavailableReason: 'NO_DATA' as const } : {}),
   });
 
+  /**
+   * A money result, split by currency and only ever summed within one.
+   *
+   * `value` is filled when a single currency is in play, so the ordinary
+   * single-currency case still reads as one number. With two, it is null and
+   * the caller must show `byCurrency` -- there is no honest single figure to
+   * fall back on.
+   */
+  const money = (
+    rows: readonly { currency: string }[],
+    amount: (row: never) => number,
+    basis: number,
+  ): MetricValue => {
+    const byCurrency: Record<string, number> = {};
+    for (const row of rows) {
+      byCurrency[row.currency] = round((byCurrency[row.currency] ?? 0) + amount(row as never));
+    }
+
+    const currencies = Object.keys(byCurrency);
+    if (currencies.length === 0) {
+      return { code, value: null, unit: def.unit, basis, unavailableReason: 'NO_DATA', byCurrency };
+    }
+    if (currencies.length === 1) {
+      return { code, value: byCurrency[currencies[0]], unit: def.unit, basis, byCurrency };
+    }
+    return {
+      code,
+      value: null,
+      unit: def.unit,
+      basis,
+      unavailableReason: 'MIXED_CURRENCY',
+      byCurrency,
+    };
+  };
+
   switch (code) {
     case 'PIPELINE_VALUE':
-      return result(round(open.reduce((s, o) => s + value(o), 0)), open.length);
+      return money(open, (o: MetricOpportunity) => value(o), open.length);
 
     case 'WEIGHTED_PIPELINE':
       // Probability comes from the stage, never typed in, so this cannot be
       // moved without moving the deal.
-      return result(
-        round(open.reduce((s, o) => s + value(o) * (o.probability ?? 0), 0)),
+      return money(
+        open,
+        (o: MetricOpportunity) => value(o) * (o.probability ?? 0),
         open.length,
       );
 
@@ -318,18 +366,77 @@ export function computeMetric(code: MetricCode, input: MetricInputs): MetricValu
       return result(decided === 0 ? null : round((won.length / decided) * 100), decided);
     }
 
-    case 'AVERAGE_DEAL_SIZE':
-      return result(
-        won.length === 0 ? null : round(won.reduce((s, o) => s + value(o), 0) / won.length),
-        won.length,
+    case 'AVERAGE_DEAL_SIZE': {
+      // An average over mixed currencies is not a smaller version of the same
+      // error -- it is the same error divided by a count.
+      const perCurrency: Record<string, { sum: number; n: number }> = {};
+      for (const o of won) {
+        const bucket = (perCurrency[o.currency] ??= { sum: 0, n: 0 });
+        bucket.sum += value(o);
+        bucket.n += 1;
+      }
+      const averages = Object.fromEntries(
+        Object.entries(perCurrency).map(([c, b]) => [c, round(b.sum / b.n)]),
       );
+      const currencies = Object.keys(averages);
+
+      if (currencies.length === 0) {
+        return { code, value: null, unit: def.unit, basis: 0, unavailableReason: 'NO_DATA' };
+      }
+      if (currencies.length === 1) {
+        return { code, value: averages[currencies[0]], unit: def.unit, basis: won.length, byCurrency: averages };
+      }
+      return {
+        code,
+        value: null,
+        unit: def.unit,
+        basis: won.length,
+        unavailableReason: 'MIXED_CURRENCY',
+        byCurrency: averages,
+      };
+    }
 
     case 'GROSS_MARGIN': {
       const costings = input.approvedCostings ?? [];
-      const price = costings.reduce((s, c) => s + c.totalPrice, 0);
-      const cost = costings.reduce((s, c) => s + c.totalCost, 0);
-      // Over price, never over cost — the distinction Release 4 exists to keep.
-      return result(price <= 0 ? null : round(((price - cost) / price) * 100), costings.length);
+
+      // A margin is a ratio, so mixing currencies inside it corrupts it just
+      // as badly as inside a sum: the numerator and denominator would each be
+      // an amount that exists in no currency.
+      const perCurrency: Record<string, { price: number; cost: number }> = {};
+      for (const c of costings) {
+        const bucket = (perCurrency[c.currency] ??= { price: 0, cost: 0 });
+        bucket.price += c.totalPrice;
+        bucket.cost += c.totalCost;
+      }
+
+      const margins = Object.fromEntries(
+        Object.entries(perCurrency)
+          .filter(([, b]) => b.price > 0)
+          // Over price, never over cost — the distinction Release 4 keeps.
+          .map(([c, b]) => [c, round(((b.price - b.cost) / b.price) * 100)]),
+      );
+      const currencies = Object.keys(margins);
+
+      if (currencies.length === 0) {
+        return { code, value: null, unit: def.unit, basis: costings.length, unavailableReason: 'NO_DATA' };
+      }
+      if (currencies.length === 1) {
+        return {
+          code,
+          value: margins[currencies[0]],
+          unit: def.unit,
+          basis: costings.length,
+          byCurrency: margins,
+        };
+      }
+      return {
+        code,
+        value: null,
+        unit: def.unit,
+        basis: costings.length,
+        unavailableReason: 'MIXED_CURRENCY',
+        byCurrency: margins,
+      };
     }
 
     case 'STAGE_AGEING':
@@ -385,7 +492,7 @@ export function computeMetric(code: MetricCode, input: MetricInputs): MetricValu
 
     case 'AT_RISK_VALUE': {
       const red = open.filter((o) => o.health === 'RED');
-      return result(round(red.reduce((s, o) => s + value(o), 0)), red.length);
+      return money(red, (o: MetricOpportunity) => value(o), red.length);
     }
 
     case 'DORMANT_OPPORTUNITIES': {

@@ -105,6 +105,7 @@ export class MetricsService {
         id: true,
         accountId: true,
         status: true,
+        currency: true,
         estimatedValue: true,
         probability: true,
         forecastCategory: true,
@@ -141,7 +142,12 @@ export class MetricsService {
           deletedAt: null,
           scenario: { opportunityId: { in: opportunityIds } },
         },
-        select: { totalCost: true, totalPrice: true },
+        select: {
+          totalCost: true,
+          totalPrice: true,
+          // The currency lives on the scenario, not the version.
+          scenario: { select: { currency: true } },
+        },
       }),
       this.prisma.approvalRequest.findMany({
         where: { status: 'PENDING', deletedAt: null, opportunityId: { in: opportunityIds } },
@@ -159,6 +165,7 @@ export class MetricsService {
         id: o.id,
         accountId: o.accountId,
         status: o.status,
+        currency: o.currency,
         estimatedValue: o.estimatedValue === null ? null : Number(o.estimatedValue),
         // Stored as a whole percent; the metric works in 0..1.
         probability: o.probability === null ? null : o.probability / 100,
@@ -172,7 +179,11 @@ export class MetricsService {
       })),
       approvedCostings: costings
         .filter((c) => c.totalPrice !== null && c.totalCost !== null)
-        .map((c) => ({ totalCost: Number(c.totalCost), totalPrice: Number(c.totalPrice) })),
+        .map((c) => ({
+          currency: c.scenario.currency,
+          totalCost: Number(c.totalCost),
+          totalPrice: Number(c.totalPrice),
+        })),
       pendingApprovals,
       selectedQuotations: selectedQuotations.map((q) => ({
         partnerId: q.partnerId,
