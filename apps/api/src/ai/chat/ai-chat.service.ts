@@ -6,6 +6,7 @@ import { PendingActionService } from '../pending/pending-action.service';
 import { ActionExecutorService } from '../agents/action-executor.service';
 import { EvidenceLedger } from '../evidence/evidence-ledger';
 import { guardOutput } from '../guard/output-guard';
+import type { TurnArtifact } from '../agents/agent.types';
 import type { AuthenticatedUser } from '../../auth/auth.types';
 
 export interface ChatReply {
@@ -15,6 +16,12 @@ export interface ChatReply {
   sources?: string;
   flagged: boolean;
   failed: boolean;
+  /**
+   * What the screen should render as a control rather than as prose -- a file
+   * to download, a change waiting on a code. Built from what the tools
+   * returned, never from the answer text.
+   */
+  artifacts: TurnArtifact[];
 }
 
 /**
@@ -58,14 +65,17 @@ export class AiChatService {
         answer: result.message,
         flagged: false,
         failed: !result.ok,
+        artifacts: [],
       };
     }
 
     const ledger = new EvidenceLedger();
+    const artifacts: TurnArtifact[] = [];
     const outcome = await this.orchestrator.handle(message, decision.intent, {
       user,
       ledger,
       conversationId: conversation.id,
+      artifacts,
     });
 
     const guarded = guardOutput(outcome.answer, ledger, message);
@@ -90,6 +100,9 @@ export class AiChatService {
       sources: ledger.sourceLine(),
       flagged: guarded.flagged,
       failed: outcome.failed,
+      // A failed turn produced nothing to act on; offering a control for it
+      // would contradict the answer standing next to it.
+      artifacts: outcome.failed ? [] : artifacts,
     };
   }
 }

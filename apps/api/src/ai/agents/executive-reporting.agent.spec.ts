@@ -38,7 +38,7 @@ function build(overrides: { metrics?: any[]; withheld?: string[] } = {}) {
   const analytics = { overview: jest.fn(async () => ({ byStage: [] })) };
 
   const agent = new ExecutiveReportingAgent(metrics as never, analytics as never);
-  const ctx: ToolContext = { user, ledger: new EvidenceLedger() };
+  const ctx: ToolContext = { user, ledger: new EvidenceLedger(), artifacts: [] };
   const tool = (name: string) => agent.tools().find((t) => t.definition.name === name)!;
 
   return { agent, ctx, tool, metrics };

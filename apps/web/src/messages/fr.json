@@ -1799,6 +1799,10 @@
     "empty": "Posez une question sur ce que vous voyez. L'assistant lit avec vos propres droits : il ne voit que ce que vous voyez.",
     "thinking": "Lecture…",
     "failed": "La demande n'a pas pu aboutir. Aucune modification n'a été effectuée.",
-    "flagged": "⚠️ Vérifié : la réponse contenait un élément qu'aucun outil n'a fourni."
+    "flagged": "⚠️ Vérifié : la réponse contenait un élément qu'aucun outil n'a fourni.",
+    "download": "Télécharger",
+    "rowCount": "{n} lignes",
+    "confirm": "Confirmer",
+    "confirmHint": "Saisissez le code affiché ci-dessus pour confirmer. Rien n'a encore été modifié."
   }
 }

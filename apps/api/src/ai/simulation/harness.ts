@@ -166,7 +166,16 @@ export function buildHarness(): Harness {
   const analyticsService = { async overview() { return { byStage: [] }; } };
   const approvalsService = { async myQueue() { return []; }, async findOne() { return null; } };
   const auditService = { async forEntity() { return []; } };
-  const storageService = { async ping() { return false; }, async put() { throw new Error('no storage'); } };
+  // Storage answers, so the report path runs to a real artifact rather than
+  // stopping at "storage is down" -- which was all the earlier run could show.
+  const storageService = {
+    async ping() {
+      return true;
+    },
+    async put(key: string, body: Buffer) {
+      return { storageKey: key, checksum: 'sim', sizeBytes: body.length };
+    },
+  };
   const memoryService = {
     async startOrGetConversation() { return { id: 'sim-conversation' }; },
     async appendUserMessage() {},

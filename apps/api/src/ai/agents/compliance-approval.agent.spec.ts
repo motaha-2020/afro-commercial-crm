@@ -30,7 +30,11 @@ function build(queue: any[] = []) {
 
   const agent = new ComplianceApprovalAgent(approvals as never, discounts as never, audit as never);
   const tool = (name: string) => agent.tools().find((t) => t.definition.name === name)!;
-  const ctxFor = (role: string): ToolContext => ({ user: asRole(role), ledger: new EvidenceLedger() });
+  const ctxFor = (role: string): ToolContext => ({
+    user: asRole(role),
+    ledger: new EvidenceLedger(),
+    artifacts: [],
+  });
 
   return { agent, tool, ctxFor, audit, approvals };
 }

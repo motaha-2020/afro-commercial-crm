@@ -811,3 +811,73 @@ table.data tr:hover td { background: rgba(90, 53, 199, .035); }
   background: var(--panel);
 }
 .ai-composer input { flex: 1; min-width: 0; }
+
+/* Assistant answers — the structures an answer contains, not a wall of text.
+   The agents are instructed to table anything longer than two rows, and a
+   Markdown table printed as preformatted text is pipes and dashes. */
+.ai-answer { display: flex; flex-direction: column; gap: 8px; }
+.ai-answer p { margin: 0; white-space: pre-wrap; }
+
+.ai-table-scroll { overflow-x: auto; max-width: 100%; }
+.ai-table { border-collapse: collapse; font-size: 12.5px; width: max-content; min-width: 100%; }
+.ai-table th, .ai-table td {
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  text-align: start;
+  white-space: nowrap;
+}
+.ai-table th { background: var(--panel-2); font-weight: 600; }
+
+/* A record code is the reader's handle on the record, so it looks like one. */
+.ai-code {
+  font-variant-numeric: tabular-nums;
+  font-size: .95em;
+  color: var(--primary);
+  text-decoration: none;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+a.ai-code:hover { text-decoration: underline; }
+
+/* Cards: the parts of an answer that are things rather than sentences. Every
+   value on them came from a tool, never from the model's prose. */
+.ai-artifacts { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; width: 100%; }
+
+.ai-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.ai-card-warn { border-inline-start: 3px solid var(--warning); }
+.ai-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ai-card-head span { color: var(--muted); font-size: 12px; }
+
+.ai-card-action {
+  align-self: flex-start;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  text-decoration: none;
+  font-size: 12.5px;
+}
+.ai-card-action:hover { background: var(--primary-2); }
+
+.ai-card-fields { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-card-fields > div { display: flex; justify-content: space-between; gap: 12px; }
+.ai-card-fields dt { color: var(--muted); }
+.ai-card-fields dd { margin: 0; font-weight: 600; text-align: end; }
+
+.ai-card-note { margin: 0; font-size: 12px; color: var(--muted); }
+.ai-card-confirm { display: flex; gap: 8px; }
+.ai-card-confirm input {
+  width: 6.5rem;
+  text-align: center;
+  letter-spacing: .35em;
+  font-variant-numeric: tabular-nums;
+}

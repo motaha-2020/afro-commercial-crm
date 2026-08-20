@@ -102,6 +102,21 @@ export class ActionAgent implements SpecialistAgent {
             (user, resource, code) => this.resolveCode(user, resource, code),
           );
 
+          const changes = Object.entries(proposal.body).map(([key, value]) => ({
+            field: (meta.fields as Record<string, string>)[key] ?? key,
+            value,
+          }));
+
+          // The screen shows the fields itself, from what was actually stored,
+          // so a summary that reads correctly cannot hide a wrong field.
+          ctx.artifacts.push({
+            kind: 'proposal',
+            action: meta.label,
+            targetCode: proposal.targetCode,
+            changes,
+            expiresAt: proposal.expiresAt.toISOString(),
+          });
+
           ctx.ledger.record({
             tool: 'propose_change',
             resource: `اقتراح على ${proposal.targetCode}`,
@@ -116,13 +131,7 @@ export class ActionAgent implements SpecialistAgent {
             executed: false,
             action: meta.label,
             targetCode: proposal.targetCode,
-            // Field by field, labelled: approving a sentence is not approving
-            // the request. A summary that reads correctly has hidden a wrong
-            // field before.
-            changes: Object.entries(proposal.body).map(([key, value]) => ({
-              field: (meta.fields as Record<string, string>)[key] ?? key,
-              value,
-            })),
+            changes,
             confirmationCode: proposal.code,
             expiresAt: proposal.expiresAt,
             instruction: `اعرض الحقول أعلاه حقلًا حقلًا، ثم اطلب من المستخدم كتابة ${proposal.code} للتأكيد. لم يُنفَّذ أي تغيير بعد.`,
