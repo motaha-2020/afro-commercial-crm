@@ -69,10 +69,12 @@ services:
       #
       # Every key is optional: the router registers only the providers whose
       # key is set, and falls back to Ollama on this host when none is.
+      # AI_DEFAULT_PROVIDER=ollama keeps every question inside the network.
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       XAI_API_KEY: ${XAI_API_KEY:-}
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-openai}
       AI_ROUTE_FAST: ${AI_ROUTE_FAST:-}
       AI_ROUTE_BALANCED: ${AI_ROUTE_BALANCED:-}
       AI_ROUTE_REASONING: ${AI_ROUTE_REASONING:-}
