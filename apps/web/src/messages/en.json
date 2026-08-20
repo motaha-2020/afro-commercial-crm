@@ -1758,7 +1758,9 @@
     "notYet": "Not yet",
     "empty": "Nothing selected yet",
     "failed": "Could not run the report",
-    "withheld": "Left out, because your role does not cover them: {list}"
+    "withheld": "Left out, because your role does not cover them: {list}",
+    "currency": "Currency",
+    "mixedCurrency": "Two currencies — no single figure covers both"
   },
   "analytics": {
     "title": "Analytics",
@@ -1791,7 +1793,9 @@
     "byCountry": "By country",
     "byIndustry": "By sector",
     "deals": "{n} deals",
-    "failed": "Could not read the analytics"
+    "failed": "Could not read the analytics",
+    "currency": "Currency",
+    "recordsInCurrency": "{n} of {total} opportunities — in {currency}"
   },
   "ai": {
     "title": "Assistant",
