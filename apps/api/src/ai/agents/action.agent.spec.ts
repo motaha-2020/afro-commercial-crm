@@ -41,7 +41,7 @@ function build(visible = [VISIBLE]) {
   const pending = new PendingActionService(prisma as never);
   const executor = new ActionExecutorService(opportunities as never);
   const agent = new ActionAgent(pending, executor, opportunities as never);
-  const ctx: ToolContext = { user, ledger: new EvidenceLedger() };
+  const ctx: ToolContext = { user, ledger: new EvidenceLedger(), artifacts: [] };
   const tool = agent.tools()[0];
 
   return { agent, ctx, tool, rows, pending, executor, opportunities };

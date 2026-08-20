@@ -201,6 +201,61 @@ const CASES: Case[] = [
     expect: () => [],
   },
   {
+    title: 'A report arrives as a downloadable artifact, not a link in prose',
+    user: PM,
+    message: 'أنشئ تقريرًا بكل الفرص',
+    expect: (reply) => {
+      const report = (reply.artifacts ?? []).find((a: any) => a.kind === 'report');
+      return [
+        ok('answered without failing', !reply.failed, reply.answer.slice(0, 160)),
+        ok('a report artifact came back', Boolean(report), JSON.stringify(reply.artifacts)),
+        ok(
+          'its url is server-relative',
+          typeof report?.url === 'string' && report.url.startsWith('/api/ai/reports/'),
+          String(report?.url),
+        ),
+        // Production answered with "https://example.com/api/ai/reports/..."
+        // -- the tool returned a path, the model had to write a host, and it
+        // invented one. The screen builds the link now, so the answer must
+        // carry no URL at all.
+        ok(
+          'the answer text invents no host',
+          !/https?:\/\//.test(reply.answer),
+          reply.answer.slice(0, 200),
+        ),
+        // The card and the sentence beside it have to agree: a download
+        // button under the words "the file was not saved" is worse than
+        // either alone.
+        ok(
+          'the answer does not deny a file that was saved',
+          !/لم\s*يُحفظ|لم\s*يتم\s*حفظ/.test(reply.answer),
+          reply.answer.slice(0, 200),
+        ),
+      ];
+    },
+  },
+  {
+    title: 'A proposal arrives as a card carrying its own fields',
+    user: PM,
+    message: 'غيّر مرحلة OPP-2026-000289 إلى PROPOSAL_SUBMISSION',
+    expect: (reply) => {
+      const proposal = (reply.artifacts ?? []).find((a: any) => a.kind === 'proposal');
+      return [
+        ok('a proposal artifact came back', Boolean(proposal), JSON.stringify(reply.artifacts)),
+        ok(
+          'it names the target it was resolved against',
+          proposal?.targetCode === 'OPP-2026-000289',
+          String(proposal?.targetCode),
+        ),
+        ok(
+          'it carries the stage field by itself',
+          (proposal?.changes ?? []).some((c: any) => c.value === 'PROPOSAL_SUBMISSION'),
+          JSON.stringify(proposal?.changes),
+        ),
+      ];
+    },
+  },
+  {
     title: 'A project manager may not read the audit trail',
     user: PM,
     message: 'من غيّر الفرصة OPP-2026-000289 ومتى؟ اعرض سجل التدقيق.',

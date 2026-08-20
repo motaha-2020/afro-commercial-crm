@@ -1799,6 +1799,10 @@
     "empty": "Ask about what is on your screen. The assistant reads with your own permissions, so it sees only what you see.",
     "thinking": "Reading…",
     "failed": "The request could not be completed. Nothing was changed.",
-    "flagged": "⚠️ Reviewed: the answer contained something no tool delivered."
+    "flagged": "⚠️ Reviewed: the answer contained something no tool delivered.",
+    "download": "Download file",
+    "rowCount": "{n} rows",
+    "confirm": "Confirm",
+    "confirmHint": "Type the code shown above to confirm. Nothing has been changed yet."
   }
 }

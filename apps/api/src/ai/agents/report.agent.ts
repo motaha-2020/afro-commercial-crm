@@ -26,6 +26,8 @@ export class ReportAgent implements SpecialistAgent {
     'يراها السائل، وتعيد رابط تحميله.\n' +
     'لو رجعت الأداة حقل error فالملف لم يُنشأ: قل ذلك صراحةً ولا تعطِ رابطًا ولا ' +
     'تخترع واحدًا.\n' +
+    'لو رجع stored=true فالملف حُفظ فعلًا وزر التحميل معروض للمستخدم: قل إن ' +
+    'التقرير جاهز واذكر عدد سجلاته. وممنوع أن تقول إنه لم يُحفظ.\n' +
     'ولو رجع stored=false فالبيانات جاهزة لكن الملف لم يُحفظ — قل ذلك بوضوح ' +
     'ولا تقل إن التقرير جاهز للتحميل.';
 
@@ -115,12 +117,23 @@ export class ReportAgent implements SpecialistAgent {
             codes: codesFrom(rows),
           });
 
+          // The link travels to the screen as an artifact, not through the
+          // answer. Asking a model to reproduce a URL is asking it to write a
+          // host it does not have.
+          ctx.artifacts.push({
+            kind: 'report',
+            filename,
+            url: `/api/ai/reports/${encodeURIComponent(stored.storageKey)}`,
+            rowCount: rows.length,
+            sizeBytes: stored.sizeBytes,
+          });
+
           return {
             stored: true,
             filename,
             rowCount: rows.length,
             sizeBytes: stored.sizeBytes,
-            downloadUrl: `/api/ai/reports/${encodeURIComponent(stored.storageKey)}`,
+            downloadShownToUser: true,
             facts,
           };
         } catch (error) {
