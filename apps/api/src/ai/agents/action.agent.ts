@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
 import { PendingActionService } from '../pending/pending-action.service';
 import { ACTIONS, ActionExecutorService, isActionKey } from './action-executor.service';
-import type { AgentTool, SpecialistAgent, ToolContext } from './agent.types';
+import type { AgentTool, SpecialistAgent } from './agent.types';
 import type { AuthenticatedUser } from '../../auth/auth.types';
 
 @Injectable()
