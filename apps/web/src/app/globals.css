@@ -962,3 +962,67 @@ a.ai-code:hover { text-decoration: underline; }
    side by side, so neither reads as a subtotal of the other. */
 .measure-split { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
 .measure-split .muted { font-size: 11.5px; }
+
+/* --- targets ---------------------------------------------------------------
+   Attainment with the calendar drawn on it. A bar showing 40% reads the same
+   in March and in December; the pace mark is what separates "ahead" from
+   "in trouble", so it is part of the chart rather than a caption. */
+.target-list { display: flex; flex-direction: column; gap: 10px; }
+
+.target-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.target-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.target-figures { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+.target-figures strong { font-variant-numeric: tabular-nums; }
+.target-pct { font-size: 16px; }
+
+.target-track {
+  position: relative;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.target-fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 3px 3px 0;
+  transition: width .3s ease;
+}
+[dir="rtl"] .target-fill { border-radius: 3px 0 0 3px; }
+
+/* Where the period is, not where the money is. Drawn as a rule rather than a
+   fill so it is never mistaken for progress. */
+.target-pace {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--text);
+  opacity: .55;
+}
+
+/* Bands, not a spectrum: four readings a person can act on. Status colours,
+   because these do mean good/bad — and each is paired with the percentage
+   printed beside it, never colour alone. */
+.target-fill.ahead,   .target-pct.ahead   { background: var(--success); }
+.target-fill.on-track,.target-pct.on-track{ background: var(--ordinal-3); }
+.target-fill.behind,  .target-pct.behind  { background: var(--warning); }
+.target-fill.at-risk, .target-pct.at-risk { background: var(--danger); }
+.target-pct.ahead, .target-pct.on-track, .target-pct.behind, .target-pct.at-risk {
+  background: none;
+}
+.target-pct.ahead { color: var(--success); }
+.target-pct.on-track { color: var(--ordinal-4); }
+.target-pct.behind { color: var(--warning); }
+.target-pct.at-risk { color: var(--danger); }
+
+.target-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }

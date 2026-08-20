@@ -16,3 +16,4 @@ export * from './costing-warnings';
 export * from './metrics';
 export * from './cost-rules';
 export * from './tax-rules';
+export * from './targets';
