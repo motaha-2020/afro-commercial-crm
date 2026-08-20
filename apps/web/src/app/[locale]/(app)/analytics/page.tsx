@@ -197,7 +197,12 @@ export default async function AnalyticsPage({
         <p className="muted" style={{ marginTop: 0 }}>
           {t('byStageHint')}
         </p>
+        {/* Ordinal, not nominal: the stages are a sequence, and swapping two
+            of them changes what the chart says. The ramp puts that order in
+            the colour, where a rotating palette put stage 1 and stage 7 in the
+            same hue and implied a kinship that does not exist. */}
         <BarChart
+          scale="ordinal"
           data={data.byStage.map((s) => ({
             key: s.key,
             label: stageT(s.key),
