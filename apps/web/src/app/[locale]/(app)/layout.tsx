@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LogoutButton } from '@/components/LogoutButton';
 import { NotificationBell, type NotificationItem } from '@/components/NotificationBell';
+import { AiLauncher } from '@/components/AiLauncher';
 
 export default async function AppLayout({
   children,
@@ -43,6 +44,8 @@ export default async function AppLayout({
         </div>
         <div className="content">{children}</div>
       </div>
+      {/* Outside .main so it floats over every screen, not inside one. */}
+      <AiLauncher />
     </div>
   );
 }

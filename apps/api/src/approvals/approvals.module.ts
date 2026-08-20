@@ -23,6 +23,6 @@ import { AuthModule } from '../auth/auth.module';
   ],
   // Exported because the Bid/No-Bid thresholds move here too: Release 3's
   // provisional 70/55/40 become policy rows rather than constants.
-  exports: [PoliciesService],
+  exports: [PoliciesService, ApprovalsService, DiscountsService],
 })
 export class ApprovalsModule {}

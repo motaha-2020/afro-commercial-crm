@@ -22,8 +22,7 @@
     "expandNav": "Déplier la navigation",
     "governance": "Gouvernance",
     "reports": "Rapports",
-    "analytics": "Analytique",
-    "ai": "Assistant IA"
+    "analytics": "Analytique"
   },
   "login": {
     "subtitle": "Connectez-vous pour accéder au système",
@@ -1791,13 +1790,15 @@
     "deals": "{n} affaires",
     "failed": "Lecture impossible"
   },
-  "aiPlaceholder": {
-    "title": "Assistant IA",
-    "subtitle": "Construit, et desactive volontairement.",
-    "waitingTitle": "En attente d une seule decision, pas de code supplementaire",
-    "waitingBody": "Aucun contenu ne peut quitter le reseau vers un fournisseur cloud tant qu Afro n a pas decide ce qui est autorise a sortir. Cette decision - cloud ou sur site - est ce qu attend cet ecran.",
-    "built": "L interface fournisseur, le routeur de requetes, la memoire et le service de suggestions sont deja ecrits dans l API.",
-    "blocked": "Aucun fournisseur n est configure, donc chaque fonctionnalite IA repond par le silence plutot que par un resultat - rien ici ne peut fuiter par accident.",
-    "next": "Une fois la decision cloud/sur site prise, le fournisseur est active et cette page est remplacee par l assistant reel."
+  "ai": {
+    "title": "Assistant",
+    "open": "Interroger l'assistant",
+    "close": "Fermer",
+    "send": "Envoyer",
+    "placeholder": "Posez une question sur les opportunités, comptes ou activités…",
+    "empty": "Posez une question sur ce que vous voyez. L'assistant lit avec vos propres droits : il ne voit que ce que vous voyez.",
+    "thinking": "Lecture…",
+    "failed": "La demande n'a pas pu aboutir. Aucune modification n'a été effectuée.",
+    "flagged": "⚠️ Vérifié : la réponse contenait un élément qu'aucun outil n'a fourni."
   }
 }

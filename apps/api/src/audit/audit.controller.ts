@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from './audit.service';
 import { RequireRoles } from '../auth/guards';
+import { AUDIT_READER_ROLES } from './audit-reader-roles';
 
 /**
  * Read-only window on the trail. There is deliberately no write, update or
@@ -10,9 +11,9 @@ import { RequireRoles } from '../auth/guards';
  * record is itself sensitive — it exposes staff behaviour, not just data.
  */
 @Controller('audit')
-@RequireRoles('OWNER_BOARD', 'CEO', 'SALES_DIRECTOR', 'FINANCE', 'LEGAL', 'SYSTEM_ADMIN')
+@RequireRoles(...AUDIT_READER_ROLES)
 export class AuditController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly audit: AuditService) {}
 
   /** Full history of one record, oldest last — the timeline a reviewer reads. */
   @Get(':entityType/:entityId')
@@ -21,15 +22,7 @@ export class AuditController {
     @Param('entityId') entityId: string,
     @Query('take') take?: string,
   ) {
-    const limit = Math.min(Number(take) || 100, 500);
-    const items = await this.prisma.auditLog.findMany({
-      where: { entityType, entityId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        user: { select: { id: true, fullNameEn: true, fullNameAr: true, email: true } },
-      },
-    });
+    const items = await this.audit.forEntity(entityType, entityId, Number(take) || 100);
     return { items, total: items.length };
   }
 }

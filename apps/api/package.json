@@ -7,7 +7,8 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "sim": "ts-node -T src/ai/simulation/run-simulation.ts"
   },
   "dependencies": {
     "@acms/shared": "*",
