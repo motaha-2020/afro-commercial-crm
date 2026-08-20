@@ -62,6 +62,21 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-acms-documents}
 
+      # The AI agent. Compose passes only what is named here, so a variable
+      # present in .env but absent from this list silently never reaches the
+      # container -- which is how the first deploy came up routed at Ollama
+      # while .env asked for OpenAI.
+      #
+      # Every key is optional: the router registers only the providers whose
+      # key is set, and falls back to Ollama on this host when none is.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      AI_ROUTE_FAST: ${AI_ROUTE_FAST:-}
+      AI_ROUTE_BALANCED: ${AI_ROUTE_BALANCED:-}
+      AI_ROUTE_REASONING: ${AI_ROUTE_REASONING:-}
+
   web:
     build:
       context: ..
