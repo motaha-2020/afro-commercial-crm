@@ -442,7 +442,7 @@ export class CostingService {
             currency: true,
             opportunityId: true,
             // Country and business unit decide which overhead rules apply.
-            opportunity: { select: { country: true, orgUnitId: true } },
+            opportunity: { select: { id: true, country: true, orgUnitId: true } },
           },
         },
         createdBy: { select: { id: true, fullNameEn: true, fullNameAr: true } },
@@ -505,6 +505,10 @@ export class CostingService {
     }, {
       country: opportunityScope?.country ?? null,
       orgUnitId: opportunityScope?.orgUnitId ?? null,
+      // Without this the bid's own rule is stored and never applies: it would
+      // read as a group rule at resolution time and be overridden by every
+      // narrower scope, which is the opposite of what it was written for.
+      opportunityId: opportunityScope?.id ?? null,
     });
 
     const totalCost = Math.round((totals.rollup.totalCost + indirect.total) * 100) / 100;

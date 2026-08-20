@@ -527,6 +527,7 @@ model Opportunity {
   convertedFromLead Lead? @relation("LeadConversion")
 
   scopePackages  ScopePackage[]
+  costRules      CostRule[]
   assumptions    Assumption[]
   clarifications Clarification[]
   bids           Bid[]
@@ -2492,6 +2493,16 @@ model CostRule {
   orgUnitId String?
   orgUnit   OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
 
+  /// The narrowest scope there is: this one bid.
+  ///
+  /// A country carrying an unusual G&A is a policy; a single tender carrying
+  /// one is a negotiated exception, and pricing it through the country rule
+  /// meant either mispricing that bid or moving the rule for everyone. It
+  /// still needs Finance's approval -- a per-deal rule that skipped it would
+  /// be a way around the ceiling, one deal at a time.
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+
   effectiveFrom DateTime
   effectiveTo   DateTime?
 
@@ -2514,6 +2525,7 @@ model CostRule {
   deletedAt DateTime?
 
   @@index([category, country])
+  @@index([opportunityId])
   @@index([approvalStatus])
   @@index([effectiveFrom])
 }

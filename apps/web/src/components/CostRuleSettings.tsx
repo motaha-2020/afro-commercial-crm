@@ -12,6 +12,8 @@ export interface CostRuleRow {
   method: string;
   value: string;
   country: string | null;
+  /** Present only on a rule written for one bid — the narrowest scope there is. */
+  opportunity: { id: string; code: string; name: string } | null;
   effectiveFrom: string;
   approvalStatus: string;
   rejectionReason: string | null;
@@ -57,6 +59,7 @@ export function CostRuleSettings({
     method: 'PERCENT_OF_DIRECT_COST' as string,
     value: '',
     country: '',
+    opportunityCode: '',
     note: '',
   });
   const [rejecting, setRejecting] = useState<string | null>(null);
@@ -148,6 +151,16 @@ export function CostRuleSettings({
             />
           </div>
           <div className="field">
+            <label>{t('opportunityCode')}</label>
+            <input
+              value={form.opportunityCode}
+              onChange={(e) => setForm({ ...form, opportunityCode: e.target.value })}
+              placeholder={t('opportunityPlaceholder')}
+            />
+            <p className="field-hint">{t('opportunityHint')}</p>
+          </div>
+
+          <div className="field">
             <label>{t('country')}</label>
             <input
               value={form.country}
@@ -173,6 +186,7 @@ export function CostRuleSettings({
                   ...form,
                   value: Number(form.value),
                   country: form.country || undefined,
+                  opportunityCode: form.opportunityCode.trim() || undefined,
                   note: form.note || undefined,
                 });
                 if (ok) {
@@ -214,7 +228,18 @@ export function CostRuleSettings({
               <td>{t(r.category)}</td>
               <td style={{ fontSize: 12 }}>{t(r.method)}</td>
               <td>{Number(r.value)}</td>
-              <td>{r.country ?? t('group')}</td>
+              {/* The narrowest scope the rule carries. An opportunity rule
+                  names the bid, because "Group" beside a rate that applies to
+                  one tender would read as applying to all of them. */}
+              <td>
+                {r.opportunity ? (
+                  <span title={r.opportunity.name} className="ai-code">
+                    {r.opportunity.code}
+                  </span>
+                ) : (
+                  (r.country ?? t('group'))
+                )}
+              </td>
               <td>
                 <span
                   className={`badge ${r.approvalStatus === 'APPROVED' ? 'badge-ok' : r.approvalStatus === 'REJECTED' ? 'badge-danger' : 'badge-warn'}`}

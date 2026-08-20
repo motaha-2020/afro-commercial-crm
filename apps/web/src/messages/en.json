@@ -1245,7 +1245,10 @@
     "PERCENT_OF_DIRECT_COST": "% of direct cost",
     "PERCENT_OF_REVENUE": "% of revenue",
     "FIXED_AMOUNT": "Fixed amount",
-    "MONTHLY_RATE": "Monthly rate × duration"
+    "MONTHLY_RATE": "Monthly rate × duration",
+    "opportunityCode": "Opportunity code (optional)",
+    "opportunityPlaceholder": "OPP-2026-000289",
+    "opportunityHint": "Leave empty for a general rule. With a code it applies to that bid alone and outranks the country and unit rules."
   },
   "users": {
     "title": "Users & Permissions",
