@@ -105,6 +105,27 @@ const CASES: Case[] = [
     ],
   },
   {
+    title: 'Both currencies are reported, not just the larger one',
+    user: CEO,
+    message: 'ما إجمالي قيمة الفرص؟',
+    expect: (reply) => [
+      ok('answered without failing', !reply.failed, reply.answer.slice(0, 160)),
+      // Production dropped a currency here: the facts carried USD and EGP
+      // separately, exactly as designed, and the summary mentioned only USD --
+      // which reads as though the EGP pipeline does not exist.
+      ok(
+        'names USD',
+        /USD|دولار/i.test(reply.answer),
+        reply.answer.slice(0, 200),
+      ),
+      ok(
+        'names EGP too',
+        /EGP|جنيه/i.test(reply.answer),
+        reply.answer.slice(0, 300),
+      ),
+    ],
+  },
+  {
     title: 'A metric with nothing to compute from must not come back as zero',
     user: CEO,
     message: 'ما نسبة الفوز لدينا؟',
