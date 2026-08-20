@@ -6,6 +6,7 @@ import {
   type PolicyKeyRow,
 } from '@/components/ApprovalPolicySettings';
 import { CostRuleSettings, type CostRuleRow } from '@/components/CostRuleSettings';
+import { TargetSettings, type TargetRow } from '@/components/TargetSettings';
 import { WorkflowEditor, type WorkflowRow } from '@/components/WorkflowEditor';
 import { TaxRuleSettings, type TaxRuleRow } from '@/components/TaxRuleSettings';
 
@@ -51,6 +52,21 @@ export default async function SettingsPage({
     () => null,
   );
 
+  // Reading a target is open to anyone who can see the deals behind it — a
+  // salesperson should know the number they are measured against.
+  const [targets, assignable] = await Promise.all([
+    apiFetch<{ targets: TargetRow[]; canEdit: boolean }>('/targets', { token }).catch(() => ({
+      targets: [] as TargetRow[],
+      canEdit: false,
+    })),
+    // Served by the targets module rather than /users, which is SYSTEM_ADMIN
+    // only — a sales director may set targets and may not administer accounts.
+    apiFetch<{
+      people: { id: string; fullNameEn: string; fullNameAr: string }[];
+      units: { id: string; code: string; nameEn: string }[];
+    }>('/targets/assignable', { token }).catch(() => ({ people: [], units: [] })),
+  ]);
+
   const taxRules = await apiFetch<{ rules: TaxRuleRow[]; canApprove: boolean }>(
     `/tax-rules${query.toString() ? `?${query}` : ''}`,
     { token },
@@ -69,6 +85,13 @@ export default async function SettingsPage({
         keys={policies.keys}
         canEdit={policies.canEdit}
         scope={policies.scope}
+      />
+
+      <TargetSettings
+        targets={targets.targets}
+        canEdit={targets.canEdit}
+        people={assignable.people.map((u) => ({ id: u.id, label: u.fullNameAr || u.fullNameEn }))}
+        units={assignable.units.map((u) => ({ id: u.id, label: `${u.code} — ${u.nameEn}` }))}
       />
 
       <CostRuleSettings rules={costRules.rules} canApprove={costRules.canApprove} />

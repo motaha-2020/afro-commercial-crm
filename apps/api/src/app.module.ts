@@ -32,6 +32,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MasterDataModule } from './master-data/master-data.module';
 import { UsersModule } from './users/users.module';
+import { TargetsModule } from './targets/targets.module';
 import { AiModule } from './ai/ai.module';
 
 @Module({
@@ -67,6 +68,7 @@ import { AiModule } from './ai/ai.module';
     NotificationsModule,
     MasterDataModule,
     UsersModule,
+    TargetsModule,
   ],
   providers: [
     // Authentication is on by default across every route; endpoints opt out

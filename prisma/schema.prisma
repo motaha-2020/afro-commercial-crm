@@ -151,6 +151,7 @@ model OrganizationUnit {
   users         User[]
   accounts      Account[]
   opportunities Opportunity[]
+  salesTargets  SalesTarget[]
   leads         Lead[]
   partners      BusinessPartner[]
   approvalPolicies    ApprovalPolicy[]
@@ -208,6 +209,8 @@ model User {
   aiSuggestionsMade   AiSuggestion[] @relation("AiSuggestionRequester")
   aiSuggestionsSigned AiSuggestion[] @relation("AiSuggestionApprover")
   aiPendingActions    PendingAction[]
+  salesTargets        SalesTarget[] @relation("SalesTargetOwner")
+  salesTargetsSet     SalesTarget[] @relation("SalesTargetAuthor")
 
   ownedAssumptions     Assumption[]     @relation("AssumptionOwner")
   raisedClarifications Clarification[]  @relation("ClarificationRaiser")
@@ -2559,6 +2562,71 @@ enum CostRuleApprovalStatus {
 
 /// One assistant session. Holds no business data itself — just threads
 /// AiMessages together so the orchestrator can rebuild short-term context.
+/// What a target is measured in.
+///
+/// Money and counts are not interchangeable: "close 4,000,000" and "close 12
+/// deals" pull a salesperson in different directions, and a target stored
+/// without saying which it is gets compared against whichever number is
+/// nearest to hand.
+enum TargetMetric {
+  /// Value of deals closed won in the period.
+  WON_VALUE
+  /// How many deals closed won. No currency.
+  WON_COUNT
+  /// Open pipeline value carried at the end of the period.
+  PIPELINE_VALUE
+}
+
+enum TargetPeriod {
+  MONTH
+  QUARTER
+  YEAR
+}
+
+/// A number somebody is expected to reach, and the period they have to do it.
+///
+/// Set for a person or for an org unit, never both at once -- a row that named
+/// both would be counted twice the moment anyone rolled the numbers up.
+///
+/// Superseded rather than overwritten, like approval limits and resource
+/// rates: a quarter that has closed must stay explainable against the target
+/// that applied while it was open, and a target quietly raised in month three
+/// rewrites how month one read.
+model SalesTarget {
+  id String @id @default(uuid())
+
+  userId String?
+  user   User?   @relation("SalesTargetOwner", fields: [userId], references: [id])
+
+  orgUnitId String?
+  orgUnit   OrganizationUnit? @relation(fields: [orgUnitId], references: [id])
+
+  period      TargetPeriod
+  /// First day of the period, at UTC midnight. The period type says how long
+  /// it runs, so a quarter is one row rather than three.
+  periodStart DateTime
+
+  metric TargetMetric
+  /// Required for money metrics, null for counts. Without it a target of
+  /// 4,000,000 could be compared against a pipeline in another currency --
+  /// the mistake the metrics layer carried for three releases.
+  currency String?
+  value    Decimal @db.Decimal(18, 2)
+
+  note String?
+
+  createdById String
+  createdBy   User   @relation("SalesTargetAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, periodStart])
+  @@index([orgUnitId, periodStart])
+  @@index([metric, periodStart])
+}
+
 model AiConversation {
   id     String  @id @default(uuid())
   userId String
