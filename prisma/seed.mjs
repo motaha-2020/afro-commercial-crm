@@ -11,6 +11,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
+import { accounts as accountSeeds, rows as pipelineRows, toOpportunity } from './pipeline-2026.mjs';
 
 const prisma = new PrismaClient();
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'ChangeMe#2026';
@@ -87,62 +88,108 @@ async function main() {
 
   const amId = created['ACCOUNT_MANAGER'];
 
-  const accountSeeds = [
-    { code: 'ACC-2026-000001', legalName: 'Sudanese Telecom (STE)', type: 'OPERATOR', country: 'EG', industry: 'FTTH' },
-    { code: 'ACC-2026-000002', legalName: 'Madagascar Fiber Co.', type: 'OPERATOR', country: 'MG', industry: 'FTTH' },
-    { code: 'ACC-2026-000003', legalName: 'East Africa Mobile', type: 'OPERATOR', country: 'KE', industry: 'WIRELESS' },
-    { code: 'ACC-2026-000004', legalName: 'Comoros Digital', type: 'GOVERNMENT', country: 'KM', industry: 'FIXED' },
-  ];
+  // ---------------------------------------------------------------------------
+  // Operational demo data — wiped and rewritten on every run.
+  //
+  // Everything above this point is CONFIGURATION (org tree, users, roles) and
+  // everything below it is REFERENCE DATA (notification rules, scoring weights,
+  // cost library, workflow). Neither is touched here. What is cleared is the
+  // operational book: accounts and the opportunities hanging off them.
+  //
+  // This block deliberately hard-deletes rather than soft-deletes. The schema's
+  // soft-delete-only rule protects a real audit trail; demo rows have none to
+  // protect, and leaving them behind with deletedAt set would let them keep
+  // colliding on the unique codes the next run wants to reuse.
+  //
+  // The set of tables to clear is DERIVED from the foreign keys rather than
+  // listed by hand. An opportunity is the root of about forty tables — bids,
+  // costings, scope packages, proposals, contracts, handovers — and a
+  // hand-maintained list silently rots the first time a release adds a table,
+  // leaving orphans that only surface as a constraint error on some later run.
+  //
+  // Two tables in that closure are NOT purged wholesale. ApprovalPolicy and
+  // CostRule each hold both per-opportunity overrides AND the organisation's
+  // global settings, and only the overrides are demo data. Clearing them
+  // wholesale would delete approval thresholds and costing rules that
+  // management configured and that nothing in this file could put back.
+  // ---------------------------------------------------------------------------
+  const PARTIAL_PURGE = ['ApprovalPolicy', 'CostRule'];
 
-  const accountIds = [];
-  for (const a of accountSeeds) {
-    const account = await prisma.account.upsert({
-      where: { code: a.code },
-      update: {},
-      create: {
-        ...a,
-        ownerId: amId,
-        orgUnitId: telecomBu.id,
-        paymentTermDays: 90,
-      },
-    });
-    accountIds.push(account.id);
+  for (const table of PARTIAL_PURGE) {
+    await prisma.$executeRawUnsafe(`DELETE FROM "${table}" WHERE "opportunityId" IS NOT NULL`);
   }
 
-  const oppSeeds = [
-    { code: 'OPP-2026-000001', name: 'FTTH Rollout — 120 Cabinets', stage: 'COSTING_SOURCING', industry: 'FTTH', country: 'EG', value: 4200000, accountIdx: 0 },
-    { code: 'OPP-2026-000002', name: 'Wireless Backhaul Expansion', stage: 'SCOPE_DISCOVERY', industry: 'WIRELESS', country: 'KE', value: 1800000, accountIdx: 2 },
-    { code: 'OPP-2026-000003', name: 'National Fiber Backbone', stage: 'PROPOSAL_SUBMISSION', industry: 'FIXED', country: 'MG', value: 9500000, accountIdx: 1 },
-    { code: 'OPP-2026-000004', name: 'Government Network Modernization', stage: 'LEAD_QUALIFICATION', industry: 'FIXED', country: 'KM', value: 2600000, accountIdx: 3 },
-  ];
+  const unquote = (t) => t.replaceAll('"', '');
 
-  for (const o of oppSeeds) {
-    const exists = await prisma.opportunity.findUnique({ where: { code: o.code } });
-    if (exists) continue;
+  const edges = (await prisma.$queryRawUnsafe(`
+    SELECT c.conrelid::regclass::text AS child, c.confrelid::regclass::text AS parent
+    FROM pg_constraint c WHERE c.contype = 'f'
+  `)).map((r) => ({ child: unquote(r.child), parent: unquote(r.parent) }));
+
+  const closure = new Set(['Account', 'Opportunity']);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const e of edges) {
+      if (closure.has(e.parent) && !closure.has(e.child)) {
+        closure.add(e.child);
+        grew = true;
+      }
+    }
+  }
+
+  const toPurge = new Set([...closure].filter((t) => !PARTIAL_PURGE.includes(t)));
+
+  // Deletion runs children-first, in an order derived from the same foreign
+  // keys. Suspending the constraints instead would need superuser rights the
+  // application role does not have — and should not be given just to reset
+  // sample data. A table becomes eligible once every table still pointing at
+  // it has already gone; self-references (an account's parent account) are
+  // ignored, since emptying the whole table settles them either way.
+  const pending = new Set(toPurge);
+  const order = [];
+  while (pending.size > 0) {
+    const ready = [...pending].filter((t) =>
+      !edges.some((e) => e.parent === t && e.child !== t && pending.has(e.child)),
+    );
+    // A cycle between two distinct tables would leave nothing ready. None
+    // exists today; if a release introduces one, stop loudly rather than
+    // delete in an order that half-works.
+    if (ready.length === 0) {
+      throw new Error(`Cyclic foreign keys among: ${[...pending].join(', ')}`);
+    }
+    for (const t of ready) {
+      order.push(t);
+      pending.delete(t);
+    }
+  }
+
+  // One transaction: either the operational book clears or it stays as it was.
+  await prisma.$transaction(order.map((t) => prisma.$executeRawUnsafe(`DELETE FROM "${t}"`)));
+
+  const accountIdByKey = {};
+  for (const a of accountSeeds) {
+    const { key, ...data } = a;
+    const account = await prisma.account.create({
+      data: { ...data, ownerId: amId, orgUnitId: telecomBu.id },
+    });
+    accountIdByKey[key] = account.id;
+  }
+
+  for (const [index, row] of pipelineRows.entries()) {
     const opp = await prisma.opportunity.create({
-      data: {
-        code: o.code,
-        name: o.name,
-        accountId: accountIds[o.accountIdx],
-        country: o.country,
-        industry: o.industry,
-        currency: 'USD',
-        estimatedValue: o.value,
-        stage: o.stage,
-        status: 'ACTIVE',
-        forecastCategory: 'PIPELINE',
-        health: 'GREEN',
+      data: toOpportunity(row, index, {
+        accountId: accountIdByKey[row.account],
         ownerId: amId,
         orgUnitId: telecomBu.id,
-      },
+      }),
     });
     await prisma.opportunityStageHistory.create({
       data: {
         opportunityId: opp.id,
         fromStage: null,
-        toStage: o.stage,
+        toStage: opp.stage,
         changedById: amId,
-        reason: 'Seed',
+        reason: 'Seed — imported from Sales_Pipeline_2026.xlsx',
       },
     });
   }
@@ -377,6 +424,7 @@ async function main() {
   }
 
   console.log('Seed complete.');
+  console.log(`Demo pipeline: ${accountSeeds.length} accounts, ${pipelineRows.length} opportunities (source: Sales_Pipeline_2026.xlsx)`);
   console.log(`Users seeded with password: ${SEED_PASSWORD}`);
   console.log('Sign in as ceo@afro.example / am@afro.example / admin@afro.example');
 }
