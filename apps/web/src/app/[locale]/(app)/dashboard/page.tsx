@@ -69,7 +69,7 @@ export default async function DashboardPage() {
       </div>
 
       {dashboard ? (
-        <MetricCards metrics={dashboard.metrics} currency="USD" />
+        <MetricCards metrics={dashboard.metrics} />
       ) : (
         <div className="grid cols-4" style={{ marginBottom: 20 }}>
           <div className="kpi">
